@@ -11,6 +11,15 @@ Search TMDB. Find releases in your indexers. Send the chosen torrent to qBittorr
 - Beyond-HD
 - qBittorrent
 
+### For humans
+
+Copy and paste this prompt to your LLM agent:
+
+```bash
+Install and configure omnarr by following the instructions here:
+curl https://raw.githubusercontent.com/lobomfz/omnarr/refs/heads/main/LLMS.md
+```
+
 ### For LLM Agents
 
 Fetch the installation guide and follow it:

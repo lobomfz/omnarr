@@ -12,11 +12,12 @@ Always run commands sequentially. Never chain Omnarr commands with shell scripti
 Flow:
 
 1. Run `search`.
-2. Run `releases`.
-3. Choose 1 to 3 relevant releases for the user.
-4. Present those options to the user as `[1]`, `[2]`, `[3]`. Do not use the internal release ID as the user-facing option.
-5. After the user chooses one option, run `download` for the matching internal release ID.
-6. Immediately spawn a subagent and instruct it to run `wait-for` for that release.
+2. If the intended movie or series is obvious from the search result, do not ask the user to choose the title again. Run `releases` automatically for that search result.
+3. If the intended title is not obvious, ask the user to choose the correct search result first.
+4. Choose 1 to 3 relevant releases for the user.
+5. Present those options to the user as `[1]`, `[2]`, `[3]`. Do not use the internal release ID as the user-facing option.
+6. After the user chooses one option, run `download` for the matching internal release ID.
+7. Immediately spawn a subagent and instruct it to run `wait-for` for that release.
 
 ```
 omnarr search "Blade Runner" --json        # → [{ id, title, year, media_type }]

@@ -31,9 +31,11 @@ Ask short questions, one step at a time:
 
 1. Where should movies be stored?
 2. Where should TV series be stored?
-3. Which indexers should be enabled: `yts`, `beyond-hd`, or both?
+3. Which indexers should be enabled: `yts`, `beyond-hd`?
 4. If `beyond-hd` is enabled, ask for `api_key` and `rss_key`.
 5. Ask for qBittorrent `url`, `username`, and `password`. Set `category` to `omnarr`.
+
+When asking about indexers, explain that `yts` is a public tracker and the recommended default.
 
 Do not invent placeholder secrets or paths in the real config. If the user does not know a value yet, stop and explain what is still missing.
 
