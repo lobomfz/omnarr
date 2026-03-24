@@ -181,7 +181,7 @@ export class Handler {
     }
   }
 
-  async waitFor(opts: { interval?: number }) {
+  async waitFor() {
     const { release_id } = this.parseArgs(
       'wait-for',
       type({ release_id: 'string' })
@@ -193,7 +193,7 @@ export class Handler {
       throw new Error(`Release '${release_id}' not found.`)
     }
 
-    const interval = (opts.interval ?? 5) * 1000
+    const interval = 5 * 1000
 
     process.on('SIGINT', () => process.exit(0))
 
