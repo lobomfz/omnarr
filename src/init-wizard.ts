@@ -17,8 +17,6 @@ export class InitWizard {
       return
     }
 
-    console.log('omnarr setup')
-
     await this.save({
       root_folders: await this.promptRootFolders(),
       indexers: await this.promptIndexers(),
@@ -71,14 +69,6 @@ export class InitWizard {
   }
 
   private async promptDownloadClient() {
-    const addQbt = await this.prompt.confirm('Configure qBittorrent?', {
-      default: true,
-    })
-
-    if (!addQbt) {
-      return null
-    }
-
     const url = await this.prompt('qBittorrent URL:', {
       default: 'http://localhost:8080',
     })

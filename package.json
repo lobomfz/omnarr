@@ -1,6 +1,6 @@
 {
   "name": "omnarr",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "description": "CLI media manager",
   "bin": "./dist/omnarr",
   "type": "module",
@@ -37,7 +37,6 @@
     "kysely": "^0.28.11",
     "oxfmt": "^0.38.0",
     "oxlint": "^1.53.0",
-    "react": "^19.2.4",
     "redaxios": "^0.5.1"
   }
 }

@@ -6,13 +6,15 @@
 
 ## Installation
 
+### Step 1
+
 Install Omnarr globally:
 
 ```bash
 bun i -g omnarr
 ```
 
-## Skill Installation
+### Step 2 (required)
 
 Save the Omnarr skill into your agent's skills directory as `omnarr/SKILL.md`:
 
@@ -21,9 +23,9 @@ mkdir -p "$SKILLS_DIR/omnarr"
 curl -fsSL https://raw.githubusercontent.com/lobomfz/omnarr/refs/heads/main/SKILL.md -o "$SKILLS_DIR/omnarr/SKILL.md"
 ```
 
-Replace `$SKILLS_DIR` with the root skills directory used by your agent.
+Replace `$SKILLS_DIR` with the root skills directory used by your agent. After saving it, read it.
 
-## First-Time Setup
+### Step 3
 
 Ask short questions, one step at a time:
 
@@ -62,5 +64,3 @@ Use this shape for the config:
   }
 }
 ```
-
-At minimum, one root folder and one indexer are needed to search and download. The download client is optional but required to actually send torrents.

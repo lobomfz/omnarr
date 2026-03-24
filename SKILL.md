@@ -5,7 +5,18 @@ description: Use when the user asks to search, download, or monitor movies and T
 
 Use this file for Omnarr operations after the tool is configured. For first-time setup, read `LLMS.md`.
 
-Always use `--json`. Flow: `search` → `releases` → `download` → `status` / `wait-for`.
+Always use `--json`.
+
+Always run commands sequentially. Never chain Omnarr commands with shell scripting.
+
+Flow:
+
+1. Run `search`.
+2. Run `releases`.
+3. Choose 1 to 3 relevant releases for the user.
+4. Present those options to the user as `[1]`, `[2]`, `[3]`. Do not use the internal release ID as the user-facing option.
+5. After the user chooses one option, run `download` for the matching internal release ID.
+6. Immediately spawn a subagent and instruct it to run `wait-for` for that release.
 
 ```
 omnarr search "Blade Runner" --json        # → [{ id, title, year, media_type }]
@@ -17,4 +28,4 @@ omnarr wait-for <release_id> --json        # blocks until done or error
 
 Each command returns IDs that feed into the next. If an ID is not found, re-run the earlier step.
 
-When picking a release: prefer highest resolution with most seeders. Summarize top options by quality and size instead of dumping the full list.
+When picking a release: prefer highest resolution with most seeders. Summarize only the 1 to 3 most relevant options by quality and size instead of dumping the full list.
