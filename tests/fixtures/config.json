@@ -1,0 +1,23 @@
+{
+  "$schema": "../../config.schema.json",
+  "root_folders": {
+    "movie": "/movies",
+    "tv": "/tv"
+  },
+  "indexers": [
+    {
+      "type": "beyond-hd",
+      "api_key": "test-bhd-key",
+      "rss_key": "test-bhd-rss"
+    },
+    {
+      "type": "yts"
+    }
+  ],
+  "download_client": {
+    "type": "qbittorrent",
+    "url": "http://localhost:19005",
+    "username": "admin",
+    "password": "admin"
+  }
+}

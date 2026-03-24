@@ -1,0 +1,22 @@
+import { homedir } from 'os'
+import { join } from 'path'
+
+import { type } from 'arktype'
+
+const xdgConfigHome = process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config')
+const xdgDataHome = process.env.XDG_DATA_HOME ?? join(homedir(), '.local/share')
+
+const envSchema = type({
+  OMNARR_DB_PATH: type('string').default(join(xdgDataHome, 'omnarr/db.sqlite')),
+  OMNARR_CONFIG_PATH: type('string').default(
+    join(xdgConfigHome, 'omnarr/config.json')
+  ),
+  TMDB_API_KEY: type('string').default('a17968d48d23bbc9765e23cbb779597a'),
+  TMDB_API_URL: type('string').default('https://api.themoviedb.org/3'),
+  BEYOND_HD_API_URL: type('string').default(
+    'https://beyond-hd.me/api/torrents'
+  ),
+  YTS_API_URL: type('string').default('https://yts.torrentbay.st/api/v2'),
+})
+
+export const envVariables = envSchema.assert({ ...process.env })

@@ -1,0 +1,42 @@
+import { type } from 'arktype'
+
+import { envVariables } from '@/env'
+
+const beyondHdIndexer = type({
+  type: "'beyond-hd'",
+  api_key: 'string',
+  rss_key: 'string',
+})
+
+const ytsIndexer = type({
+  type: "'yts'",
+})
+
+const indexerSchema = beyondHdIndexer.or(ytsIndexer)
+
+const qbittorrentClient = type({
+  type: "'qbittorrent'",
+  url: 'string',
+  username: 'string',
+  password: 'string',
+  category: "string = 'omnarr'",
+})
+
+const configSchema = type({
+  'root_folders?': type({
+    'movie?': 'string',
+    'tv?': 'string',
+  }),
+  indexers: indexerSchema.array().default(() => []),
+  'download_client?': qbittorrentClient.or('null'),
+})
+
+export type Config = typeof configSchema.infer
+export const configJsonSchema = configSchema.toJsonSchema()
+export const config = await getConfig().catch(() => configSchema.assert({}))
+
+async function getConfig() {
+  const json = await Bun.file(envVariables.OMNARR_CONFIG_PATH).json()
+
+  return configSchema.assert(json)
+}

@@ -1,0 +1,9 @@
+{
+  "path": ["src"],
+  "threshold": 10,
+  "minLines": 35,
+  "minTokens": 100,
+  "reporters": ["consoleFull"],
+  "ignore": ["**/node_modules/**"],
+  "format": ["typescript"]
+}

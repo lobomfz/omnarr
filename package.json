@@ -1,0 +1,31 @@
+{
+  "name": "omnarr",
+  "private": true,
+  "bin": {
+    "omnarr": "./src/index.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "check": "bun run scripts/check.ts",
+    "generate-schema": "bun run scripts/generate-schema.ts"
+  },
+  "dependencies": {
+    "@bunli/core": "^0.8.2",
+    "@lobomfz/db": "^0.2.0",
+    "arktype": "^2.2.0",
+    "dayjs": "^1.11.19",
+    "kysely": "^0.28.11",
+    "react": "^19.2.4",
+    "redaxios": "^0.5.1"
+  },
+  "devDependencies": {
+    "@bunli/test": "^0.5.2",
+    "@lobomfz/ghostapi": "^0.1.0",
+    "@types/bun": "^1.3.10",
+    "@typescript/native-preview": "^7.0.0-dev.20260311.1",
+    "jscpd": "^4.0.8",
+    "oxfmt": "^0.38.0",
+    "oxlint": "^1.53.0"
+  }
+}

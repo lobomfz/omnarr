@@ -1,0 +1,68 @@
+import { db, media_type } from '@/db/connection'
+import type { IndexerRelease } from '@/integrations/indexers/types'
+import { deriveId } from '@/utils'
+
+export const DbReleases = {
+  async upsert(
+    tmdb_id: number,
+    media_type: media_type,
+    releases: IndexerRelease[]
+  ) {
+    if (releases.length === 0) return []
+
+    return await db
+      .insertInto('releases')
+      .values(
+        releases.map((r) => ({
+          id: deriveId(r.info_hash),
+          tmdb_id,
+          media_type,
+          info_hash: r.info_hash,
+          name: r.name,
+          size: r.size,
+          seeders: r.seeders,
+          imdb_id: r.imdb_id,
+          resolution: r.resolution,
+          codec: r.codec,
+          hdr: r.hdr.join('/'),
+          download_url: r.download_url,
+        }))
+      )
+      .onConflict((oc) =>
+        oc.column('info_hash').doUpdateSet({
+          name: (eb) => eb.ref('excluded.name'),
+          size: (eb) => eb.ref('excluded.size'),
+          seeders: (eb) => eb.ref('excluded.seeders'),
+          imdb_id: (eb) => eb.ref('excluded.imdb_id'),
+          resolution: (eb) => eb.ref('excluded.resolution'),
+          codec: (eb) => eb.ref('excluded.codec'),
+          hdr: (eb) => eb.ref('excluded.hdr'),
+          download_url: (eb) => eb.ref('excluded.download_url'),
+        })
+      )
+      .returning([
+        'id',
+        'name',
+        'size',
+        'seeders',
+        'resolution',
+        'codec',
+        'hdr',
+      ])
+      .execute()
+  },
+
+  async getById(id: string) {
+    return await db
+      .selectFrom('releases as r')
+      .where('r.id', '=', id)
+      .select([
+        'r.id',
+        'r.tmdb_id',
+        'r.media_type',
+        'r.info_hash',
+        'r.download_url',
+      ])
+      .executeTakeFirst()
+  },
+}
