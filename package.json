@@ -1,36 +1,43 @@
 {
   "name": "omnarr",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "CLI media manager",
-  "bin": {
-    "omnarr": "./src/index.ts"
-  },
+  "bin": "./dist/omnarr",
   "type": "module",
   "files": [
-    "src",
+    "dist",
     "config.schema.json"
   ],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "bun run src/index.ts",
+    "build": "bun run build.ts",
     "check": "bun run scripts/check.ts",
-    "generate-schema": "bun run scripts/generate-schema.ts"
-  },
-  "dependencies": {
-    "@bunli/core": "^0.8.2",
-    "@lobomfz/db": "^0.2.0",
-    "arktype": "^2.2.0",
-    "dayjs": "^1.11.19",
-    "kysely": "^0.28.11",
-    "react": "^19.2.4",
-    "redaxios": "^0.5.1"
+    "generate-schema": "bun run scripts/generate-schema.ts",
+    "prepublishOnly": "bun run build"
   },
   "devDependencies": {
+    "@bunli/core": "^0.8.2",
     "@bunli/test": "^0.5.2",
+    "@lobomfz/db": "^0.2.0",
     "@lobomfz/ghostapi": "^0.1.0",
     "@types/bun": "^1.3.10",
     "@typescript/native-preview": "^7.0.0-dev.20260311.1",
+    "arktype": "^2.2.0",
+    "dayjs": "^1.11.19",
     "jscpd": "^4.0.8",
+    "kysely": "^0.28.11",
     "oxfmt": "^0.38.0",
-    "oxlint": "^1.53.0"
+    "oxlint": "^1.53.0",
+    "react": "^19.2.4",
+    "redaxios": "^0.5.1"
   }
 }
