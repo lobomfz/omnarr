@@ -1,4 +1,11 @@
-import { beforeEach, describe, expect, setSystemTime, test } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  setSystemTime,
+  test,
+} from 'bun:test'
 
 import { testCommand } from '@bunli/test'
 import dayjs from 'dayjs'
@@ -41,6 +48,9 @@ describe('wait-for', async () => {
     database.reset('media')
     database.reset('tmdb_media')
     QBittorrentMock.reset()
+  })
+
+  afterEach(() => {
     setSystemTime()
   })
 

@@ -16,7 +16,7 @@ const envSchema = type({
   BEYOND_HD_API_URL: type('string').default(
     'https://beyond-hd.me/api/torrents'
   ),
-  YTS_API_URL: type('string').default('https://yts.torrentbay.st/api/v2'),
+  YTS_API_URL: type('string').default('https://movies-api.accel.li/api/v2/'),
 })
 
 export const envVariables = envSchema.assert({ ...process.env })

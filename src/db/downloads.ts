@@ -42,9 +42,16 @@ export const DbDownloads = {
   },
 
   async listActive() {
+    const cutoff = dayjs().subtract(24, 'hours').toDate()
+
     return await db
       .selectFrom('downloads as d')
-      .where('d.status', 'in', ['downloading', 'seeding', 'paused'])
+      .where((eb) =>
+        eb.or([
+          eb('d.status', 'in', ['downloading', 'seeding', 'paused']),
+          eb('d.started_at', '>=', cutoff),
+        ])
+      )
       .select([
         'd.id',
         'd.media_id',

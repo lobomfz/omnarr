@@ -1,5 +1,7 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
+import dayjs from 'dayjs'
+
 import { database, db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
@@ -361,7 +363,7 @@ describe('schema - downloads', () => {
     expect(found).toBeUndefined()
   })
 
-  test('listActive returns only active downloads', async () => {
+  test('listActive excludes stale completed downloads', async () => {
     const { media } = await seedMediaWithTmdb()
 
     await DbDownloads.create({
@@ -389,7 +391,10 @@ describe('schema - downloads', () => {
       download_url: 'http://example.com/2',
     })
 
-    await DbDownloads.update(completed.id, { status: 'completed' })
+    await DbDownloads.update(completed.id, {
+      status: 'completed',
+      started_at: dayjs().subtract(2, 'day').toDate(),
+    })
 
     const active = await DbDownloads.listActive()
 
@@ -431,6 +436,23 @@ describe('schema - downloads', () => {
     const active = await DbDownloads.listActive()
 
     expect(active).toHaveLength(2)
+  })
+
+  test('listActive includes recent error downloads', async () => {
+    const { media } = await seedMediaWithTmdb()
+
+    const download = await DbDownloads.create({
+      media_id: media.id,
+      info_hash: 'error1',
+      download_url: 'http://example.com/1',
+    })
+
+    await DbDownloads.update(download.id, { status: 'error' })
+
+    const active = await DbDownloads.listActive()
+
+    expect(active).toHaveLength(1)
+    expect(active[0].info_hash).toBe('error1')
   })
 
   test('update modifies download fields', async () => {

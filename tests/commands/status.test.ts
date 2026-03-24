@@ -86,6 +86,47 @@ describe('status command', async () => {
     expect(rows[0].Status).toBe('error')
   })
 
+  test('recovers download status when torrent reappears in qbittorrent', async () => {
+    await new Downloads().add(addParams)
+
+    await QBittorrentMock.db
+      .deleteFrom('torrents')
+      .where('hash', '=', 'abc123')
+      .execute()
+
+    const missingResult = await testCommand(StatusCommand, {
+      args: [],
+      flags: { json: true },
+    })
+
+    const missingRows = JSON.parse(missingResult.stdout)
+    expect(missingRows).toHaveLength(1)
+    expect(missingRows[0].Status).toBe('error')
+
+    await QBittorrentMock.db
+      .insertInto('torrents')
+      .values({
+        hash: 'abc123',
+        url: addParams.download_url,
+        savepath: '/downloads/The Matrix (1999)',
+        category: 'omnarr',
+        progress: 1,
+        dlspeed: 0,
+        eta: 0,
+        state: 'stalledUP',
+      })
+      .execute()
+
+    const recoveredResult = await testCommand(StatusCommand, {
+      args: [],
+      flags: { json: true },
+    })
+
+    const recoveredRows = JSON.parse(recoveredResult.stdout)
+    expect(recoveredRows).toHaveLength(1)
+    expect(recoveredRows[0].Status).toBe('completed')
+  })
+
   test('shows message when no downloads', async () => {
     const result = await testCommand(StatusCommand, {
       args: [],

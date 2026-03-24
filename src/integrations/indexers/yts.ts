@@ -1,9 +1,9 @@
+import type { PromptApi } from '@bunli/core'
 import axios from 'redaxios'
 
 import { envVariables } from '@/env'
 
 import type { Indexer, IndexerRelease, SearchParams } from './types'
-import type { PromptApi } from '@bunli/core'
 
 interface YtsTorrent {
   hash: string
@@ -48,18 +48,20 @@ export class YtsAdapter implements Indexer {
     if (!data.data.movies) return []
 
     return data.data.movies.flatMap((movie) =>
-      movie.torrents.map((t): IndexerRelease => ({
-        torrent_id: t.hash,
-        info_hash: t.hash.toLowerCase(),
-        name: `${movie.title} (${movie.year}) [${t.quality}] [${t.type}] [${t.video_codec}]`,
-        size: t.size_bytes,
-        seeders: t.seeds,
-        imdb_id: movie.imdb_code,
-        resolution: t.quality.toLowerCase(),
-        codec: t.video_codec,
-        hdr: [],
-        download_url: `magnet:?xt=urn:btih:${t.hash}&dn=${encodeURIComponent(movie.title)}`,
-      })),
+      movie.torrents.map(
+        (t): IndexerRelease => ({
+          torrent_id: t.hash,
+          info_hash: t.hash.toLowerCase(),
+          name: `${movie.title} (${movie.year}) [${t.quality}] [${t.type}] [${t.video_codec}]`,
+          size: t.size_bytes,
+          seeders: t.seeds,
+          imdb_id: movie.imdb_code,
+          resolution: t.quality.toLowerCase(),
+          codec: t.video_codec,
+          hdr: [],
+          download_url: `magnet:?xt=urn:btih:${t.hash}&dn=${encodeURIComponent(movie.title)}`,
+        })
+      )
     )
   }
 }
