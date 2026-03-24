@@ -35,6 +35,8 @@ Ask short questions, one step at a time:
 
 Do not invent placeholder secrets or paths in the real config. If the user does not know a value yet, stop and explain what is still missing.
 
+If qBittorrent Web UI is not enabled yet, instruct the user to enable the Web UI in qBittorrent settings and set the URL, username, and password to match what will be stored in the Omnarr config.
+
 After collecting the answers:
 
 1. Run `omnarr init --empty`.
