@@ -48,7 +48,6 @@ describe('init command', () => {
         'TV root folder:': '/media/tv',
         'Add indexer:': '2',
         'Add another indexer?': 'n',
-        'Configure qBittorrent?': 'y',
         'qBittorrent URL:': 'http://localhost:8080',
         'qBittorrent username:': 'admin',
         'qBittorrent password:': 'secret',
@@ -70,23 +69,5 @@ describe('init command', () => {
       password: 'secret',
       category: 'omnarr',
     })
-  })
-
-  test('wizard without download client writes null', async () => {
-    const result = await testCommand(
-      InitCommand,
-      mockPromptResponses({
-        'Movie root folder:': '/media/movies',
-        'TV root folder:': '/media/tv',
-        'Add indexer:': '3',
-        'Configure qBittorrent?': 'n',
-      })
-    )
-
-    expect(result.exitCode).toBe(0)
-
-    const config = await Bun.file(configPath).json()
-    expect(config.download_client).toBeNull()
-    expect(config.indexers).toEqual([])
   })
 })

@@ -1,8 +1,11 @@
-import type { PromptApi } from '@bunli/core'
+import type { DbFieldMeta } from '@lobomfz/db'
+import type { Type } from 'arktype'
 
-import type { Config } from '@/config'
-
-export type IndexerConfig = Config['indexers'][number]
+declare global {
+  interface ArkEnv {
+    meta(): DbFieldMeta & { label?: string }
+  }
+}
 
 export interface IndexerRelease {
   torrent_id: string
@@ -24,11 +27,11 @@ export interface SearchParams {
 }
 
 export interface Indexer {
-  name: string
   search(params: SearchParams): Promise<IndexerRelease[]>
 }
 
 export interface IndexerClass {
-  new (config: IndexerConfig): Indexer
-  promptConfig(prompt: PromptApi): Promise<IndexerConfig>
+  new (config: any): Indexer
+  schema: Type<{ type: string }>
+  name: string
 }

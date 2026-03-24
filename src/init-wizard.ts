@@ -2,11 +2,20 @@ import { mkdir } from 'fs/promises'
 import { dirname, join } from 'path'
 
 import type { PromptApi } from '@bunli/core'
+import type { Type } from 'arktype'
 
 import type { Config } from '@/config'
 import { configJsonSchema } from '@/config'
 import { envVariables } from '@/env'
 import { indexerMap } from '@/integrations/indexers/registry'
+
+interface SchemaProp {
+  key: string
+  value: {
+    branches: { domain?: string; unit?: unknown }[]
+    meta: { label?: string }
+  }
+}
 
 export class InitWizard {
   constructor(private prompt: PromptApi) {}
@@ -37,35 +46,58 @@ export class InitWizard {
   }
 
   private async promptIndexers() {
-    const indexers: Config['indexers'] = []
+    const configs: Config['indexers'] = []
 
     let addMore = true
 
     while (addMore) {
-      const indexerType = await this.prompt.select('Add indexer:', {
+      const adapters = Object.values(indexerMap)
+
+      const selected = await this.prompt.select('Add indexer:', {
         options: [
-          { label: 'Beyond-HD', value: 'beyond-hd' as const },
-          { label: 'YTS', value: 'yts' as const },
-          { label: 'Done', value: 'done' as const },
+          ...adapters.map((A) => ({ label: A.name, value: A })),
+          { label: 'Done', value: null },
         ],
       })
 
-      if (indexerType === 'done') {
+      if (!selected) {
         break
       }
 
-      const indexerConfig = await indexerMap[indexerType].promptConfig(
-        this.prompt
-      )
-
-      indexers.push(indexerConfig)
+      const config = await this.promptFromSchema(selected.schema)
+      configs.push(config as Config['indexers'][number])
 
       addMore = await this.prompt.confirm('Add another indexer?', {
         default: false,
       })
     }
 
-    return indexers
+    return configs
+  }
+
+  private async promptFromSchema(schema: Type) {
+    const props = (schema as any).structure?.props as SchemaProp[] | undefined
+    const result: Record<string, unknown> = {}
+
+    if (!props) {
+      return schema.assert(result)
+    }
+
+    for (const prop of props) {
+      const branch = prop.value.branches[0]
+
+      if (branch?.unit !== undefined) {
+        result[prop.key] = branch.unit
+        continue
+      }
+
+      if (branch?.domain === 'string') {
+        const label = prop.value.meta?.label ?? `${prop.key}:`
+        result[prop.key] = await this.prompt.text(label)
+      }
+    }
+
+    return schema.assert(result)
   }
 
   private async promptDownloadClient() {

@@ -1,14 +1,9 @@
-import type { PromptApi } from '@bunli/core'
+import { type } from 'arktype'
 import axios from 'redaxios'
 
 import { envVariables } from '@/env'
 
-import type {
-  Indexer,
-  IndexerConfig,
-  IndexerRelease,
-  SearchParams,
-} from './types'
+import type { Indexer, IndexerRelease, SearchParams } from './types'
 
 interface BeyondHdResult {
   id: number
@@ -32,24 +27,15 @@ interface BeyondHdResponse {
 }
 
 export class BeyondHdAdapter implements Indexer {
-  name = 'Beyond-HD'
+  static schema = type({
+    type: "'beyond-hd'",
+    api_key: type('string').configure({ label: 'Beyond-HD API Key:' }),
+    rss_key: type('string').configure({ label: 'Beyond-HD RSS Key:' }),
+  })
 
-  private config: Extract<IndexerConfig, { type: 'beyond-hd' }>
+  static name = 'Beyond-HD'
 
-  constructor(config: IndexerConfig) {
-    if (config.type !== 'beyond-hd') {
-      throw new Error('Invalid config')
-    }
-
-    this.config = config
-  }
-
-  static async promptConfig(prompt: PromptApi) {
-    const api_key = await prompt.text('Beyond-HD API key:')
-    const rss_key = await prompt.text('Beyond-HD RSS key:')
-
-    return { type: 'beyond-hd' as const, api_key, rss_key }
-  }
+  constructor(private config: typeof BeyondHdAdapter.schema.infer) {}
 
   private parseResolution(text: string) {
     const match = text.match(/(\d{3,4}p)/i)

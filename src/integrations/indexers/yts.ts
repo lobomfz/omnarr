@@ -1,4 +1,4 @@
-import type { PromptApi } from '@bunli/core'
+import { type } from 'arktype'
 import axios from 'redaxios'
 
 import { envVariables } from '@/env'
@@ -28,11 +28,9 @@ interface YtsResponse {
 }
 
 export class YtsAdapter implements Indexer {
-  name = 'YTS'
+  static schema = type({ type: "'yts'" })
 
-  static promptConfig(_prompt: PromptApi) {
-    return Promise.resolve({ type: 'yts' as const })
-  }
+  static name = 'YTS'
 
   async search(params: SearchParams) {
     const { data } = await axios<YtsResponse>({
@@ -45,7 +43,9 @@ export class YtsAdapter implements Indexer {
       },
     })
 
-    if (!data.data.movies) return []
+    if (!data.data.movies) {
+      return []
+    }
 
     return data.data.movies.flatMap((movie) =>
       movie.torrents.map(

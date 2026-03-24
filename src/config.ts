@@ -1,18 +1,7 @@
 import { type } from 'arktype'
 
 import { envVariables } from '@/env'
-
-const beyondHdIndexer = type({
-  type: "'beyond-hd'",
-  api_key: 'string',
-  rss_key: 'string',
-})
-
-const ytsIndexer = type({
-  type: "'yts'",
-})
-
-const indexerSchema = beyondHdIndexer.or(ytsIndexer)
+import { indexerSchema } from '@/integrations/indexers/registry'
 
 const qbittorrentClient = type({
   type: "'qbittorrent'",
