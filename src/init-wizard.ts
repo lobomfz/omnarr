@@ -109,7 +109,7 @@ export class InitWizard {
       default: 'admin',
     })
 
-    const password = await this.prompt.password('qBittorrent password:')
+    const password = await this.prompt('qBittorrent password:')
 
     return {
       type: 'qbittorrent' as const,
