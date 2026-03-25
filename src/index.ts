@@ -10,9 +10,11 @@ import { SearchCommand } from '@/commands/search'
 import { StatusCommand } from '@/commands/status'
 import { WaitForCommand } from '@/commands/wait-for'
 
+import pkg from '../package.json'
+
 const cli = await createCLI({
   name: 'omnarr',
-  version: '0.1.0',
+  version: pkg.version,
   description:
     'CLI media manager\n\nAll commands support --json for machine-readable output.',
 })
