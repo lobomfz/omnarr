@@ -58,6 +58,7 @@ export const database = new Database({
         tmdb_id: 'number',
         media_type,
         info_hash: 'string',
+        indexer_source: 'string',
         name: 'string',
         size: 'number',
         seeders: 'number',
@@ -142,6 +143,12 @@ export const database = new Database({
         },
       ],
       releases: [
+        {
+          columns: ['info_hash'],
+          unique: true,
+        },
+      ],
+      downloads: [
         {
           columns: ['info_hash'],
           unique: true,

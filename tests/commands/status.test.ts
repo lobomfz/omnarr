@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { rm } from 'fs/promises'
 
 import { testCommand } from '@bunli/test'
 
@@ -6,6 +7,7 @@ import { StatusCommand } from '@/commands/status'
 import { database } from '@/db/connection'
 import { DbReleases } from '@/db/releases'
 import { Downloads } from '@/downloads'
+import { envVariables } from '@/env'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/releases'
 
@@ -154,7 +156,7 @@ describe('status command', async () => {
 
     await testCommand(StatusCommand, {
       args: [],
-      flags: {},
+      flags: { json: true },
     })
 
     const download = await database.kysely
@@ -163,6 +165,37 @@ describe('status command', async () => {
       .executeTakeFirstOrThrow()
 
     expect(download.content_path).toBe(contentPath)
+  })
+
+  test('logs entered error only on first transition to error', async () => {
+    await new Downloads().add(addParams)
+
+    await QBittorrentMock.db
+      .deleteFrom('torrents')
+      .where('hash', '=', release.info_hash)
+      .execute()
+
+    await rm(envVariables.OMNARR_LOG_PATH, { force: true })
+
+    await testCommand(StatusCommand, { args: [], flags: { json: true } })
+
+    const afterFirst = await Bun.file(envVariables.OMNARR_LOG_PATH).text()
+    const firstCount = afterFirst
+      .split('\n')
+      .filter((l) => l.includes('download entered error status')).length
+
+    expect(firstCount).toBe(1)
+
+    await rm(envVariables.OMNARR_LOG_PATH, { force: true })
+
+    await testCommand(StatusCommand, { args: [], flags: { json: true } })
+
+    const afterSecond = await Bun.file(envVariables.OMNARR_LOG_PATH).text()
+    const secondCount = afterSecond
+      .split('\n')
+      .filter((l) => l.includes('download entered error status')).length
+
+    expect(secondCount).toBe(0)
   })
 
   test('shows message when no downloads', async () => {

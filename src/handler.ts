@@ -126,6 +126,7 @@ export class Handler {
         const meta = [r.resolution, r.codec, r.hdr].filter(Boolean).join(' ')
         return {
           ID: r.id,
+          Source: r.indexer_source,
           Seeds: `${r.seeders}S`,
           Size: Formatters.size(r.size),
           Quality: meta,

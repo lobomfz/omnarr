@@ -58,13 +58,13 @@ export class Downloads {
       `adding torrent info_hash=${params.info_hash} title="${details.title}"`
     )
 
+    await this.client.addTorrent({ url: params.download_url })
+
     const download = await DbDownloads.create({
       media_id: media.id,
       info_hash: params.info_hash,
       download_url: params.download_url,
     })
-
-    await this.client.addTorrent({ url: params.download_url })
 
     await Log.info(`torrent sent to client info_hash=${params.info_hash}`)
 
@@ -103,7 +103,7 @@ export class Downloads {
         const s = statusByHash.get(d.info_hash)
         const status = s ? (s.progress >= 1 ? 'completed' : s.status) : 'error'
 
-        if (status === 'error') {
+        if (status === 'error' && !d.error_at) {
           await Log.warn(
             `download entered error status info_hash=${d.info_hash}`
           )

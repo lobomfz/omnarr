@@ -49,6 +49,15 @@ export const DbMedia = {
         sql<number>`count(distinct mf.id)`.as('file_count'),
         sql<number>`count(mt.id)`.as('track_count'),
         sql<number>`count(mt.path)`.as('extracted_count'),
+        (eb) =>
+          eb
+            .selectFrom('downloads as d')
+            .whereRef('d.media_id', '=', 'm.id')
+            .where('d.status', '!=', 'error')
+            .orderBy('d.started_at', 'desc')
+            .select('d.status')
+            .limit(1)
+            .as('download_status'),
       ])
       .groupBy('m.id')
 

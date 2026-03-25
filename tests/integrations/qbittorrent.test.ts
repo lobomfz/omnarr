@@ -54,9 +54,7 @@ describe('QBittorrentClient', () => {
       category: 'omnarr',
     })
 
-    expect(() => bad.addTorrent({ url: 'magnet:?xt=urn:btih:fail' })).toThrow(
-      'qBittorrent login failed'
-    )
+    expect(() => bad.getTorrentStatuses()).toThrow('qBittorrent login failed')
   })
 
   test('getTorrentStatuses maps qBit states to domain status', async () => {
@@ -166,6 +164,27 @@ describe('QBittorrentClient', () => {
     const statuses = await qbt.getTorrentStatuses()
 
     expect(statuses[0].hash).toBe('abc123')
+  })
+
+  test('addTorrent throws when qBittorrent rejects torrent', async () => {
+    await QBittorrentMock.db
+      .insertInto('torrents')
+      .values({
+        hash: 'abc123',
+        url: 'magnet:?xt=urn:btih:abc123',
+        savepath: '',
+        category: 'omnarr',
+        progress: 1,
+        dlspeed: 0,
+        eta: 0,
+        state: 'stalledUP',
+        content_path: '/dl/abc123',
+      })
+      .execute()
+
+    await expect(() =>
+      qbt.addTorrent({ url: 'magnet:?xt=urn:btih:abc123&dn=Test' })
+    ).toThrow('Torrent rejected by qBittorrent')
   })
 
   test('getTorrentStatuses defaults unknown state to error', async () => {

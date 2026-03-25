@@ -1,11 +1,19 @@
 import type { Selectable } from '@lobomfz/db'
 
-import type { DB } from '@/db/connection'
+import type { DB, download_status } from '@/db/connection'
 
 type MediaTrack = Selectable<DB['media_tracks']>
 
 interface ScanFile extends Selectable<DB['media_files']> {
   tracks: MediaTrack[]
+}
+
+const DOWNLOAD_STATUS_MAP: Record<download_status, string> = {
+  downloading: 'downloading',
+  seeding: 'downloading',
+  paused: 'downloading',
+  completed: 'downloaded',
+  error: '—',
 }
 
 export const Formatters = {
@@ -108,20 +116,25 @@ export const Formatters = {
     file_count: number
     track_count: number
     extracted_count: number
+    download_status: download_status | null
   }) {
-    if (media.file_count === 0 || media.track_count === 0) {
-      return '—'
+    if (media.file_count > 0 && media.track_count > 0) {
+      if (media.extracted_count === media.track_count) {
+        return 'extracted'
+      }
+
+      if (media.extracted_count > 0) {
+        return `${media.extracted_count}/${media.track_count} extracted`
+      }
+
+      return 'scanned'
     }
 
-    if (media.extracted_count === media.track_count) {
-      return 'extracted'
+    if (media.download_status) {
+      return DOWNLOAD_STATUS_MAP[media.download_status]
     }
 
-    if (media.extracted_count > 0) {
-      return `${media.extracted_count}/${media.track_count} extracted`
-    }
-
-    return 'scanned'
+    return '—'
   },
 
   trackParts(t: MediaTrack, prefix = '') {

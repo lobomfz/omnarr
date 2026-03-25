@@ -13,37 +13,33 @@ export const Releases = {
       throw new Error('No IMDB ID found for this media.')
     }
 
-    const indexers = config.indexers.map((c) => new indexerMap[c.type](c))
-
-    if (indexers.length === 0) {
+    if (config.indexers.length === 0) {
       throw new Error('No indexers configured.')
     }
 
     await Log.info(
-      `fetching releases tmdb_id=${tmdb_id} type=${type} indexers=${indexers.length}`
+      `fetching releases tmdb_id=${tmdb_id} type=${type} indexers=${config.indexers.length}`
     )
 
     const results = await Promise.all(
-      indexers.map(async (i) => {
+      config.indexers.map(async (c) => {
+        const indexer = new indexerMap[c.type](c)
+
         await Log.info(
-          `searching indexer=${i.constructor.name} imdb_id=${externalIds.imdb_id}`
+          `searching indexer=${c.type} imdb_id=${externalIds.imdb_id}`
         )
 
-        return await i
+        return await indexer
           .search({
             tmdb_id: String(tmdb_id),
             imdb_id: externalIds.imdb_id!,
           })
           .then(async (r) => {
-            await Log.info(
-              `indexer=${i.constructor.name} returned ${r.length} results`
-            )
-            return r
+            await Log.info(`indexer=${c.type} returned ${r.length} results`)
+            return r.map((release) => ({ ...release, indexer_source: c.type }))
           })
           .catch(async (err) => {
-            await Log.warn(
-              `indexer=${i.constructor.name} failed error="${err.message}"`
-            )
+            await Log.warn(`indexer=${c.type} failed error="${err.message}"`)
             return []
           })
       })

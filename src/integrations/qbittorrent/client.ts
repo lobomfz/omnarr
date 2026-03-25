@@ -91,6 +91,14 @@ export class QBittorrentClient implements DownloadClient {
       throw new Error(`qBittorrent ${e.status}: ${e.statusText}`)
     })
 
+    if (data === 'Fails.') {
+      await Log.error(
+        `qbittorrent request rejected ${options.method} ${options.url}`
+      )
+
+      throw new Error(`qBittorrent rejected: ${options.method} ${options.url}`)
+    }
+
     return data
   }
 
@@ -126,6 +134,12 @@ export class QBittorrentClient implements DownloadClient {
       method: 'POST',
       url: '/api/v2/torrents/add',
       data: form,
+    }).catch(async (e) => {
+      await Log.error(
+        `qbittorrent addTorrent failed url=${params.url} reason="${e.message}"`
+      )
+
+      throw new Error('Torrent rejected by qBittorrent', { cause: e })
     })
   }
 }

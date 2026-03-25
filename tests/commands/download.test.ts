@@ -4,6 +4,7 @@ import { testCommand } from '@bunli/test'
 
 import { DownloadCommand } from '@/commands/download'
 import { database } from '@/db/connection'
+import { DbReleases } from '@/db/releases'
 import { Downloads } from '@/downloads'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/releases'
@@ -115,6 +116,68 @@ describe('download command', async () => {
     expect(tmdb?.tmdb_id).toBe(603)
     expect(tmdb?.title).toBe('The Matrix')
     expect(tmdb?.media_type).toBe('movie')
+  })
+
+  test('rejects download when same info_hash is already active', async () => {
+    const release = (await DbReleases.getById(releaseId))!
+
+    await new Downloads().add({
+      tmdb_id: release.tmdb_id,
+      info_hash: release.info_hash,
+      download_url: release.download_url,
+      type: release.media_type,
+    })
+
+    await expect(() =>
+      new Downloads().add({
+        tmdb_id: release.tmdb_id,
+        info_hash: release.info_hash,
+        download_url: release.download_url,
+        type: release.media_type,
+      })
+    ).toThrow()
+
+    const downloads = await database.kysely
+      .selectFrom('downloads')
+      .selectAll()
+      .execute()
+
+    expect(downloads).toHaveLength(1)
+  })
+
+  test('does not persist download record when qbittorrent rejects', async () => {
+    const release = (await DbReleases.getById(releaseId))!
+
+    await QBittorrentMock.db
+      .insertInto('torrents')
+      .values({
+        hash: release.info_hash,
+        url: release.download_url,
+        savepath: '',
+        category: 'omnarr',
+        progress: 1,
+        dlspeed: 0,
+        eta: 0,
+        state: 'stalledUP',
+        content_path: `/dl/${release.info_hash}`,
+      })
+      .execute()
+
+    await expect(() =>
+      new Downloads().add({
+        tmdb_id: release.tmdb_id,
+        info_hash: release.info_hash,
+        download_url: release.download_url,
+        type: release.media_type,
+      })
+    ).toThrow()
+
+    const downloads = await database.kysely
+      .selectFrom('downloads')
+      .selectAll()
+      .execute()
+
+    expect(downloads).toHaveLength(0)
   })
 
   test('prints confirmation message', async () => {
