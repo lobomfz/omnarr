@@ -10,6 +10,11 @@ export const DbMedia = {
     return await db
       .insertInto('media')
       .values(data)
+      .onConflict((oc) =>
+        oc.column('id').doUpdateSet({
+          id: (eb) => eb.ref('excluded.id'),
+        })
+      )
       .returning([
         'id',
         'tmdb_media_id',

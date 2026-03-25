@@ -15,6 +15,7 @@ import { testCommand } from '@bunli/test'
 import { ExtractCommand } from '@/commands/extract'
 import { config } from '@/config'
 import { database } from '@/db/connection'
+import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
@@ -47,6 +48,7 @@ beforeEach(async () => {
   await rm(tracksDir, { recursive: true, force: true })
   database.reset('media_tracks')
   database.reset('media_files')
+  database.reset('downloads')
   database.reset('media')
   database.reset('tmdb_media')
 })
@@ -63,7 +65,15 @@ async function seedAndScan() {
     id: deriveId('603:movie'),
     tmdb_media_id: tmdb.id,
     media_type: 'movie',
-    root_folder: join(tmpDir, 'media'),
+    root_folder: '/movies',
+  })
+
+  await DbDownloads.create({
+    media_id: media.id,
+    info_hash: 'test_hash',
+    download_url: 'magnet:test',
+    status: 'completed',
+    content_path: join(tmpDir, 'media/The Matrix (1999)'),
   })
 
   await new Scanner().scan(media.id)

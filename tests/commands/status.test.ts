@@ -17,7 +17,10 @@ import { QBittorrentMock } from '../mocks/qbittorrent'
 
 describe('status command', async () => {
   const results = await new TmdbClient().search('Matrix')
-  const releases = await Releases.search(results[0].tmdb_id, results[0].media_type)
+  const releases = await Releases.search(
+    results[0].tmdb_id,
+    results[0].media_type
+  )
   const release = (await DbReleases.getById(releases[0].id))!
 
   const addParams = {
@@ -39,7 +42,12 @@ describe('status command', async () => {
 
     await QBittorrentMock.db
       .updateTable('torrents')
-      .set({ progress: 0.75, dlspeed: 5_000_000, eta: 600, state: 'downloading' })
+      .set({
+        progress: 0.75,
+        dlspeed: 5_000_000,
+        eta: 600,
+        state: 'downloading',
+      })
       .where('hash', '=', 'abc123')
       .execute()
 
@@ -62,7 +70,12 @@ describe('status command', async () => {
 
     await QBittorrentMock.db
       .updateTable('torrents')
-      .set({ progress: 0.5, dlspeed: 2_000_000, eta: 1200, state: 'downloading' })
+      .set({
+        progress: 0.5,
+        dlspeed: 2_000_000,
+        eta: 1200,
+        state: 'downloading',
+      })
       .where('hash', '=', 'abc123')
       .execute()
 
@@ -114,6 +127,7 @@ describe('status command', async () => {
         dlspeed: 0,
         eta: 0,
         state: 'stalledUP',
+        content_path: '/downloads/The Matrix (1999)/abc123',
       })
       .execute()
 
@@ -125,6 +139,30 @@ describe('status command', async () => {
     const recoveredRows = JSON.parse(recoveredResult.stdout)
     expect(recoveredRows).toHaveLength(1)
     expect(recoveredRows[0].Status).toBe('completed')
+  })
+
+  test('syncs content_path from qbittorrent', async () => {
+    await new Downloads().add(addParams)
+
+    const contentPath = '/downloads/The.Matrix.1999.1080p'
+
+    await QBittorrentMock.db
+      .updateTable('torrents')
+      .set({ content_path: contentPath })
+      .where('hash', '=', 'abc123')
+      .execute()
+
+    await testCommand(StatusCommand, {
+      args: [],
+      flags: {},
+    })
+
+    const download = await database.kysely
+      .selectFrom('downloads')
+      .select('content_path')
+      .executeTakeFirstOrThrow()
+
+    expect(download.content_path).toBe(contentPath)
   })
 
   test('shows message when no downloads', async () => {

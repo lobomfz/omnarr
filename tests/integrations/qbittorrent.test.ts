@@ -63,20 +63,88 @@ describe('QBittorrentClient', () => {
     await QBittorrentMock.db
       .insertInto('torrents')
       .values([
-        { hash: 'aaa', url: '', savepath: '', category: 'omnarr', progress: 0.5, dlspeed: 1000, eta: 600, state: 'stalledDL' },
-        { hash: 'bbb', url: '', savepath: '', category: 'omnarr', progress: 1, dlspeed: 500, eta: 0, state: 'uploading' },
-        { hash: 'ccc', url: '', savepath: '', category: 'omnarr', progress: 0.3, dlspeed: 0, eta: 0, state: 'pausedDL' },
-        { hash: 'ddd', url: '', savepath: '', category: 'omnarr', progress: 0, dlspeed: 0, eta: 0, state: 'missingFiles' },
+        {
+          hash: 'aaa',
+          url: '',
+          savepath: '',
+          category: 'omnarr',
+          progress: 0.5,
+          dlspeed: 1000,
+          eta: 600,
+          state: 'stalledDL',
+          content_path: '/dl/aaa',
+        },
+        {
+          hash: 'bbb',
+          url: '',
+          savepath: '',
+          category: 'omnarr',
+          progress: 1,
+          dlspeed: 500,
+          eta: 0,
+          state: 'uploading',
+          content_path: '/dl/bbb',
+        },
+        {
+          hash: 'ccc',
+          url: '',
+          savepath: '',
+          category: 'omnarr',
+          progress: 0.3,
+          dlspeed: 0,
+          eta: 0,
+          state: 'pausedDL',
+          content_path: '/dl/ccc',
+        },
+        {
+          hash: 'ddd',
+          url: '',
+          savepath: '',
+          category: 'omnarr',
+          progress: 0,
+          dlspeed: 0,
+          eta: 0,
+          state: 'missingFiles',
+          content_path: '/dl/ddd',
+        },
       ])
       .execute()
 
     const statuses = await qbt.getTorrentStatuses()
 
     expect(statuses).toHaveLength(4)
-    expect(statuses[0]).toEqual({ hash: 'aaa', progress: 0.5, speed: 1000, eta: 600, status: 'downloading' })
-    expect(statuses[1]).toEqual({ hash: 'bbb', progress: 1, speed: 500, eta: 0, status: 'seeding' })
-    expect(statuses[2]).toEqual({ hash: 'ccc', progress: 0.3, speed: 0, eta: 0, status: 'paused' })
-    expect(statuses[3]).toEqual({ hash: 'ddd', progress: 0, speed: 0, eta: 0, status: 'error' })
+    expect(statuses[0]).toEqual({
+      hash: 'aaa',
+      progress: 0.5,
+      speed: 1000,
+      eta: 600,
+      status: 'downloading',
+      content_path: '/dl/aaa',
+    })
+    expect(statuses[1]).toEqual({
+      hash: 'bbb',
+      progress: 1,
+      speed: 500,
+      eta: 0,
+      status: 'seeding',
+      content_path: '/dl/bbb',
+    })
+    expect(statuses[2]).toEqual({
+      hash: 'ccc',
+      progress: 0.3,
+      speed: 0,
+      eta: 0,
+      status: 'paused',
+      content_path: '/dl/ccc',
+    })
+    expect(statuses[3]).toEqual({
+      hash: 'ddd',
+      progress: 0,
+      speed: 0,
+      eta: 0,
+      status: 'error',
+      content_path: '/dl/ddd',
+    })
   })
 
   test('getTorrentStatuses normalizes hash to lowercase', async () => {
@@ -91,6 +159,7 @@ describe('QBittorrentClient', () => {
         dlspeed: 0,
         eta: 0,
         state: 'downloading',
+        content_path: '',
       })
       .execute()
 
@@ -111,6 +180,7 @@ describe('QBittorrentClient', () => {
         dlspeed: 0,
         eta: 0,
         state: 'unknownState',
+        content_path: '',
       })
       .execute()
 

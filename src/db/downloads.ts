@@ -58,6 +58,7 @@ export const DbDownloads = {
         'd.info_hash',
         'd.download_url',
         'd.progress',
+        'd.content_path',
         'd.error_at',
       ])
       .execute()
@@ -104,6 +105,7 @@ export const DbDownloads = {
           speed: (eb) => eb.ref('excluded.speed'),
           eta: (eb) => eb.ref('excluded.eta'),
           status: (eb) => eb.ref('excluded.status'),
+          content_path: (eb) => eb.ref('excluded.content_path'),
           error_at: (eb) => eb.ref('excluded.error_at'),
         })
       )
@@ -122,6 +124,18 @@ export const DbDownloads = {
       .executeTakeFirstOrThrow()
 
     return Number(result.numDeletedRows)
+  },
+
+  async getCompletedContentPaths(mediaId: string) {
+    const rows = await db
+      .selectFrom('downloads')
+      .where('media_id', '=', mediaId)
+      .where('status', '=', 'completed')
+      .where('content_path', 'is not', null)
+      .select('content_path')
+      .execute()
+
+    return rows.map((r) => r.content_path!)
   },
 
   async deleteByMediaId(mediaId: string) {

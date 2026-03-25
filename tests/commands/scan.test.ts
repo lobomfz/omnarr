@@ -14,6 +14,7 @@ import { testCommand } from '@bunli/test'
 
 import { ScanCommand } from '@/commands/scan'
 import { database } from '@/db/connection'
+import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbTmdbMedia } from '@/db/tmdb-media'
@@ -44,11 +45,12 @@ afterAll(async () => {
 beforeEach(() => {
   database.reset('media_tracks')
   database.reset('media_files')
+  database.reset('downloads')
   database.reset('media')
   database.reset('tmdb_media')
 })
 
-async function seedMedia(rootFolder: string) {
+async function seedMedia(contentPath: string) {
   const tmdb = await DbTmdbMedia.upsert({
     tmdb_id: 603,
     media_type: 'movie',
@@ -56,17 +58,27 @@ async function seedMedia(rootFolder: string) {
     year: 1999,
   })
 
-  return await DbMedia.create({
+  const media = await DbMedia.create({
     id: deriveId('603:movie'),
     tmdb_media_id: tmdb.id,
     media_type: 'movie',
-    root_folder: rootFolder,
+    root_folder: '/movies',
   })
+
+  await DbDownloads.create({
+    media_id: media.id,
+    info_hash: 'test_hash',
+    download_url: 'magnet:test',
+    status: 'completed',
+    content_path: contentPath,
+  })
+
+  return media
 }
 
 describe('scan command', () => {
   test('outputs scanned files and tracks as json', async () => {
-    const media = await seedMedia(join(tmpDir, 'movies'))
+    const media = await seedMedia(join(tmpDir, 'movies/The Matrix (1999)'))
 
     const result = await testCommand(ScanCommand, {
       args: [String(media.id)],
@@ -89,7 +101,7 @@ describe('scan command', () => {
   })
 
   test('outputs formatted text without --json', async () => {
-    const media = await seedMedia(join(tmpDir, 'movies'))
+    const media = await seedMedia(join(tmpDir, 'movies/The Matrix (1999)'))
 
     const result = await testCommand(ScanCommand, {
       args: [String(media.id)],
@@ -103,7 +115,7 @@ describe('scan command', () => {
   })
 
   test('shows message when no files found', async () => {
-    const media = await seedMedia(join(tmpDir, 'empty'))
+    const media = await seedMedia(join(tmpDir, 'empty/The Matrix (1999)'))
 
     const result = await testCommand(ScanCommand, {
       args: [String(media.id)],
@@ -123,7 +135,7 @@ describe('scan command', () => {
   })
 
   test('force re-scans all files from scratch', async () => {
-    const media = await seedMedia(join(tmpDir, 'movies'))
+    const media = await seedMedia(join(tmpDir, 'movies/The Matrix (1999)'))
 
     await testCommand(ScanCommand, {
       args: [String(media.id)],

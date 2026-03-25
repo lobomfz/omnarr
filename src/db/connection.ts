@@ -81,6 +81,7 @@ export const database = new Database({
         speed: type('number').default(0),
         eta: type('number.integer').default(0),
         status: download_status.default('downloading'),
+        content_path: 'string | null',
         error_at: 'string | null',
         started_at: generated('now'),
       }),

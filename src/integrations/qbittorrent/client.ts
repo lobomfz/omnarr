@@ -12,6 +12,7 @@ interface QBitTorrent {
   dlspeed: number
   eta: number
   state: string
+  content_path: string
 }
 
 const stateMap: Record<string, TorrentStatus['status']> = {
@@ -106,6 +107,7 @@ export class QBittorrentClient implements DownloadClient {
       speed: t.dlspeed,
       eta: t.eta,
       status: stateMap[t.state] ?? 'error',
+      content_path: t.content_path,
     }))
   }
 

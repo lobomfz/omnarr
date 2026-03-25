@@ -12,6 +12,7 @@ export const QBittorrentMock = new Mock(
       dlspeed: 'number',
       eta: 'number',
       state: 'string',
+      content_path: 'string',
     }),
   },
   (app, { db }) => {
@@ -69,6 +70,7 @@ export const QBittorrentMock = new Mock(
           dlspeed: 0,
           eta: 0,
           state: 'downloading',
+          content_path: `${savepath}/${hash}`,
         })
         .execute()
 
