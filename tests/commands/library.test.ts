@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
-import { testCommand } from '@bunli/test'
-
-import { DownloadCommand } from '@/commands/download'
 import { database } from '@/db/connection'
 import { DbMedia } from '@/db/media'
+import { DbReleases } from '@/db/releases'
+import { Downloads } from '@/downloads'
 import { Formatters } from '@/formatters'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/releases'
@@ -21,7 +20,14 @@ describe('library command', async () => {
     results[0].tmdb_id,
     results[0].media_type
   )
-  const releaseId = releases[0].id
+  const release = (await DbReleases.getById(releases[0].id))!
+
+  const addParams = {
+    tmdb_id: release.tmdb_id,
+    info_hash: release.info_hash,
+    download_url: release.download_url,
+    type: release.media_type,
+  }
 
   beforeEach(() => {
     database.reset('media_tracks')
@@ -33,10 +39,7 @@ describe('library command', async () => {
   })
 
   test('shows downloading status when torrent is active', async () => {
-    await testCommand(DownloadCommand, {
-      args: [releaseId],
-      flags: {},
-    })
+    await new Downloads().add(addParams)
 
     const media = await DbMedia.list()
 
@@ -45,10 +48,7 @@ describe('library command', async () => {
   })
 
   test('shows downloaded status when torrent is completed but not scanned', async () => {
-    await testCommand(DownloadCommand, {
-      args: [releaseId],
-      flags: {},
-    })
+    await new Downloads().add(addParams)
 
     await database.kysely
       .updateTable('downloads')

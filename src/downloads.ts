@@ -107,7 +107,7 @@ export class Downloads {
           await Log.warn(
             `download entered error status info_hash=${d.info_hash}`
           )
-        } else if (d.error_at) {
+        } else if (status !== 'error' && d.error_at) {
           await Log.info(
             `download exited error status info_hash=${d.info_hash}`
           )

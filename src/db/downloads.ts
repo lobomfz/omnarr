@@ -69,6 +69,7 @@ export const DbDownloads = {
       .selectFrom('downloads as d')
       .innerJoin('media as m', 'm.id', 'd.media_id')
       .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
+      .leftJoin('releases as r', 'r.info_hash', 'd.info_hash')
       .select([
         'd.progress',
         'd.speed',
@@ -76,6 +77,7 @@ export const DbDownloads = {
         'd.status',
         't.title',
         't.year',
+        'r.indexer_source',
       ])
       .orderBy('d.started_at', 'desc')
       .limit(limit)

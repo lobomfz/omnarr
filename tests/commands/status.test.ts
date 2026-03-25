@@ -60,7 +60,7 @@ describe('status command', async () => {
 
     const rows = JSON.parse(result.stdout)
     expect(rows).toHaveLength(1)
-    expect(rows[0].Title).toBe('The Matrix (1999)')
+    expect(rows[0].Title).toBe('The Matrix (1999) [beyond-hd]')
     expect(rows[0].Progress).toBe('75.0%')
     expect(rows[0].Speed).toBe('5.0MB/s')
     expect(rows[0].ETA).toBe('10min')
@@ -196,6 +196,28 @@ describe('status command', async () => {
       .filter((l) => l.includes('download entered error status')).length
 
     expect(secondCount).toBe(0)
+  })
+
+  test('does not log exited error while download remains in error', async () => {
+    await new Downloads().add(addParams)
+
+    await QBittorrentMock.db
+      .deleteFrom('torrents')
+      .where('hash', '=', release.info_hash)
+      .execute()
+
+    await testCommand(StatusCommand, { args: [], flags: { json: true } })
+
+    await rm(envVariables.OMNARR_LOG_PATH, { force: true })
+
+    await testCommand(StatusCommand, { args: [], flags: { json: true } })
+
+    const log = await Bun.file(envVariables.OMNARR_LOG_PATH).text()
+    const exitedCount = log
+      .split('\n')
+      .filter((l) => l.includes('download exited error status')).length
+
+    expect(exitedCount).toBe(0)
   })
 
   test('shows message when no downloads', async () => {

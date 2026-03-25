@@ -123,11 +123,6 @@ export class QBittorrentClient implements DownloadClient {
     const form = new FormData()
 
     form.append('urls', params.url)
-
-    if (params.savepath) {
-      form.append('savepath', params.savepath)
-    }
-
     form.append('category', this.config.category)
 
     await this.request({

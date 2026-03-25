@@ -17,12 +17,18 @@ const DOWNLOAD_STATUS_MAP: Record<download_status, string> = {
 }
 
 export const Formatters = {
-  mediaTitle(media: { title: string; year: number | null }) {
-    if (media.year) {
-      return `${media.title} (${media.year})`
+  mediaTitle(media: {
+    title: string
+    year: number | null
+    indexer_source?: string | null
+  }) {
+    const base = media.year ? `${media.title} (${media.year})` : media.title
+
+    if (media.indexer_source) {
+      return `${base} [${media.indexer_source}]`
     }
 
-    return media.title
+    return base
   },
 
   progress(ratio: number) {

@@ -32,20 +32,6 @@ describe('QBittorrentClient', () => {
     expect(rows[0].category).toBe('omnarr')
   })
 
-  test('addTorrent with savepath', async () => {
-    await qbt.addTorrent({
-      url: 'magnet:?xt=urn:btih:def456&dn=Movie',
-      savepath: '/movies/The Matrix',
-    })
-
-    const rows = await QBittorrentMock.db
-      .selectFrom('torrents')
-      .selectAll()
-      .execute()
-
-    expect(rows[0].savepath).toBe('/movies/The Matrix')
-  })
-
   test('login fails with wrong credentials', () => {
     const bad = new QBittorrentClient({
       url: 'http://localhost:19005',

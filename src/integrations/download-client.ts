@@ -10,6 +10,6 @@ export interface TorrentStatus {
 }
 
 export interface DownloadClient {
-  addTorrent(params: { url: string; savepath?: string }): Promise<void>
+  addTorrent(params: { url: string }): Promise<void>
   getTorrentStatuses(): Promise<TorrentStatus[]>
 }
