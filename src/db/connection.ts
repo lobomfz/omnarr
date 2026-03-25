@@ -33,7 +33,7 @@ export const database = new Database({
       }),
 
       media: type({
-        id: generated('autoincrement'),
+        id: type('string').configure({ primaryKey: true }),
         tmdb_media_id: type('number.integer').configure({
           references: 'tmdb_media.id',
         }),
@@ -70,7 +70,7 @@ export const database = new Database({
 
       downloads: type({
         id: generated('autoincrement'),
-        media_id: type('number.integer').configure({
+        media_id: type('string').configure({
           references: 'media.id',
           onDelete: 'cascade',
         }),
@@ -86,7 +86,7 @@ export const database = new Database({
 
       media_files: type({
         id: generated('autoincrement'),
-        media_id: type('number.integer').configure({
+        media_id: type('string').configure({
           references: 'media.id',
           onDelete: 'cascade',
         }),

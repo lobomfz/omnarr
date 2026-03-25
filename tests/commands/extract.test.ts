@@ -20,6 +20,7 @@ import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { Scanner } from '@/scanner'
+import { deriveId } from '@/utils'
 
 import { MediaFixtures } from '../fixtures/media'
 
@@ -59,6 +60,7 @@ async function seedAndScan() {
   })
 
   const media = await DbMedia.create({
+    id: deriveId('603:movie'),
     tmdb_media_id: tmdb.id,
     media_type: 'movie',
     root_folder: join(tmpDir, 'media'),
@@ -111,6 +113,7 @@ describe('extract command', () => {
     })
 
     const media = await DbMedia.create({
+      id: deriveId('603:movie'),
       tmdb_media_id: tmdb.id,
       media_type: 'movie',
       root_folder: join(tmpDir, 'media'),

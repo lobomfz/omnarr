@@ -11,7 +11,7 @@ export const DbMediaFiles = {
       .executeTakeFirstOrThrow()
   },
 
-  async getByMediaId(mediaId: number) {
+  async getByMediaId(mediaId: string) {
     return await db
       .selectFrom('media_files')
       .where('media_id', '=', mediaId)
@@ -27,7 +27,7 @@ export const DbMediaFiles = {
       .executeTakeFirst()
   },
 
-  async deleteByMediaId(mediaId: number) {
+  async deleteByMediaId(mediaId: string) {
     return await db
       .deleteFrom('media_files')
       .where('media_id', '=', mediaId)

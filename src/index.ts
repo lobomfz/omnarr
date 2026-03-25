@@ -4,6 +4,7 @@ import { createCLI } from '@bunli/core'
 import { DownloadCommand } from '@/commands/download'
 import { ExtractCommand } from '@/commands/extract'
 import { InitCommand } from '@/commands/init'
+import { LibraryCommand } from '@/commands/library'
 import { ReleasesCommand } from '@/commands/releases'
 import { ScanCommand } from '@/commands/scan'
 import { SearchCommand } from '@/commands/search'
@@ -20,6 +21,7 @@ const cli = await createCLI({
 })
 
 cli.command(InitCommand)
+cli.command(LibraryCommand)
 cli.command(ScanCommand)
 cli.command(ExtractCommand)
 cli.command(SearchCommand)

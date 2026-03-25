@@ -16,6 +16,7 @@ import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { Scanner } from '@/scanner'
+import { deriveId } from '@/utils'
 
 import { MediaFixtures } from './fixtures/media'
 
@@ -137,6 +138,7 @@ async function seedMedia(rootFolder: string) {
   })
 
   return await DbMedia.create({
+    id: deriveId('603:movie'),
     tmdb_media_id: tmdb.id,
     media_type: 'movie',
     root_folder: rootFolder,
@@ -199,7 +201,7 @@ describe('new Scanner().scan — file discovery', () => {
   })
 
   test('throws when media_id does not exist', async () => {
-    await expect(() => new Scanner().scan(999)).toThrow()
+    await expect(() => new Scanner().scan('NONEXISTENT')).toThrow()
   })
 })
 

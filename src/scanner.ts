@@ -10,7 +10,7 @@ import { Formatters } from '@/formatters'
 const VALID_EXTENSIONS = new Set(['.mkv', '.mp4', '.avi', '.ts'])
 
 export class Scanner {
-  async scan(mediaId: number, opts?: { force?: boolean }) {
+  async scan(mediaId: string, opts?: { force?: boolean }) {
     const media = await DbMedia.getById(mediaId)
 
     if (!media) {
@@ -55,7 +55,7 @@ export class Scanner {
     return await DbMediaFiles.getByMediaId(mediaId)
   }
 
-  private async probeAndPersist(mediaId: number, fullPath: string) {
+  private async probeAndPersist(mediaId: string, fullPath: string) {
     const probe = await new FFmpegBuilder().input(fullPath).probe()
 
     const file = await DbMediaFiles.create({

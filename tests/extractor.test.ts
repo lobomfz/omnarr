@@ -17,6 +17,7 @@ import { DbMediaTracks } from '@/db/media-tracks'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { Extractor } from '@/extractor'
 import { Scanner } from '@/scanner'
+import { deriveId } from '@/utils'
 
 import { MediaFixtures } from './fixtures/media'
 
@@ -79,6 +80,7 @@ describe('new Extractor().extract', () => {
     })
 
     const media = await DbMedia.create({
+      id: deriveId(`${tmdb_id}:movie`),
       tmdb_media_id: tmdb.id,
       media_type: 'movie',
       root_folder,
@@ -252,6 +254,7 @@ describe('new Extractor().extract', () => {
     })
 
     const media = await DbMedia.create({
+      id: deriveId('888:movie'),
       tmdb_media_id: tmdb.id,
       media_type: 'movie',
       root_folder: join(tmpDir, 'media-ass'),

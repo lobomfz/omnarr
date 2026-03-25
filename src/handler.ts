@@ -1,6 +1,7 @@
 import { type, type Type } from 'arktype'
 
 import { config } from '@/config'
+import { DbMedia } from '@/db/media'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbReleases } from '@/db/releases'
 import { DbSearchResults } from '@/db/search-results'
@@ -224,10 +225,7 @@ export class Handler {
   }
 
   async scan(opts: { force?: boolean }) {
-    const { media_id } = this.parseArgs(
-      'scan',
-      type({ media_id: 'string.numeric.parse' })
-    )
+    const { media_id } = this.parseArgs('scan', type({ media_id: 'string' }))
 
     const files = await new Scanner().scan(media_id, opts)
 
@@ -249,10 +247,7 @@ export class Handler {
   }
 
   async extract() {
-    const { media_id } = this.parseArgs(
-      'extract',
-      type({ media_id: 'string.numeric.parse' })
-    )
+    const { media_id } = this.parseArgs('extract', type({ media_id: 'string' }))
 
     if (!config.root_folders?.tracks) {
       throw new Error(
@@ -273,5 +268,24 @@ export class Handler {
     }
 
     this.output({ tracks, failed }, Formatters.extractResult(tracks, failed))
+  }
+
+  async library() {
+    const media = await DbMedia.list()
+
+    if (media.length === 0) {
+      console.log('Library is empty.')
+      return
+    }
+
+    this.output(
+      media,
+      media.map((m) => ({
+        ID: m.id,
+        Type: m.media_type,
+        Title: Formatters.mediaTitle(m),
+        Status: Formatters.mediaStatus(m),
+      }))
+    )
   }
 }

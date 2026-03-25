@@ -33,7 +33,7 @@ const SUBTITLE_EXTENSIONS: Record<string, string> = {
 }
 
 export class Extractor {
-  async extract(mediaId: number, tracksRootFolder: string) {
+  async extract(mediaId: string, tracksRootFolder: string) {
     const media = await DbMedia.getById(mediaId)
 
     if (!media) {

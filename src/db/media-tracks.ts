@@ -27,7 +27,7 @@ export const DbMediaTracks = {
       .execute()
   },
 
-  async getByMediaId(mediaId: number) {
+  async getByMediaId(mediaId: string) {
     return await db
       .selectFrom('media_tracks as t')
       .innerJoin('media_files as f', 'f.id', 't.media_file_id')
@@ -45,7 +45,7 @@ export const DbMediaTracks = {
       .executeTakeFirst()
   },
 
-  async getUnextracted(mediaId: number) {
+  async getUnextracted(mediaId: string) {
     return await db
       .selectFrom('media_tracks as t')
       .innerJoin('media_files as f', 'f.id', 't.media_file_id')

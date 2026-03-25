@@ -23,7 +23,7 @@ export const DbDownloads = {
       .executeTakeFirstOrThrow()
   },
 
-  async getByMediaId(mediaId: number) {
+  async getByMediaId(mediaId: string) {
     return await db
       .selectFrom('downloads as d')
       .where('d.media_id', '=', mediaId)
@@ -120,7 +120,7 @@ export const DbDownloads = {
       .execute()
   },
 
-  async deleteByMediaId(mediaId: number) {
+  async deleteByMediaId(mediaId: string) {
     return await db
       .deleteFrom('downloads')
       .where('media_id', '=', mediaId)

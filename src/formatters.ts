@@ -104,6 +104,30 @@ export const Formatters = {
     return `${h}h`
   },
 
+  mediaStatus(media: {
+    file_count: number
+    track_count: number
+    extracted_count: number
+  }) {
+    if (media.file_count === 0) {
+      return '—'
+    }
+
+    if (media.track_count === 0) {
+      return 'scanned'
+    }
+
+    if (media.extracted_count === media.track_count) {
+      return 'extracted'
+    }
+
+    if (media.extracted_count > 0) {
+      return `${media.extracted_count}/${media.track_count} extracted`
+    }
+
+    return 'scanned'
+  },
+
   trackParts(t: MediaTrack, prefix = '') {
     const parts = [`${prefix}#${t.stream_index}`, t.stream_type, t.codec_name]
 

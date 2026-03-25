@@ -17,6 +17,7 @@ import { database } from '@/db/connection'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbTmdbMedia } from '@/db/tmdb-media'
+import { deriveId } from '@/utils'
 
 import { MediaFixtures } from '../fixtures/media'
 
@@ -56,6 +57,7 @@ async function seedMedia(rootFolder: string) {
   })
 
   return await DbMedia.create({
+    id: deriveId('603:movie'),
     tmdb_media_id: tmdb.id,
     media_type: 'movie',
     root_folder: rootFolder,

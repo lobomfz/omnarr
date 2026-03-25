@@ -4,6 +4,7 @@ import { database, db } from '@/db/connection'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbTmdbMedia } from '@/db/tmdb-media'
+import { deriveId } from '@/utils'
 
 beforeEach(() => {
   database.reset('media_files')
@@ -20,6 +21,7 @@ async function seedMedia() {
   })
 
   return await DbMedia.create({
+    id: deriveId('603:movie'),
     tmdb_media_id: tmdb.id,
     media_type: 'movie',
     root_folder: '/movies',
@@ -81,7 +83,7 @@ describe('schema - media_files', () => {
   })
 
   test('getByMediaId returns empty array when no files', async () => {
-    const files = await DbMediaFiles.getByMediaId(999)
+    const files = await DbMediaFiles.getByMediaId('NONEXISTENT')
 
     expect(files).toHaveLength(0)
   })
@@ -158,6 +160,7 @@ describe('schema - media_files', () => {
     })
 
     const media2 = await DbMedia.create({
+      id: deriveId('1399:tv'),
       tmdb_media_id: tmdb2.id,
       media_type: 'tv',
       root_folder: '/tv',
