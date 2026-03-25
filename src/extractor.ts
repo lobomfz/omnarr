@@ -93,13 +93,13 @@ export class Extractor {
     await DbMediaTracks.update(track.id, { path: outPath, size })
   }
 
-  extension(streamType: stream_type, codecName: string) {
+  private extension(streamType: stream_type, codecName: string) {
     return (
       STREAM_EXTENSIONS[streamType] ?? SUBTITLE_EXTENSIONS[codecName] ?? '.mks'
     )
   }
 
-  filename(track: TrackInput) {
+  private filename(track: TrackInput) {
     const parts = [track.stream_index.toString(), track.codec_name]
 
     if (track.language) {
@@ -117,7 +117,7 @@ export class Extractor {
     return `${parts.join('-')}${this.extension(track.stream_type, track.codec_name)}`
   }
 
-  outputPath(
+  private outputPath(
     tracksRootFolder: string,
     mediaType: media_type,
     title: string,

@@ -10,7 +10,10 @@ export const ScanCommand = defineCommand({
     json: option(type('boolean | undefined'), {
       description: 'Output as JSON',
     }),
+    force: option(type('boolean | undefined'), {
+      description: 'Force re-scan of all files',
+    }),
   },
   handler: ({ positional, flags }) =>
-    new Handler(positional, flags.json).scan(),
+    new Handler(positional, flags.json).scan({ force: flags.force }),
 })

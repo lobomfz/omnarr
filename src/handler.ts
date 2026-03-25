@@ -223,13 +223,13 @@ export class Handler {
     }
   }
 
-  async scan() {
+  async scan(opts: { force?: boolean }) {
     const { media_id } = this.parseArgs(
       'scan',
       type({ media_id: 'string.numeric.parse' })
     )
 
-    const files = await new Scanner().scan(media_id)
+    const files = await new Scanner().scan(media_id, opts)
 
     if (files.length === 0) {
       console.log('No media files found.')
@@ -240,9 +240,10 @@ export class Handler {
 
     const tracksByFile = Map.groupBy(allTracks, (t) => t.media_file_id)
 
-    const result = files.map((f) =>
-      Object.assign(f, { tracks: tracksByFile.get(f.id) ?? [] })
-    )
+    const result = files.map((f) => ({
+      ...f,
+      tracks: tracksByFile.get(f.id) ?? [],
+    }))
 
     this.output(result, Formatters.scanResult(result))
   }

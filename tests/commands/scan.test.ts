@@ -6,7 +6,7 @@ import {
   beforeEach,
   afterAll,
 } from 'bun:test'
-import { mkdirSync, mkdtempSync, rmSync } from 'fs'
+import { mkdir, mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -15,26 +15,29 @@ import { testCommand } from '@bunli/test'
 import { ScanCommand } from '@/commands/scan'
 import { database } from '@/db/connection'
 import { DbMedia } from '@/db/media'
+import { DbMediaFiles } from '@/db/media-files'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 
 import { MediaFixtures } from '../fixtures/media'
 
-const tmpDir = mkdtempSync(join(tmpdir(), 'omnarr-scan-cmd-'))
+const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-scan-cmd-'))
 const refSubsMkv = join(tmpDir, 'ref-subs.mkv')
 
 beforeAll(async () => {
   await MediaFixtures.generateWithSubs(refSubsMkv, tmpDir)
 
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refSubsMkv,
     join(tmpDir, 'movies/The Matrix (1999)/movie.mkv')
   )
-  mkdirSync(join(tmpDir, 'empty/The Matrix (1999)'), { recursive: true })
-  MediaFixtures.writeDummy(join(tmpDir, 'empty/The Matrix (1999)/info.nfo'))
+  await mkdir(join(tmpDir, 'empty/The Matrix (1999)'), { recursive: true })
+  await MediaFixtures.writeDummy(
+    join(tmpDir, 'empty/The Matrix (1999)/info.nfo')
+  )
 })
 
-afterAll(() => {
-  rmSync(tmpDir, { recursive: true })
+afterAll(async () => {
+  await rm(tmpDir, { recursive: true })
 })
 
 beforeEach(() => {
@@ -115,5 +118,26 @@ describe('scan command', () => {
     })
 
     expect(result.exitCode).not.toBe(0)
+  })
+
+  test('force re-scans all files from scratch', async () => {
+    const media = await seedMedia(join(tmpDir, 'movies'))
+
+    await testCommand(ScanCommand, {
+      args: [String(media.id)],
+      flags: {},
+    })
+
+    const filesBefore = await DbMediaFiles.getByMediaId(media.id)
+
+    await testCommand(ScanCommand, {
+      args: [String(media.id)],
+      flags: { force: true },
+    })
+
+    const filesAfter = await DbMediaFiles.getByMediaId(media.id)
+
+    expect(filesAfter).toHaveLength(1)
+    expect(filesAfter[0].id).not.toBe(filesBefore[0].id)
   })
 })

@@ -6,7 +6,7 @@ import {
   beforeEach,
   afterAll,
 } from 'bun:test'
-import { mkdtempSync, rmSync } from 'fs'
+import { mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -23,7 +23,7 @@ import { Scanner } from '@/scanner'
 
 import { MediaFixtures } from '../fixtures/media'
 
-const tmpDir = mkdtempSync(join(tmpdir(), 'omnarr-extract-cmd-'))
+const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-extract-cmd-'))
 const tracksDir = join(tmpDir, 'tracks')
 const refMkv = join(tmpDir, 'ref-subs.mkv')
 const savedTracksRoot = config.root_folders?.tracks
@@ -31,16 +31,19 @@ const savedTracksRoot = config.root_folders?.tracks
 beforeAll(async () => {
   config.root_folders!.tracks = tracksDir
   await MediaFixtures.generateWithSubs(refMkv, tmpDir)
-  MediaFixtures.copy(refMkv, join(tmpDir, 'media/The Matrix (1999)/movie.mkv'))
+  await MediaFixtures.copy(
+    refMkv,
+    join(tmpDir, 'media/The Matrix (1999)/movie.mkv')
+  )
 })
 
-afterAll(() => {
+afterAll(async () => {
   config.root_folders!.tracks = savedTracksRoot
-  rmSync(tmpDir, { recursive: true })
+  await rm(tmpDir, { recursive: true })
 })
 
-beforeEach(() => {
-  rmSync(tracksDir, { recursive: true, force: true })
+beforeEach(async () => {
+  await rm(tracksDir, { recursive: true, force: true })
   database.reset('media_tracks')
   database.reset('media_files')
   database.reset('media')

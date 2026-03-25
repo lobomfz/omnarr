@@ -6,7 +6,7 @@ import {
   beforeEach,
   afterAll,
 } from 'bun:test'
-import { mkdtempSync, rmSync, statSync } from 'fs'
+import { mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -20,175 +20,68 @@ import { Scanner } from '@/scanner'
 
 import { MediaFixtures } from './fixtures/media'
 
-describe('new Extractor().extension', () => {
-  test('video tracks resolve to .mkv regardless of codec', () => {
-    expect(new Extractor().extension('video', 'h264')).toBe('.mkv')
-    expect(new Extractor().extension('video', 'hevc')).toBe('.mkv')
-  })
-
-  test('audio tracks resolve to .mka regardless of codec', () => {
-    expect(new Extractor().extension('audio', 'aac')).toBe('.mka')
-    expect(new Extractor().extension('audio', 'ac3')).toBe('.mka')
-  })
-
-  test('subtitle subrip resolves to .srt', () => {
-    expect(new Extractor().extension('subtitle', 'subrip')).toBe('.srt')
-  })
-
-  test('subtitle ass resolves to .ass', () => {
-    expect(new Extractor().extension('subtitle', 'ass')).toBe('.ass')
-  })
-
-  test('subtitle hdmv_pgs_subtitle resolves to .sup', () => {
-    expect(new Extractor().extension('subtitle', 'hdmv_pgs_subtitle')).toBe(
-      '.sup'
-    )
-  })
-
-  test('unknown subtitle codec falls back to .mks', () => {
-    expect(new Extractor().extension('subtitle', 'unknown_codec')).toBe('.mks')
-  })
-})
-
-describe('new Extractor().filename', () => {
-  test('video: index-codec-language-resolution.mkv', () => {
-    const name = new Extractor().filename({
-      stream_index: 0,
-      stream_type: 'video',
-      codec_name: 'h264',
-      language: 'eng',
-      width: 1920,
-      height: 1080,
-      channel_layout: null,
-    })
-
-    expect(name).toBe('0-h264-eng-1920x1080.mkv')
-  })
-
-  test('audio: index-codec-language-channel_layout.mka', () => {
-    const name = new Extractor().filename({
-      stream_index: 1,
-      stream_type: 'audio',
-      codec_name: 'aac',
-      language: 'eng',
-      width: null,
-      height: null,
-      channel_layout: 'stereo',
-    })
-
-    expect(name).toBe('1-aac-eng-stereo.mka')
-  })
-
-  test('omits language when null', () => {
-    const name = new Extractor().filename({
-      stream_index: 0,
-      stream_type: 'video',
-      codec_name: 'h264',
-      language: null,
-      width: 1920,
-      height: 1080,
-      channel_layout: null,
-    })
-
-    expect(name).toBe('0-h264-1920x1080.mkv')
-  })
-
-  test('subtitle: no qualifier, codec-specific extension', () => {
-    const name = new Extractor().filename({
-      stream_index: 2,
-      stream_type: 'subtitle',
-      codec_name: 'subrip',
-      language: 'por',
-      width: null,
-      height: null,
-      channel_layout: null,
-    })
-
-    expect(name).toBe('2-subrip-por.srt')
-  })
-})
-
-describe('new Extractor().outputPath', () => {
-  test('builds tracks_root_folder/media_type/Title (Year)/stream_type/filename', () => {
-    const path = new Extractor().outputPath(
-      '/tracks',
-      'movie',
-      'The Matrix',
-      1999,
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        language: 'eng',
-        width: 1920,
-        height: 1080,
-        channel_layout: null,
-      }
-    )
-
-    expect(path).toBe(
-      '/tracks/movie/The Matrix (1999)/video/0-h264-eng-1920x1080.mkv'
-    )
-  })
-
-  test('omits year from path when null', () => {
-    const path = new Extractor().outputPath(
-      '/tracks',
-      'tv',
-      'Some Show',
-      null,
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        language: 'jpn',
-        width: null,
-        height: null,
-        channel_layout: '5.1',
-      }
-    )
-
-    expect(path).toBe('/tracks/tv/Some Show/audio/1-aac-jpn-5.1.mka')
-  })
-})
-
-const tmpDir = mkdtempSync(join(tmpdir(), 'omnarr-extract-'))
+const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-extract-'))
 const tracksDir = join(tmpDir, 'tracks')
 const refMkv = join(tmpDir, 'ref-subs.mkv')
+const refBasicMkv = join(tmpDir, 'ref-basic.mkv')
+const refAssMkv = join(tmpDir, 'ref-ass.mkv')
 
 describe('new Extractor().extract', () => {
   beforeAll(async () => {
     await MediaFixtures.generateWithSubs(refMkv, tmpDir)
-    MediaFixtures.copy(
+    await MediaFixtures.generate(refBasicMkv)
+    await MediaFixtures.generateWithAssSubs(refAssMkv, tmpDir)
+
+    await MediaFixtures.copy(
       refMkv,
       join(tmpDir, 'media/The Matrix (1999)/movie.mkv')
     )
+    await MediaFixtures.copy(
+      refBasicMkv,
+      join(tmpDir, 'media-noyear/Some Show/movie.mkv')
+    )
+    await MediaFixtures.copy(
+      refAssMkv,
+      join(tmpDir, 'media-ass/ASS Test (2020)/movie.mkv')
+    )
   })
 
-  afterAll(() => {
-    rmSync(tmpDir, { recursive: true })
+  afterAll(async () => {
+    await rm(tmpDir, { recursive: true })
   })
 
-  beforeEach(() => {
-    rmSync(tracksDir, { recursive: true, force: true })
+  beforeEach(async () => {
+    await rm(tracksDir, { recursive: true, force: true })
     database.reset('media_tracks')
     database.reset('media_files')
     database.reset('media')
     database.reset('tmdb_media')
   })
 
-  async function seedAndScan() {
-    const tmdb = await DbTmdbMedia.upsert({
+  async function seedAndScan(input?: {
+    tmdb_id: number
+    title: string
+    year?: number
+    root_folder: string
+  }) {
+    const { tmdb_id, title, year, root_folder } = input ?? {
       tmdb_id: 603,
-      media_type: 'movie',
       title: 'The Matrix',
       year: 1999,
+      root_folder: join(tmpDir, 'media'),
+    }
+
+    const tmdb = await DbTmdbMedia.upsert({
+      tmdb_id,
+      media_type: 'movie',
+      title,
+      year,
     })
 
     const media = await DbMedia.create({
       tmdb_media_id: tmdb.id,
       media_type: 'movie',
-      root_folder: join(tmpDir, 'media'),
+      root_folder,
     })
 
     await new Scanner().scan(media.id)
@@ -217,7 +110,7 @@ describe('new Extractor().extract', () => {
     const tracks = await DbMediaTracks.getByMediaId(media.id)
 
     for (const track of tracks) {
-      expect(statSync(track.path!).size).toBeGreaterThan(0)
+      expect(Bun.file(track.path!).size).toBeGreaterThan(0)
     }
   })
 
@@ -242,11 +135,11 @@ describe('new Extractor().extract', () => {
   test('preserves original container', async () => {
     const media = await seedAndScan()
     const sourcePath = join(tmpDir, 'media/The Matrix (1999)/movie.mkv')
-    const sizeBefore = statSync(sourcePath).size
+    const sizeBefore = Bun.file(sourcePath).size
 
     await new Extractor().extract(media.id, tracksDir)
 
-    expect(statSync(sourcePath).size).toBe(sizeBefore)
+    expect(Bun.file(sourcePath).size).toBe(sizeBefore)
   })
 
   test('continues extracting after a track fails', async () => {
@@ -315,5 +208,62 @@ describe('new Extractor().extract', () => {
     for (const track of tracks) {
       expect(track.path).not.toBeNull()
     }
+  })
+
+  test('omits year from output path when null', async () => {
+    const media = await seedAndScan({
+      tmdb_id: 999,
+      title: 'Some Show',
+      root_folder: join(tmpDir, 'media-noyear'),
+    })
+
+    await new Extractor().extract(media.id, tracksDir)
+
+    const tracks = await DbMediaTracks.getByMediaId(media.id)
+    const video = tracks.find((t) => t.stream_type === 'video')!
+
+    expect(video.path).toContain('/movie/Some Show/video/')
+    expect(video.path).not.toContain('(')
+  })
+
+  test('omits language from filename when null', async () => {
+    const media = await seedAndScan({
+      tmdb_id: 999,
+      title: 'Some Show',
+      root_folder: join(tmpDir, 'media-noyear'),
+    })
+
+    await new Extractor().extract(media.id, tracksDir)
+
+    const tracks = await DbMediaTracks.getByMediaId(media.id)
+    const video = tracks.find((t) => t.stream_type === 'video')!
+    const filename = video.path!.split('/').at(-1)!
+
+    expect(video.language).toBeNull()
+    expect(filename).toMatch(/^\d+-h264-\d+x\d+\.mkv$/)
+  })
+
+  test('uses .ass extension for ass subtitle codec', async () => {
+    const tmdb = await DbTmdbMedia.upsert({
+      tmdb_id: 888,
+      media_type: 'movie',
+      title: 'ASS Test',
+      year: 2020,
+    })
+
+    const media = await DbMedia.create({
+      tmdb_media_id: tmdb.id,
+      media_type: 'movie',
+      root_folder: join(tmpDir, 'media-ass'),
+    })
+
+    await new Scanner().scan(media.id)
+    await new Extractor().extract(media.id, tracksDir)
+
+    const tracks = await DbMediaTracks.getByMediaId(media.id)
+    const sub = tracks.find((t) => t.stream_type === 'subtitle')!
+
+    expect(sub.codec_name).toBe('ass')
+    expect(sub.path!).toMatch(/\.ass$/)
   })
 })

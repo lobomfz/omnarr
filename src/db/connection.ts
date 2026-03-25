@@ -1,11 +1,11 @@
-import { mkdirSync } from 'fs'
+import { mkdir } from 'fs/promises'
 import { dirname } from 'path'
 
 import { Database, type, generated } from '@lobomfz/db'
 
 import { envVariables } from '@/env'
 
-mkdirSync(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
+await mkdir(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
 
 const media_type = type.enumerated('movie', 'tv')
 const stream_type = type.enumerated('video', 'audio', 'subtitle')

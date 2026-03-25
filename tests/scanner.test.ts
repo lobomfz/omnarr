@@ -6,7 +6,7 @@ import {
   beforeEach,
   afterAll,
 } from 'bun:test'
-import { mkdirSync, mkdtempSync, rmSync } from 'fs'
+import { mkdir, mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -19,7 +19,7 @@ import { Scanner } from '@/scanner'
 
 import { MediaFixtures } from './fixtures/media'
 
-const tmpDir = mkdtempSync(join(tmpdir(), 'omnarr-test-'))
+const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-test-'))
 const refMkv = join(tmpDir, 'ref.mkv')
 const refSubsMkv = join(tmpDir, 'ref-subs.mkv')
 
@@ -27,78 +27,98 @@ beforeAll(async () => {
   await MediaFixtures.generate(refMkv)
   await MediaFixtures.generateWithSubs(refSubsMkv, tmpDir)
 
-  MediaFixtures.copy(refMkv, join(tmpDir, 'basic/The Matrix (1999)/movie.mkv'))
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
+    refMkv,
+    join(tmpDir, 'basic/The Matrix (1999)/movie.mkv')
+  )
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'recursive/The Matrix (1999)/movie.mkv')
   )
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'recursive/The Matrix (1999)/extras/bonus.mkv')
   )
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'extensions/The Matrix (1999)/movie.mkv')
   )
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'extensions/The Matrix (1999)/movie.mp4')
   )
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'extensions/The Matrix (1999)/movie.avi')
   )
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'extensions/The Matrix (1999)/movie.ts')
   )
-  MediaFixtures.copy(refMkv, join(tmpDir, 'ignore/The Matrix (1999)/movie.mkv'))
-  MediaFixtures.writeDummy(join(tmpDir, 'ignore/The Matrix (1999)/info.nfo'))
-  MediaFixtures.writeDummy(join(tmpDir, 'ignore/The Matrix (1999)/poster.jpg'))
-  MediaFixtures.writeDummy(join(tmpDir, 'ignore/The Matrix (1999)/notes.txt'))
-  MediaFixtures.writeDummy(join(tmpDir, 'ignore/The Matrix (1999)/subs.srt'))
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
+    refMkv,
+    join(tmpDir, 'ignore/The Matrix (1999)/movie.mkv')
+  )
+  await MediaFixtures.writeDummy(
+    join(tmpDir, 'ignore/The Matrix (1999)/info.nfo')
+  )
+  await MediaFixtures.writeDummy(
+    join(tmpDir, 'ignore/The Matrix (1999)/poster.jpg')
+  )
+  await MediaFixtures.writeDummy(
+    join(tmpDir, 'ignore/The Matrix (1999)/notes.txt')
+  )
+  await MediaFixtures.writeDummy(
+    join(tmpDir, 'ignore/The Matrix (1999)/subs.srt')
+  )
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'persist/The Matrix (1999)/movie.mkv')
   )
-  mkdirSync(join(tmpDir, 'empty/The Matrix (1999)'), { recursive: true })
-  MediaFixtures.writeDummy(join(tmpDir, 'empty/The Matrix (1999)/info.nfo'))
-  MediaFixtures.copy(
+  await mkdir(join(tmpDir, 'empty/The Matrix (1999)'), { recursive: true })
+  await MediaFixtures.writeDummy(
+    join(tmpDir, 'empty/The Matrix (1999)/info.nfo')
+  )
+  await MediaFixtures.copy(
     refSubsMkv,
     join(tmpDir, 'probe/The Matrix (1999)/movie.mkv')
   )
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'recon-new/The Matrix (1999)/movie.mkv')
   )
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'recon-del/The Matrix (1999)/movie.mkv')
   )
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'recon-del/The Matrix (1999)/bonus.mkv')
   )
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'recon-cascade/The Matrix (1999)/movie.mkv')
   )
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'recon-cascade/The Matrix (1999)/bonus.mkv')
   )
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'recon-keep/The Matrix (1999)/movie.mkv')
   )
-  MediaFixtures.copy(
+  await MediaFixtures.copy(
     refSubsMkv,
     join(tmpDir, 'recon-tracks/The Matrix (1999)/movie.mkv')
   )
+  await MediaFixtures.copy(
+    refSubsMkv,
+    join(tmpDir, 'force/The Matrix (1999)/movie.mkv')
+  )
 })
 
-afterAll(() => {
-  rmSync(tmpDir, { recursive: true })
+afterAll(async () => {
+  await rm(tmpDir, { recursive: true })
 })
 
 beforeEach(() => {
@@ -270,7 +290,7 @@ describe('new Scanner().scan — reconciliation', () => {
 
     await new Scanner().scan(media.id)
 
-    MediaFixtures.copy(refMkv, join(dir, 'The Matrix (1999)/bonus.mkv'))
+    await MediaFixtures.copy(refMkv, join(dir, 'The Matrix (1999)/bonus.mkv'))
 
     await new Scanner().scan(media.id)
 
@@ -294,7 +314,7 @@ describe('new Scanner().scan — reconciliation', () => {
 
     await new Scanner().scan(media.id)
 
-    rmSync(join(dir, 'The Matrix (1999)/bonus.mkv'))
+    await rm(join(dir, 'The Matrix (1999)/bonus.mkv'))
 
     await new Scanner().scan(media.id)
 
@@ -316,7 +336,7 @@ describe('new Scanner().scan — reconciliation', () => {
 
     expect(tracksBefore.length).toBeGreaterThan(0)
 
-    rmSync(join(dir, 'The Matrix (1999)/bonus.mkv'))
+    await rm(join(dir, 'The Matrix (1999)/bonus.mkv'))
 
     await new Scanner().scan(media.id)
 
@@ -365,5 +385,33 @@ describe('new Scanner().scan — reconciliation', () => {
 
     expect(updated.path).toBe('/extracted/track.mkv')
     expect(updated.size).toBe(12345)
+  })
+
+  test('force re-scan deletes all files and re-probes from scratch', async () => {
+    const dir = join(tmpDir, 'force')
+    const media = await seedMedia(dir)
+
+    await new Scanner().scan(media.id)
+
+    const filesBefore = await DbMediaFiles.getByMediaId(media.id)
+    const tracksBefore = await DbMediaTracks.getByMediaId(media.id)
+
+    await DbMediaTracks.update(tracksBefore[0].id, {
+      path: '/extracted/track.mkv',
+      size: 12345,
+    })
+
+    await new Scanner().scan(media.id, { force: true })
+
+    const filesAfter = await DbMediaFiles.getByMediaId(media.id)
+    const tracksAfter = await DbMediaTracks.getByMediaId(media.id)
+
+    expect(filesAfter).toHaveLength(1)
+    expect(filesAfter[0].id).not.toBe(filesBefore[0].id)
+
+    for (const track of tracksAfter) {
+      expect(track.path).toBeNull()
+      expect(track.size).toBeNull()
+    }
   })
 })

@@ -10,11 +10,15 @@ import { Formatters } from '@/formatters'
 const VALID_EXTENSIONS = new Set(['.mkv', '.mp4', '.avi', '.ts'])
 
 export class Scanner {
-  async scan(mediaId: number) {
+  async scan(mediaId: number, opts?: { force?: boolean }) {
     const media = await DbMedia.getById(mediaId)
 
     if (!media) {
       throw new Error(`Media ${mediaId} not found`)
+    }
+
+    if (opts?.force) {
+      await DbMediaFiles.deleteByMediaId(mediaId)
     }
 
     const mediaDir = join(
