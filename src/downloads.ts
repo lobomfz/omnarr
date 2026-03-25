@@ -6,6 +6,7 @@ import { Formatters } from '@/formatters'
 import type { DownloadClient } from '@/integrations/download-client'
 import { QBittorrentClient } from '@/integrations/qbittorrent/client'
 import { TmdbClient } from '@/integrations/tmdb/client'
+import { deriveId } from '@/utils'
 
 export class Downloads {
   private client: DownloadClient | null
@@ -47,6 +48,7 @@ export class Downloads {
     }
 
     const media = await DbMedia.create({
+      id: deriveId(`${details.tmdb_id}:${details.media_type}`),
       tmdb_media_id: tmdbMedia.id,
       media_type: details.media_type,
       root_folder: rootFolder,

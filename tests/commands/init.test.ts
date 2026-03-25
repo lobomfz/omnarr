@@ -46,6 +46,7 @@ describe('init command', () => {
       mockPromptResponses({
         'Movie root folder:': '/media/movies',
         'TV root folder:': '/media/tv',
+        'Tracks root folder:': '/media/tracks',
         'Add indexer:': '2',
         'Add another indexer?': 'n',
         'qBittorrent URL:': 'http://localhost:8080',
@@ -60,6 +61,7 @@ describe('init command', () => {
     expect(config.root_folders).toEqual({
       movie: '/media/movies',
       tv: '/media/tv',
+      tracks: '/media/tracks',
     })
     expect(config.indexers).toEqual([{ type: 'yts' }])
     expect(config.download_client).toEqual({

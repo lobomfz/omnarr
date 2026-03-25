@@ -15,6 +15,7 @@ const configSchema = type({
   'root_folders?': type({
     'movie?': 'string',
     'tv?': 'string',
+    'tracks?': 'string',
   }),
   indexers: indexerSchema.array().default(() => []),
   'download_client?': qbittorrentClient.or('null'),

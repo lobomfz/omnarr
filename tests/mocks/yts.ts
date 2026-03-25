@@ -1,25 +1,26 @@
 import { Mock } from '@lobomfz/ghostapi'
 import { type } from 'arktype'
 
-const movieSchema = type({
-  id: 'number',
-  title: 'string',
-  year: 'number',
-  imdb_code: 'string',
-})
+import { envVariables } from '@/env'
 
-const torrentSchema = type({
-  movie_id: 'number',
-  hash: 'string',
-  quality: 'string',
-  type: 'string',
-  video_codec: 'string',
-  seeds: 'number',
-  size_bytes: 'number',
-})
-
-export const YtsMock = new Mock(
-  { movies: movieSchema, torrents: torrentSchema },
+const YtsMock = new Mock(
+  {
+    movies: type({
+      id: 'number',
+      title: 'string',
+      year: 'number',
+      imdb_code: 'string',
+    }),
+    torrents: type({
+      movie_id: 'number',
+      hash: 'string',
+      quality: 'string',
+      type: 'string',
+      video_codec: 'string',
+      seeds: 'number',
+      size_bytes: 'number',
+    }),
+  },
   (app, { db }) => {
     app.get(
       '/list_movies.json',
@@ -43,7 +44,7 @@ export const YtsMock = new Mock(
               .execute()
 
             return { ...m, torrents }
-          }),
+          })
         )
 
         return {
@@ -53,9 +54,12 @@ export const YtsMock = new Mock(
           },
         }
       },
-      { query: type({ 'query_term?': 'string' }) },
+      { query: type({ 'query_term?': 'string' }) }
     )
   },
+  {
+    base_url: envVariables.YTS_API_URL,
+  }
 )
 
 await YtsMock.db
@@ -91,5 +95,3 @@ await YtsMock.db
     },
   ])
   .execute()
-
-YtsMock.listen(19004)

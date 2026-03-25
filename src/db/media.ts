@@ -1,4 +1,5 @@
 import type { Insertable } from '@lobomfz/db'
+import { sql } from 'kysely'
 
 import { db, media_type, type DB } from '@/db/connection'
 
@@ -18,29 +19,40 @@ export const DbMedia = {
       .executeTakeFirstOrThrow()
   },
 
-  async getById(id: number) {
+  async getById(id: string) {
     return await db
       .selectFrom('media as m')
       .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
       .where('m.id', '=', id)
-      .select(['m.root_folder', 't.title', 't.year'])
+      .select(['m.root_folder', 'm.media_type', 't.title', 't.year'])
       .executeTakeFirst()
   },
 
-  async list(type?: media_type) {
+  async list(filterType?: media_type) {
     let query = db
       .selectFrom('media as m')
       .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
-      .select(['t.title'])
+      .leftJoin('media_files as mf', 'mf.media_id', 'm.id')
+      .leftJoin('media_tracks as mt', 'mt.media_file_id', 'mf.id')
+      .select([
+        'm.id',
+        'm.media_type',
+        't.title',
+        't.year',
+        sql<number>`count(distinct mf.id)`.as('file_count'),
+        sql<number>`count(mt.id)`.as('track_count'),
+        sql<number>`count(mt.path)`.as('extracted_count'),
+      ])
+      .groupBy('m.id')
 
-    if (type) {
-      query = query.where('m.media_type', '=', type)
+    if (filterType) {
+      query = query.where('m.media_type', '=', filterType)
     }
 
     return await query.execute()
   },
 
-  async delete(id: number) {
+  async delete(id: string) {
     return await db
       .deleteFrom('media')
       .where('id', '=', id)

@@ -1,11 +1,17 @@
 import { type, type Type } from 'arktype'
 
+import { config } from '@/config'
+import { DbMedia } from '@/db/media'
+import { DbMediaTracks } from '@/db/media-tracks'
 import { DbReleases } from '@/db/releases'
 import { DbSearchResults } from '@/db/search-results'
 import { Downloads } from '@/downloads'
+import { Extractor } from '@/extractor'
 import { Formatters } from '@/formatters'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/releases'
+import { Scanner } from '@/scanner'
+import { extractSchemaProps } from '@/utils'
 
 export class Handler {
   constructor(
@@ -29,9 +35,7 @@ export class Handler {
   }
 
   private parseArgs<T extends Type>(command: string, schema: T): T['infer'] {
-    const jsonSchema = schema.toJsonSchema()
-    const keys = Object.keys((jsonSchema as any).properties ?? {})
-    const required = new Set<string>((jsonSchema as any).required ?? [])
+    const { keys, required } = extractSchemaProps(schema)
 
     const obj: Record<string, string> = {}
 
@@ -145,7 +149,7 @@ export class Handler {
     this.output(result, `Added: ${Formatters.mediaTitle(result)}`)
   }
 
-  private async listDownloads(limit: number) {
+  private async listDownloads(limit: number, clear = false) {
     const downloads = await new Downloads().list(limit)
 
     if (downloads.length === 0) {
@@ -153,15 +157,19 @@ export class Handler {
       return
     }
 
-    this.output(
-      downloads.map((d) => ({
-        Title: Formatters.mediaTitle(d),
-        Progress: Formatters.progress(d.progress),
-        Speed: Formatters.speed(d.speed),
-        ETA: Formatters.eta(d.eta),
-        Status: d.status,
-      }))
-    )
+    const parsed = downloads.map((d) => ({
+      Title: Formatters.mediaTitle(d),
+      Progress: Formatters.progress(d.progress),
+      Speed: Formatters.speed(d.speed),
+      ETA: Formatters.eta(d.eta),
+      Status: d.status,
+    }))
+
+    if (clear) {
+      console.clear()
+    }
+
+    this.output(parsed)
   }
 
   async status(opts: { watch?: boolean; limit?: number }) {
@@ -175,8 +183,7 @@ export class Handler {
     process.on('SIGINT', () => process.exit(0))
 
     while (true) {
-      console.clear()
-      await this.listDownloads(limit)
+      await this.listDownloads(limit, true)
       await Bun.sleep(2000)
     }
   }
@@ -215,5 +222,70 @@ export class Handler {
 
       await Bun.sleep(interval)
     }
+  }
+
+  async scan(opts: { force?: boolean }) {
+    const { media_id } = this.parseArgs('scan', type({ media_id: 'string' }))
+
+    const files = await new Scanner().scan(media_id, opts)
+
+    if (files.length === 0) {
+      console.log('No media files found.')
+      return
+    }
+
+    const allTracks = await DbMediaTracks.getByMediaId(media_id)
+
+    const tracksByFile = Map.groupBy(allTracks, (t) => t.media_file_id)
+
+    const result = files.map((f) => ({
+      ...f,
+      tracks: tracksByFile.get(f.id) ?? [],
+    }))
+
+    this.output(result, Formatters.scanResult(result))
+  }
+
+  async extract() {
+    const { media_id } = this.parseArgs('extract', type({ media_id: 'string' }))
+
+    if (!config.root_folders?.tracks) {
+      throw new Error(
+        'root_folders.tracks not configured. Run "omnarr init" first.'
+      )
+    }
+
+    const { failed } = await new Extractor().extract(
+      media_id,
+      config.root_folders.tracks
+    )
+
+    const tracks = await DbMediaTracks.getByMediaId(media_id)
+
+    if (tracks.length === 0) {
+      console.log('No tracks to extract.')
+      return
+    }
+
+    this.output({ tracks, failed }, Formatters.extractResult(tracks, failed))
+  }
+
+  async library() {
+    const media = await DbMedia.list()
+
+    if (media.length === 0) {
+      console.log('Library is empty.')
+      return
+    }
+
+    this.output(
+      media,
+      media.map((m) => ({
+        ID: m.id,
+        Type: m.media_type,
+        Title: Formatters.mediaTitle(m),
+        Status: Formatters.mediaStatus(m),
+      }))
+    )
   }
 }

@@ -2,7 +2,8 @@
   "$schema": "../../config.schema.json",
   "root_folders": {
     "movie": "/movies",
-    "tv": "/tv"
+    "tv": "/tv",
+    "tracks": "/tracks"
   },
   "indexers": [
     {

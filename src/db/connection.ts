@@ -1,13 +1,14 @@
-import { mkdirSync } from 'fs'
+import { mkdir } from 'fs/promises'
 import { dirname } from 'path'
 
 import { Database, type, generated } from '@lobomfz/db'
 
 import { envVariables } from '@/env'
 
-mkdirSync(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
+await mkdir(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
 
 const media_type = type.enumerated('movie', 'tv')
+const stream_type = type.enumerated('video', 'audio', 'subtitle')
 const download_status = type.enumerated(
   'downloading',
   'seeding',
@@ -32,7 +33,7 @@ export const database = new Database({
       }),
 
       media: type({
-        id: generated('autoincrement'),
+        id: type('string').configure({ primaryKey: true }),
         tmdb_media_id: type('number.integer').configure({
           references: 'tmdb_media.id',
         }),
@@ -69,7 +70,7 @@ export const database = new Database({
 
       downloads: type({
         id: generated('autoincrement'),
-        media_id: type('number.integer').configure({
+        media_id: type('string').configure({
           references: 'media.id',
           onDelete: 'cascade',
         }),
@@ -81,6 +82,42 @@ export const database = new Database({
         status: download_status.default('downloading'),
         error_at: 'string | null',
         started_at: generated('now'),
+      }),
+
+      media_files: type({
+        id: generated('autoincrement'),
+        media_id: type('string').configure({
+          references: 'media.id',
+          onDelete: 'cascade',
+        }),
+        path: 'string',
+        size: 'number',
+        'format_name?': 'string',
+        'duration?': 'number',
+        scanned_at: generated('now'),
+      }),
+
+      media_tracks: type({
+        id: generated('autoincrement'),
+        media_file_id: type('number.integer').configure({
+          references: 'media_files.id',
+          onDelete: 'cascade',
+        }),
+        stream_index: 'number.integer',
+        stream_type: stream_type,
+        codec_name: 'string',
+        'language?': 'string',
+        'title?': 'string',
+        is_default: 'boolean',
+        'path?': 'string',
+        'size?': 'number',
+        'width?': 'number.integer',
+        'height?': 'number.integer',
+        'framerate?': 'number',
+        'bit_rate?': 'number',
+        'channels?': 'number.integer',
+        'channel_layout?': 'string',
+        'sample_rate?': 'number.integer',
       }),
     },
     indexes: {
@@ -119,4 +156,5 @@ export const database = new Database({
 export type DB = typeof database.infer
 export const db = database.kysely
 export type media_type = typeof media_type.infer
+export type stream_type = typeof stream_type.infer
 export type download_status = typeof download_status.infer

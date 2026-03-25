@@ -37,31 +37,47 @@ bun i -g omnarr
 ## Quick start
 
 ```bash
-omnarr init
-omnarr search "The Matrix"
-omnarr releases <search_id>
-omnarr download <release_id>
-omnarr status
-omnarr status --watch
-omnarr wait-for <release_id>
+omnarr init                         # interactive config wizard
+
+# download flow
+omnarr search "The Matrix"          # search TMDB
+omnarr releases <search_id>         # browse torrent releases
+omnarr download <release_id>        # send to qBittorrent
+omnarr status --watch               # monitor progress
+
+# scan and extract flow
+omnarr library                      # list media with IDs and status
+omnarr scan <media_id>              # probe files, discover tracks
+omnarr extract <media_id>           # extract video/audio/subtitle tracks
 ```
+
+All user-facing IDs are 6-char strings (e.g., `C8R3OD`). The ID shown in `search` is the same one used in `scan` and `extract`.
 
 All commands support `--json`.
 
 ## Commands
 
 ```bash
+# setup
 omnarr init
 omnarr init --empty
+
+# search and download
 omnarr search "Breaking Bad"
-omnarr search "Breaking Bad" --json
-omnarr releases abc123
-omnarr download def456
+omnarr releases ABC123
+omnarr download XYZ789
 omnarr status
-omnarr status --watch
-omnarr status --limit 20
-omnarr wait-for def456
+omnarr status --watch --limit 20
+omnarr wait-for XYZ789
+
+# library management
+omnarr library                       # list all media with status
+omnarr scan ABC123                   # probe files on disk
+omnarr scan ABC123 --force           # re-probe from scratch
+omnarr extract ABC123                # extract tracks (video/audio/subtitle)
 ```
+
+Requires FFmpeg for `scan` and `extract`.
 
 ## Config
 
@@ -77,7 +93,8 @@ Example config:
   "$schema": "./schema.json",
   "root_folders": {
     "movie": "/media/movies",
-    "tv": "/media/tv"
+    "tv": "/media/tv",
+    "tracks": "/media/tracks"
   },
   "indexers": [
     { "type": "yts" },

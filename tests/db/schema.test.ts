@@ -6,6 +6,7 @@ import { database, db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbTmdbMedia } from '@/db/tmdb-media'
+import { deriveId } from '@/utils'
 
 beforeEach(() => {
   database.reset('downloads')
@@ -135,12 +136,13 @@ describe('schema - media', () => {
     const tmdb = await seedTmdbMedia()
 
     const media = await DbMedia.create({
+      id: deriveId('603:movie'),
       tmdb_media_id: tmdb.id,
       media_type: 'movie',
       root_folder: '/movies',
     })
 
-    expect(media.id).toBeGreaterThan(0)
+    expect(media.id).toBe(deriveId('603:movie'))
     expect(media.tmdb_media_id).toBe(tmdb.id)
     expect(media.media_type).toBe('movie')
     expect(media.root_folder).toBe('/movies')
@@ -152,6 +154,7 @@ describe('schema - media', () => {
     const tmdb = await seedTmdbMedia()
 
     const media = await DbMedia.create({
+      id: deriveId('603:movie'),
       tmdb_media_id: tmdb.id,
       media_type: 'movie',
       root_folder: '/movies',
@@ -164,6 +167,7 @@ describe('schema - media', () => {
     const tmdb = await seedTmdbMedia()
 
     await DbMedia.create({
+      id: deriveId('603:movie'),
       tmdb_media_id: tmdb.id,
       media_type: 'movie',
       root_folder: '/movies',
@@ -171,6 +175,7 @@ describe('schema - media', () => {
 
     expect(() =>
       DbMedia.create({
+        id: deriveId('603:movie'),
         tmdb_media_id: tmdb.id,
         media_type: 'movie',
         root_folder: '/movies',
@@ -181,6 +186,7 @@ describe('schema - media', () => {
   test('getById returns media with title and year from tmdb_media', async () => {
     const tmdb = await seedTmdbMedia()
     const media = await DbMedia.create({
+      id: deriveId('603:movie'),
       tmdb_media_id: tmdb.id,
       media_type: 'movie',
       root_folder: '/movies',
@@ -195,7 +201,7 @@ describe('schema - media', () => {
   })
 
   test('getById returns undefined for non-existent', async () => {
-    const found = await DbMedia.getById(999)
+    const found = await DbMedia.getById('NONEXISTENT')
     expect(found).toBeUndefined()
   })
 
@@ -215,12 +221,14 @@ describe('schema - media', () => {
     })
 
     await DbMedia.create({
+      id: deriveId('603:movie'),
       tmdb_media_id: tmdbMovie.id,
       media_type: 'movie',
       root_folder: '/movies',
     })
 
     await DbMedia.create({
+      id: deriveId('1399:tv'),
       tmdb_media_id: tmdbTv.id,
       media_type: 'tv',
       root_folder: '/tv',
@@ -249,12 +257,14 @@ describe('schema - media', () => {
     })
 
     await DbMedia.create({
+      id: deriveId('603:movie'),
       tmdb_media_id: tmdbMovie.id,
       media_type: 'movie',
       root_folder: '/movies',
     })
 
     await DbMedia.create({
+      id: deriveId('1399:tv'),
       tmdb_media_id: tmdbTv.id,
       media_type: 'tv',
       root_folder: '/tv',
@@ -281,6 +291,7 @@ describe('schema - media', () => {
     const tmdb = await seedTmdbMedia()
 
     const media = await DbMedia.create({
+      id: deriveId('603:movie'),
       tmdb_media_id: tmdb.id,
       media_type: 'movie',
       root_folder: '/movies',
@@ -297,7 +308,7 @@ describe('schema - media', () => {
   })
 
   test('delete returns undefined for non-existent', async () => {
-    const deleted = await DbMedia.delete(999)
+    const deleted = await DbMedia.delete('NONEXISTENT')
 
     expect(deleted).toBeUndefined()
   })
@@ -313,6 +324,7 @@ describe('schema - downloads', () => {
     })
 
     const media = await DbMedia.create({
+      id: deriveId('603:movie'),
       tmdb_media_id: tmdb.id,
       media_type: 'movie',
       root_folder: '/movies',
@@ -358,7 +370,7 @@ describe('schema - downloads', () => {
   })
 
   test('getByMediaId returns undefined when no download', async () => {
-    const found = await DbDownloads.getByMediaId(999)
+    const found = await DbDownloads.getByMediaId('NONEXISTENT')
 
     expect(found).toBeUndefined()
   })
@@ -380,6 +392,7 @@ describe('schema - downloads', () => {
     })
 
     const media2 = await DbMedia.create({
+      id: deriveId('1399:tv'),
       tmdb_media_id: tmdb2.id,
       media_type: 'tv',
       root_folder: '/tv',
@@ -420,6 +433,7 @@ describe('schema - downloads', () => {
     })
 
     const media2 = await DbMedia.create({
+      id: deriveId('1399:tv'),
       tmdb_media_id: tmdb2.id,
       media_type: 'tv',
       root_folder: '/tv',
@@ -525,6 +539,7 @@ describe('schema - downloads', () => {
     })
 
     const media2 = await DbMedia.create({
+      id: deriveId('1399:tv'),
       tmdb_media_id: tmdb2.id,
       media_type: 'tv',
       root_folder: '/tv',

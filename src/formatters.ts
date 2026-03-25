@@ -1,3 +1,13 @@
+import type { Selectable } from '@lobomfz/db'
+
+import type { DB } from '@/db/connection'
+
+type MediaTrack = Selectable<DB['media_tracks']>
+
+interface ScanFile extends Selectable<DB['media_files']> {
+  tracks: MediaTrack[]
+}
+
 export const Formatters = {
   mediaTitle(media: { title: string; year: number | null }) {
     if (media.year) {
@@ -31,6 +41,46 @@ export const Formatters = {
     return `${(bytesPerSec / 1_000).toFixed(0)}KB/s`
   },
 
+  scanResult(files: ScanFile[]) {
+    const lines: string[] = []
+
+    for (const f of files) {
+      const name = f.path.split('/').at(-1)
+      const duration = f.duration ? `${(f.duration / 60).toFixed(1)}min` : '?'
+
+      lines.push(
+        `${name} (${Formatters.size(f.size)}, ${f.format_name ?? '?'}, ${duration})`
+      )
+
+      for (const t of f.tracks) {
+        lines.push(Formatters.trackParts(t, '  ').join(' '))
+      }
+    }
+
+    return lines.join('\n')
+  },
+
+  extractResult(tracks: MediaTrack[], failed: { id: number; error: string }[]) {
+    const failedMap = new Map(failed.map((f) => [f.id, f.error]))
+    const lines: string[] = []
+
+    for (const t of tracks) {
+      const parts = Formatters.trackParts(t)
+
+      const error = failedMap.get(t.id)
+
+      if (error) {
+        parts.push('[FAILED]', error)
+      } else if (t.path) {
+        parts.push('→', t.path.split('/').at(-1)!)
+      }
+
+      lines.push(parts.join(' '))
+    }
+
+    return lines.join('\n')
+  },
+
   eta(seconds: number) {
     if (seconds <= 0 || seconds >= 8640000) {
       return '—'
@@ -52,5 +102,51 @@ export const Formatters = {
     }
 
     return `${h}h`
+  },
+
+  mediaStatus(media: {
+    file_count: number
+    track_count: number
+    extracted_count: number
+  }) {
+    if (media.file_count === 0 || media.track_count === 0) {
+      return '—'
+    }
+
+    if (media.extracted_count === media.track_count) {
+      return 'extracted'
+    }
+
+    if (media.extracted_count > 0) {
+      return `${media.extracted_count}/${media.track_count} extracted`
+    }
+
+    return 'scanned'
+  },
+
+  trackParts(t: MediaTrack, prefix = '') {
+    const parts = [`${prefix}#${t.stream_index}`, t.stream_type, t.codec_name]
+
+    if (t.language) {
+      parts.push(t.language)
+    }
+
+    if (t.title) {
+      parts.push(`"${t.title}"`)
+    }
+
+    if (t.width && t.height) {
+      parts.push(`${t.width}x${t.height}`)
+    }
+
+    if (t.channel_layout) {
+      parts.push(t.channel_layout)
+    }
+
+    if (t.is_default) {
+      parts.push('[default]')
+    }
+
+    return parts
   },
 }

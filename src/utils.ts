@@ -1,3 +1,16 @@
+import { type Type } from 'arktype'
+
+// TODO: maybe find a better way to do this
+export function extractSchemaProps(schema: Type) {
+  const props: { key: string; required: boolean }[] =
+    (schema as any).structure?.props ?? []
+
+  return {
+    keys: props.map((p) => p.key),
+    required: new Set(props.filter((p) => p.required).map((p) => p.key)),
+  }
+}
+
 export function deriveId(input: string) {
   let h = 0
   for (let i = 0; i < input.length; i++) {

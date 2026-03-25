@@ -40,16 +40,15 @@ async function runLint() {
   return result.exitCode
 }
 
+async function runKnip() {
+  const result = await $`bunx knip-bun`.cwd(ROOT).nothrow()
+  return result.exitCode
+}
+
 async function runCpd() {
   if (changedFiles.size === 0) {
-    console.log('[cpd] No changed TS files in src/ — skipping.')
     return 0
   }
-
-  console.log(
-    `[cpd] Checking ${changedFiles.size} changed file(s) for duplicates...`
-  )
-
   const outDir = mkdtempSync(join(tmpdir(), 'jscpd-'))
 
   await $`bunx jscpd --reporters json --output ${outDir}`
@@ -67,7 +66,6 @@ async function runCpd() {
   )
 
   if (relevantClones.length === 0) {
-    console.log('[cpd] No duplicates found in changed files.')
     return 0
   }
 
@@ -88,6 +86,20 @@ async function runCpd() {
   return 1
 }
 
-const exits = await Promise.all([runTypes(), runLint(), runCpd()])
+async function runTests() {
+  const result = await $`bun test`
+    .env({ ...Bun.env, AGENT: '1' })
+    .cwd(ROOT)
+    .nothrow()
+  return result.exitCode
+}
+
+const exits = await Promise.all([
+  runTypes(),
+  runLint(),
+  runKnip(),
+  runCpd(),
+  runTests(),
+])
 
 process.exit(exits.some((code) => code !== 0) ? 1 : 0)
