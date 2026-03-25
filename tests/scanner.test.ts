@@ -11,6 +11,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 
 import { database } from '@/db/connection'
+import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
@@ -116,6 +117,9 @@ beforeAll(async () => {
     refSubsMkv,
     join(tmpDir, 'force/The Matrix (1999)/movie.mkv')
   )
+  await MediaFixtures.copy(refMkv, join(tmpDir, 'single-file/movie.mkv'))
+  await MediaFixtures.copy(refMkv, join(tmpDir, 'multi/dl1/movie.mkv'))
+  await MediaFixtures.copy(refMkv, join(tmpDir, 'multi/dl2/bonus.mkv'))
 })
 
 afterAll(async () => {
@@ -125,11 +129,12 @@ afterAll(async () => {
 beforeEach(() => {
   database.reset('media_tracks')
   database.reset('media_files')
+  database.reset('downloads')
   database.reset('media')
   database.reset('tmdb_media')
 })
 
-async function seedMedia(rootFolder: string) {
+async function seedMedia(contentPath: string) {
   const tmdb = await DbTmdbMedia.upsert({
     tmdb_id: 603,
     media_type: 'movie',
@@ -137,17 +142,27 @@ async function seedMedia(rootFolder: string) {
     year: 1999,
   })
 
-  return await DbMedia.create({
+  const media = await DbMedia.create({
     id: deriveId('603:movie'),
     tmdb_media_id: tmdb.id,
     media_type: 'movie',
-    root_folder: rootFolder,
+    root_folder: '/movies',
   })
+
+  await DbDownloads.create({
+    media_id: media.id,
+    info_hash: 'test_hash',
+    download_url: 'magnet:test',
+    status: 'completed',
+    content_path: contentPath,
+  })
+
+  return media
 }
 
 describe('new Scanner().scan — file discovery', () => {
-  test('finds media files in root folder', async () => {
-    const media = await seedMedia(join(tmpDir, 'basic'))
+  test('finds media files in content_path directory', async () => {
+    const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
     const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(1)
@@ -158,21 +173,21 @@ describe('new Scanner().scan — file discovery', () => {
   })
 
   test('finds files recursively in subfolders', async () => {
-    const media = await seedMedia(join(tmpDir, 'recursive'))
+    const media = await seedMedia(join(tmpDir, 'recursive/The Matrix (1999)'))
     const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(2)
   })
 
   test('only considers valid extensions (.mkv, .mp4, .avi, .ts)', async () => {
-    const media = await seedMedia(join(tmpDir, 'extensions'))
+    const media = await seedMedia(join(tmpDir, 'extensions/The Matrix (1999)'))
     const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(4)
   })
 
   test('ignores files with irrelevant extensions', async () => {
-    const media = await seedMedia(join(tmpDir, 'ignore'))
+    const media = await seedMedia(join(tmpDir, 'ignore/The Matrix (1999)'))
     const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(1)
@@ -180,7 +195,7 @@ describe('new Scanner().scan — file discovery', () => {
   })
 
   test('persists each file in media_files with path and size', async () => {
-    const media = await seedMedia(join(tmpDir, 'persist'))
+    const media = await seedMedia(join(tmpDir, 'persist/The Matrix (1999)'))
     await new Scanner().scan(media.id)
 
     const persisted = await DbMediaFiles.getByMediaId(media.id)
@@ -194,7 +209,7 @@ describe('new Scanner().scan — file discovery', () => {
   })
 
   test('returns empty array when no valid files found', async () => {
-    const media = await seedMedia(join(tmpDir, 'empty'))
+    const media = await seedMedia(join(tmpDir, 'empty/The Matrix (1999)'))
     const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(0)
@@ -203,11 +218,35 @@ describe('new Scanner().scan — file discovery', () => {
   test('throws when media_id does not exist', async () => {
     await expect(() => new Scanner().scan('NONEXISTENT')).toThrow()
   })
+
+  test('probes single file when content_path is a file', async () => {
+    const media = await seedMedia(join(tmpDir, 'single-file/movie.mkv'))
+    const files = await new Scanner().scan(media.id)
+
+    expect(files).toHaveLength(1)
+    expect(files[0].path).toBe(join(tmpDir, 'single-file/movie.mkv'))
+  })
+
+  test('discovers files from multiple content_paths', async () => {
+    const media = await seedMedia(join(tmpDir, 'multi/dl1'))
+
+    await DbDownloads.create({
+      media_id: media.id,
+      info_hash: 'second_hash',
+      download_url: 'magnet:test2',
+      status: 'completed',
+      content_path: join(tmpDir, 'multi/dl2'),
+    })
+
+    const files = await new Scanner().scan(media.id)
+
+    expect(files).toHaveLength(2)
+  })
 })
 
 describe('new Scanner().scan — probe + tracks', () => {
   test('fills format_name and duration on media_file', async () => {
-    const media = await seedMedia(join(tmpDir, 'basic'))
+    const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
     await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
@@ -217,7 +256,7 @@ describe('new Scanner().scan — probe + tracks', () => {
   })
 
   test('creates tracks for each stream in the file', async () => {
-    const media = await seedMedia(join(tmpDir, 'probe'))
+    const media = await seedMedia(join(tmpDir, 'probe/The Matrix (1999)'))
     await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
@@ -233,7 +272,7 @@ describe('new Scanner().scan — probe + tracks', () => {
   })
 
   test('video track has type-specific fields', async () => {
-    const media = await seedMedia(join(tmpDir, 'probe'))
+    const media = await seedMedia(join(tmpDir, 'probe/The Matrix (1999)'))
     await new Scanner().scan(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
@@ -247,7 +286,7 @@ describe('new Scanner().scan — probe + tracks', () => {
   })
 
   test('audio track has type-specific fields', async () => {
-    const media = await seedMedia(join(tmpDir, 'probe'))
+    const media = await seedMedia(join(tmpDir, 'probe/The Matrix (1999)'))
     await new Scanner().scan(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
@@ -262,7 +301,7 @@ describe('new Scanner().scan — probe + tracks', () => {
   })
 
   test('subtitle track has codec and language', async () => {
-    const media = await seedMedia(join(tmpDir, 'probe'))
+    const media = await seedMedia(join(tmpDir, 'probe/The Matrix (1999)'))
     await new Scanner().scan(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
@@ -273,7 +312,7 @@ describe('new Scanner().scan — probe + tracks', () => {
   })
 
   test('track path and size are null (not extracted)', async () => {
-    const media = await seedMedia(join(tmpDir, 'probe'))
+    const media = await seedMedia(join(tmpDir, 'probe/The Matrix (1999)'))
     await new Scanner().scan(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
@@ -287,12 +326,12 @@ describe('new Scanner().scan — probe + tracks', () => {
 
 describe('new Scanner().scan — reconciliation', () => {
   test('inserts new file on disk after re-scan with probe data', async () => {
-    const dir = join(tmpDir, 'recon-new')
-    const media = await seedMedia(dir)
+    const contentPath = join(tmpDir, 'recon-new/The Matrix (1999)')
+    const media = await seedMedia(contentPath)
 
     await new Scanner().scan(media.id)
 
-    await MediaFixtures.copy(refMkv, join(dir, 'The Matrix (1999)/bonus.mkv'))
+    await MediaFixtures.copy(refMkv, join(contentPath, 'bonus.mkv'))
 
     await new Scanner().scan(media.id)
 
@@ -311,12 +350,12 @@ describe('new Scanner().scan — reconciliation', () => {
   })
 
   test('deletes file missing from disk after re-scan', async () => {
-    const dir = join(tmpDir, 'recon-del')
-    const media = await seedMedia(dir)
+    const contentPath = join(tmpDir, 'recon-del/The Matrix (1999)')
+    const media = await seedMedia(contentPath)
 
     await new Scanner().scan(media.id)
 
-    await rm(join(dir, 'The Matrix (1999)/bonus.mkv'))
+    await rm(join(contentPath, 'bonus.mkv'))
 
     await new Scanner().scan(media.id)
 
@@ -327,8 +366,8 @@ describe('new Scanner().scan — reconciliation', () => {
   })
 
   test('cascade deletes tracks of removed file', async () => {
-    const dir = join(tmpDir, 'recon-cascade')
-    const media = await seedMedia(dir)
+    const contentPath = join(tmpDir, 'recon-cascade/The Matrix (1999)')
+    const media = await seedMedia(contentPath)
 
     await new Scanner().scan(media.id)
 
@@ -338,7 +377,7 @@ describe('new Scanner().scan — reconciliation', () => {
 
     expect(tracksBefore.length).toBeGreaterThan(0)
 
-    await rm(join(dir, 'The Matrix (1999)/bonus.mkv'))
+    await rm(join(contentPath, 'bonus.mkv'))
 
     await new Scanner().scan(media.id)
 
@@ -348,8 +387,7 @@ describe('new Scanner().scan — reconciliation', () => {
   })
 
   test('keeps existing file intact on re-scan', async () => {
-    const dir = join(tmpDir, 'recon-keep')
-    const media = await seedMedia(dir)
+    const media = await seedMedia(join(tmpDir, 'recon-keep/The Matrix (1999)'))
 
     await new Scanner().scan(media.id)
 
@@ -365,8 +403,9 @@ describe('new Scanner().scan — reconciliation', () => {
   })
 
   test('preserves track data on re-scan including extraction path', async () => {
-    const dir = join(tmpDir, 'recon-tracks')
-    const media = await seedMedia(dir)
+    const media = await seedMedia(
+      join(tmpDir, 'recon-tracks/The Matrix (1999)')
+    )
 
     await new Scanner().scan(media.id)
 
@@ -390,8 +429,7 @@ describe('new Scanner().scan — reconciliation', () => {
   })
 
   test('force re-scan deletes all files and re-probes from scratch', async () => {
-    const dir = join(tmpDir, 'force')
-    const media = await seedMedia(dir)
+    const media = await seedMedia(join(tmpDir, 'force/The Matrix (1999)'))
 
     await new Scanner().scan(media.id)
 

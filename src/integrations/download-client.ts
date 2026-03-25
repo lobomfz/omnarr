@@ -6,9 +6,10 @@ export interface TorrentStatus {
   speed: number
   eta: number
   status: download_status
+  content_path: string
 }
 
 export interface DownloadClient {
-  addTorrent(params: { url: string; savepath?: string }): Promise<void>
+  addTorrent(params: { url: string }): Promise<void>
   getTorrentStatuses(): Promise<TorrentStatus[]>
 }

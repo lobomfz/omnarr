@@ -12,6 +12,7 @@ interface QBitTorrent {
   dlspeed: number
   eta: number
   state: string
+  content_path: string
 }
 
 const stateMap: Record<string, TorrentStatus['status']> = {
@@ -90,6 +91,14 @@ export class QBittorrentClient implements DownloadClient {
       throw new Error(`qBittorrent ${e.status}: ${e.statusText}`)
     })
 
+    if (data === 'Fails.') {
+      await Log.error(
+        `qbittorrent request rejected ${options.method} ${options.url}`
+      )
+
+      throw new Error(`qBittorrent rejected: ${options.method} ${options.url}`)
+    }
+
     return data
   }
 
@@ -106,6 +115,7 @@ export class QBittorrentClient implements DownloadClient {
       speed: t.dlspeed,
       eta: t.eta,
       status: stateMap[t.state] ?? 'error',
+      content_path: t.content_path,
     }))
   }
 
@@ -113,17 +123,18 @@ export class QBittorrentClient implements DownloadClient {
     const form = new FormData()
 
     form.append('urls', params.url)
-
-    if (params.savepath) {
-      form.append('savepath', params.savepath)
-    }
-
     form.append('category', this.config.category)
 
     await this.request({
       method: 'POST',
       url: '/api/v2/torrents/add',
       data: form,
+    }).catch(async (e) => {
+      await Log.error(
+        `qbittorrent addTorrent failed url=${params.url} reason="${e.message}"`
+      )
+
+      throw new Error('Torrent rejected by qBittorrent', { cause: e })
     })
   }
 }

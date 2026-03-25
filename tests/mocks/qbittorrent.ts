@@ -12,6 +12,7 @@ export const QBittorrentMock = new Mock(
       dlspeed: 'number',
       eta: 'number',
       state: 'string',
+      content_path: 'string',
     }),
   },
   (app, { db }) => {
@@ -58,6 +59,16 @@ export const QBittorrentMock = new Mock(
         url.split('/').pop() ??
         url
 
+      const existing = await db
+        .selectFrom('torrents')
+        .select('hash')
+        .where('hash', '=', hash)
+        .executeTakeFirst()
+
+      if (existing) {
+        return 'Fails.'
+      }
+
       await db
         .insertInto('torrents')
         .values({
@@ -69,6 +80,7 @@ export const QBittorrentMock = new Mock(
           dlspeed: 0,
           eta: 0,
           state: 'downloading',
+          content_path: `${savepath}/${hash}`,
         })
         .execute()
 

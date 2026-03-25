@@ -11,6 +11,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 
 import { database } from '@/db/connection'
+import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
@@ -54,6 +55,7 @@ describe('new Extractor().extract', () => {
     await rm('/tmp/omnarr-test-tracks', { recursive: true, force: true })
     database.reset('media_tracks')
     database.reset('media_files')
+    database.reset('downloads')
     database.reset('media')
     database.reset('tmdb_media')
   })
@@ -62,13 +64,13 @@ describe('new Extractor().extract', () => {
     tmdb_id: number
     title: string
     year?: number
-    root_folder: string
+    content_path: string
   }) {
-    const { tmdb_id, title, year, root_folder } = input ?? {
+    const { tmdb_id, title, year, content_path } = input ?? {
       tmdb_id: 603,
       title: 'The Matrix',
       year: 1999,
-      root_folder: join(tmpDir, 'media'),
+      content_path: join(tmpDir, 'media/The Matrix (1999)'),
     }
 
     const tmdb = await DbTmdbMedia.upsert({
@@ -82,7 +84,15 @@ describe('new Extractor().extract', () => {
       id: deriveId(`${tmdb_id}:movie`),
       tmdb_media_id: tmdb.id,
       media_type: 'movie',
-      root_folder,
+      root_folder: '/movies',
+    })
+
+    await DbDownloads.create({
+      media_id: media.id,
+      info_hash: `hash_${tmdb_id}`,
+      download_url: `magnet:test_${tmdb_id}`,
+      status: 'completed',
+      content_path,
     })
 
     await new Scanner().scan(media.id)
@@ -146,8 +156,16 @@ describe('new Extractor().extract', () => {
   test('continues extracting after a track fails', async () => {
     const media = await seedAndScan()
 
+    const fakeDl = await DbDownloads.create({
+      media_id: media.id,
+      info_hash: 'fake_hash',
+      download_url: 'magnet:fake',
+      status: 'completed',
+    })
+
     const fakeFile = await DbMediaFiles.create({
       media_id: media.id,
+      download_id: fakeDl.id,
       path: '/nonexistent/fake.mkv',
       size: 0,
     })
@@ -172,8 +190,16 @@ describe('new Extractor().extract', () => {
   test('failed tracks remain with path null', async () => {
     const media = await seedAndScan()
 
+    const fakeDl = await DbDownloads.create({
+      media_id: media.id,
+      info_hash: 'fake_hash_2',
+      download_url: 'magnet:fake2',
+      status: 'completed',
+    })
+
     const fakeFile = await DbMediaFiles.create({
       media_id: media.id,
+      download_id: fakeDl.id,
       path: '/nonexistent/fake.mkv',
       size: 0,
     })
@@ -215,7 +241,7 @@ describe('new Extractor().extract', () => {
     const media = await seedAndScan({
       tmdb_id: 999,
       title: 'Some Show',
-      root_folder: join(tmpDir, 'media-noyear'),
+      content_path: join(tmpDir, 'media-noyear/Some Show'),
     })
 
     await new Extractor().extract(media.id)
@@ -231,7 +257,7 @@ describe('new Extractor().extract', () => {
     const media = await seedAndScan({
       tmdb_id: 999,
       title: 'Some Show',
-      root_folder: join(tmpDir, 'media-noyear'),
+      content_path: join(tmpDir, 'media-noyear/Some Show'),
     })
 
     await new Extractor().extract(media.id)
@@ -241,25 +267,17 @@ describe('new Extractor().extract', () => {
     const filename = video.path!.split('/').at(-1)!
 
     expect(video.language).toBeNull()
-    expect(filename).toMatch(/^\d+-h264-\d+x\d+\.mkv$/)
+    expect(filename).toMatch(/^\d+-\d+-h264-\d+x\d+\.mkv$/)
   })
 
   test('uses .ass extension for ass subtitle codec', async () => {
-    const tmdb = await DbTmdbMedia.upsert({
+    const media = await seedAndScan({
       tmdb_id: 888,
-      media_type: 'movie',
       title: 'ASS Test',
       year: 2020,
+      content_path: join(tmpDir, 'media-ass/ASS Test (2020)'),
     })
 
-    const media = await DbMedia.create({
-      id: deriveId('888:movie'),
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: join(tmpDir, 'media-ass'),
-    })
-
-    await new Scanner().scan(media.id)
     await new Extractor().extract(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)

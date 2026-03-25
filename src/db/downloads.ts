@@ -58,6 +58,7 @@ export const DbDownloads = {
         'd.info_hash',
         'd.download_url',
         'd.progress',
+        'd.content_path',
         'd.error_at',
       ])
       .execute()
@@ -68,6 +69,7 @@ export const DbDownloads = {
       .selectFrom('downloads as d')
       .innerJoin('media as m', 'm.id', 'd.media_id')
       .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
+      .leftJoin('releases as r', 'r.info_hash', 'd.info_hash')
       .select([
         'd.progress',
         'd.speed',
@@ -75,6 +77,7 @@ export const DbDownloads = {
         'd.status',
         't.title',
         't.year',
+        'r.indexer_source',
       ])
       .orderBy('d.started_at', 'desc')
       .limit(limit)
@@ -104,6 +107,7 @@ export const DbDownloads = {
           speed: (eb) => eb.ref('excluded.speed'),
           eta: (eb) => eb.ref('excluded.eta'),
           status: (eb) => eb.ref('excluded.status'),
+          content_path: (eb) => eb.ref('excluded.content_path'),
           error_at: (eb) => eb.ref('excluded.error_at'),
         })
       )
@@ -122,6 +126,17 @@ export const DbDownloads = {
       .executeTakeFirstOrThrow()
 
     return Number(result.numDeletedRows)
+  },
+
+  async getCompletedDownloads(mediaId: string) {
+    return await db
+      .selectFrom('downloads as d')
+      .where('d.media_id', '=', mediaId)
+      .where('d.status', '=', 'completed')
+      .where('d.content_path', 'is not', null)
+      .select(['d.id', 'd.content_path'])
+      .$narrowType<{ content_path: string }>()
+      .execute()
   },
 
   async deleteByMediaId(mediaId: string) {

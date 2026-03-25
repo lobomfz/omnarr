@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
 import { database, db } from '@/db/connection'
+import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
@@ -10,6 +11,7 @@ import { deriveId } from '@/utils'
 beforeEach(() => {
   database.reset('media_tracks')
   database.reset('media_files')
+  database.reset('downloads')
   database.reset('media')
   database.reset('tmdb_media')
 })
@@ -29,13 +31,22 @@ async function seedMediaFile() {
     root_folder: '/movies',
   })
 
+  const download = await DbDownloads.create({
+    media_id: media.id,
+    info_hash: 'test_hash',
+    download_url: 'magnet:test',
+    status: 'completed',
+    content_path: '/movies/The Matrix (1999)',
+  })
+
   const file = await DbMediaFiles.create({
     media_id: media.id,
+    download_id: download.id,
     path: '/movies/The Matrix (1999)/The.Matrix.1999.mkv',
     size: 8_000_000_000,
   })
 
-  return { tmdb, media, file }
+  return { tmdb, media, download, file }
 }
 
 describe('schema - media_tracks', () => {
@@ -176,10 +187,11 @@ describe('schema - media_tracks', () => {
   })
 
   test('getByMediaId returns all tracks of a media across files', async () => {
-    const { media, file } = await seedMediaFile()
+    const { media, download, file } = await seedMediaFile()
 
     const file2 = await DbMediaFiles.create({
       media_id: media.id,
+      download_id: download.id,
       path: '/movies/The Matrix (1999)/extras.mkv',
       size: 500_000_000,
     })
@@ -331,16 +343,18 @@ describe('schema - media_tracks', () => {
   })
 
   test('cascade delete does not affect other file tracks', async () => {
-    const { media } = await seedMediaFile()
+    const { media, download } = await seedMediaFile()
 
     const file1 = await DbMediaFiles.create({
       media_id: media.id,
+      download_id: download.id,
       path: '/movies/The Matrix (1999)/file1.mkv',
       size: 8_000_000_000,
     })
 
     const file2 = await DbMediaFiles.create({
       media_id: media.id,
+      download_id: download.id,
       path: '/movies/The Matrix (1999)/file2.mkv',
       size: 500_000_000,
     })

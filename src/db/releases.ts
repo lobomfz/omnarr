@@ -2,11 +2,15 @@ import { db, media_type } from '@/db/connection'
 import type { IndexerRelease } from '@/integrations/indexers/types'
 import { deriveId } from '@/utils'
 
+interface SourcedRelease extends IndexerRelease {
+  indexer_source: string
+}
+
 export const DbReleases = {
   async upsert(
     tmdb_id: number,
     media_type: media_type,
-    releases: IndexerRelease[]
+    releases: SourcedRelease[]
   ) {
     if (releases.length === 0) return []
 
@@ -18,6 +22,7 @@ export const DbReleases = {
           tmdb_id,
           media_type,
           info_hash: r.info_hash,
+          indexer_source: r.indexer_source,
           name: r.name,
           size: r.size,
           seeders: r.seeders,
@@ -30,6 +35,7 @@ export const DbReleases = {
       )
       .onConflict((oc) =>
         oc.column('info_hash').doUpdateSet({
+          indexer_source: (eb) => eb.ref('excluded.indexer_source'),
           name: (eb) => eb.ref('excluded.name'),
           size: (eb) => eb.ref('excluded.size'),
           seeders: (eb) => eb.ref('excluded.seeders'),
@@ -42,6 +48,7 @@ export const DbReleases = {
       )
       .returning([
         'id',
+        'indexer_source',
         'name',
         'size',
         'seeders',

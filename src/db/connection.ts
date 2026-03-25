@@ -58,6 +58,7 @@ export const database = new Database({
         tmdb_id: 'number',
         media_type,
         info_hash: 'string',
+        indexer_source: 'string',
         name: 'string',
         size: 'number',
         seeders: 'number',
@@ -81,6 +82,7 @@ export const database = new Database({
         speed: type('number').default(0),
         eta: type('number.integer').default(0),
         status: download_status.default('downloading'),
+        content_path: 'string | null',
         error_at: 'string | null',
         started_at: generated('now'),
       }),
@@ -90,6 +92,10 @@ export const database = new Database({
         media_id: type('string').configure({
           references: 'media.id',
           onDelete: 'cascade',
+        }),
+        download_id: type('number.integer').configure({
+          references: 'downloads.id',
+          onDelete: 'restrict',
         }),
         path: 'string',
         size: 'number',
@@ -141,6 +147,12 @@ export const database = new Database({
         },
       ],
       releases: [
+        {
+          columns: ['info_hash'],
+          unique: true,
+        },
+      ],
+      downloads: [
         {
           columns: ['info_hash'],
           unique: true,

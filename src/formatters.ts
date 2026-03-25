@@ -1,20 +1,48 @@
 import type { Selectable } from '@lobomfz/db'
 
-import type { DB } from '@/db/connection'
+import type { DB, download_status } from '@/db/connection'
+import type { MediaInfo } from '@/db/media'
 
 type MediaTrack = Selectable<DB['media_tracks']>
+
+type TrackDisplay = Pick<
+  MediaTrack,
+  | 'stream_index'
+  | 'stream_type'
+  | 'codec_name'
+  | 'language'
+  | 'title'
+  | 'width'
+  | 'height'
+  | 'channel_layout'
+  | 'is_default'
+>
 
 interface ScanFile extends Selectable<DB['media_files']> {
   tracks: MediaTrack[]
 }
 
+const DOWNLOAD_STATUS_MAP: Record<download_status, string> = {
+  downloading: 'downloading',
+  seeding: 'downloading',
+  paused: 'downloading',
+  completed: 'downloaded',
+  error: '—',
+}
+
 export const Formatters = {
-  mediaTitle(media: { title: string; year: number | null }) {
-    if (media.year) {
-      return `${media.title} (${media.year})`
+  mediaTitle(media: {
+    title: string
+    year: number | null
+    indexer_source?: string | null
+  }) {
+    const base = media.year ? `${media.title} (${media.year})` : media.title
+
+    if (media.indexer_source) {
+      return `${base} [${media.indexer_source}]`
     }
 
-    return media.title
+    return base
   },
 
   progress(ratio: number) {
@@ -41,16 +69,21 @@ export const Formatters = {
     return `${(bytesPerSec / 1_000).toFixed(0)}KB/s`
   },
 
+  fileStats(f: {
+    size: number
+    format_name: string | null
+    duration: number | null
+  }) {
+    const duration = f.duration ? `${(f.duration / 60).toFixed(1)}min` : '?'
+
+    return `${Formatters.size(f.size)}, ${f.format_name ?? '?'}, ${duration}`
+  },
+
   scanResult(files: ScanFile[]) {
     const lines: string[] = []
 
     for (const f of files) {
-      const name = f.path.split('/').at(-1)
-      const duration = f.duration ? `${(f.duration / 60).toFixed(1)}min` : '?'
-
-      lines.push(
-        `${name} (${Formatters.size(f.size)}, ${f.format_name ?? '?'}, ${duration})`
-      )
+      lines.push(`${f.path.split('/').at(-1)} (${Formatters.fileStats(f)})`)
 
       for (const t of f.tracks) {
         lines.push(Formatters.trackParts(t, '  ').join(' '))
@@ -108,23 +141,68 @@ export const Formatters = {
     file_count: number
     track_count: number
     extracted_count: number
+    download_status: download_status | null
   }) {
-    if (media.file_count === 0 || media.track_count === 0) {
-      return '—'
+    if (media.file_count > 0 && media.track_count > 0) {
+      if (media.extracted_count === media.track_count) {
+        return 'extracted'
+      }
+
+      if (media.extracted_count > 0) {
+        return `${media.extracted_count}/${media.track_count} extracted`
+      }
+
+      return 'scanned'
     }
 
-    if (media.extracted_count === media.track_count) {
-      return 'extracted'
+    if (media.download_status) {
+      return DOWNLOAD_STATUS_MAP[media.download_status]
     }
 
-    if (media.extracted_count > 0) {
-      return `${media.extracted_count}/${media.track_count} extracted`
-    }
-
-    return 'scanned'
+    return '—'
   },
 
-  trackParts(t: MediaTrack, prefix = '') {
+  mediaInfo(info: MediaInfo) {
+    const lines: string[] = [
+      `[${info.media_type}] ${Formatters.mediaTitle(info)}`,
+    ]
+
+    for (const d of info.downloads) {
+      lines.push('')
+
+      const header: string[] = [d.status]
+
+      if (DOWNLOAD_STATUS_MAP[d.status] === 'downloading') {
+        header.push(Formatters.progress(d.progress))
+        header.push(Formatters.speed(d.speed))
+        header.push(`ETA ${Formatters.eta(d.eta)}`)
+      }
+
+      if (d.status === 'error' && d.error_at) {
+        header.push(d.error_at)
+      }
+
+      lines.push(header.join('  '))
+
+      for (const f of d.files) {
+        lines.push(`  ${f.path} (${Formatters.fileStats(f)})`)
+
+        for (const t of f.tracks) {
+          const parts = Formatters.trackParts(t, '    ')
+
+          if (t.path) {
+            parts.push('✓')
+          }
+
+          lines.push(parts.join(' '))
+        }
+      }
+    }
+
+    return lines.join('\n')
+  },
+
+  trackParts(t: TrackDisplay, prefix = '') {
     const parts = [`${prefix}#${t.stream_index}`, t.stream_type, t.codec_name]
 
     if (t.language) {

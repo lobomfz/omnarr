@@ -2,7 +2,6 @@ import { config } from '@/config'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { Formatters } from '@/formatters'
 import type { DownloadClient } from '@/integrations/download-client'
 import { QBittorrentClient } from '@/integrations/qbittorrent/client'
 import { TmdbClient } from '@/integrations/tmdb/client'
@@ -59,20 +58,15 @@ export class Downloads {
       `adding torrent info_hash=${params.info_hash} title="${details.title}"`
     )
 
+    await this.client.addTorrent({ url: params.download_url })
+
     const download = await DbDownloads.create({
       media_id: media.id,
       info_hash: params.info_hash,
       download_url: params.download_url,
     })
 
-    const savepath = `${rootFolder}/${Formatters.mediaTitle(details)}`
-
-    await this.client.addTorrent({
-      url: params.download_url,
-      savepath,
-    })
-
-    await Log.info(`torrent sent to client savepath="${savepath}"`)
+    await Log.info(`torrent sent to client info_hash=${params.info_hash}`)
 
     return { media, download, title: details.title, year: details.year }
   }
@@ -109,11 +103,11 @@ export class Downloads {
         const s = statusByHash.get(d.info_hash)
         const status = s ? (s.progress >= 1 ? 'completed' : s.status) : 'error'
 
-        if (status === 'error') {
+        if (status === 'error' && !d.error_at) {
           await Log.warn(
             `download entered error status info_hash=${d.info_hash}`
           )
-        } else if (d.error_at) {
+        } else if (status !== 'error' && d.error_at) {
           await Log.info(
             `download exited error status info_hash=${d.info_hash}`
           )
@@ -128,6 +122,7 @@ export class Downloads {
           speed: s?.speed ?? 0,
           eta: s?.eta ?? 0,
           status,
+          content_path: s?.content_path ?? d.content_path,
           error_at: status === 'error' ? (d.error_at ?? now) : null,
         }
       })

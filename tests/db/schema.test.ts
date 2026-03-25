@@ -163,24 +163,24 @@ describe('schema - media', () => {
     expect(media.has_file).toBe(false)
   })
 
-  test('unique index on tmdb_media_id prevents duplicates', async () => {
+  test('create with same id upserts and returns existing media', async () => {
     const tmdb = await seedTmdbMedia()
 
-    await DbMedia.create({
+    const first = await DbMedia.create({
       id: deriveId('603:movie'),
       tmdb_media_id: tmdb.id,
       media_type: 'movie',
       root_folder: '/movies',
     })
 
-    expect(() =>
-      DbMedia.create({
-        id: deriveId('603:movie'),
-        tmdb_media_id: tmdb.id,
-        media_type: 'movie',
-        root_folder: '/movies',
-      })
-    ).toThrow()
+    const second = await DbMedia.create({
+      id: deriveId('603:movie'),
+      tmdb_media_id: tmdb.id,
+      media_type: 'movie',
+      root_folder: '/movies',
+    })
+
+    expect(second.id).toBe(first.id)
   })
 
   test('getById returns media with title and year from tmdb_media', async () => {
