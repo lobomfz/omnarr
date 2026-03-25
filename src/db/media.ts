@@ -5,6 +5,7 @@ import { jsonArrayFrom } from 'kysely/helpers/sqlite'
 import { db, media_type, type DB } from '@/db/connection'
 
 export type FullMedia = NonNullable<Awaited<ReturnType<typeof DbMedia.getById>>>
+export type MediaInfo = NonNullable<Awaited<ReturnType<typeof DbMedia.getInfo>>>
 
 export const DbMedia = {
   async create(data: Insertable<DB['media']>) {

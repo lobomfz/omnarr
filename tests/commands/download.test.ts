@@ -24,6 +24,7 @@ describe('download command', async () => {
   const releaseId = releases[0].id
 
   beforeEach(() => {
+    database.reset('media_files')
     database.reset('downloads')
     database.reset('media')
     database.reset('tmdb_media')

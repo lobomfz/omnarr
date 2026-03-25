@@ -61,10 +61,12 @@ export class Extractor {
         fileMap,
         config.root_folders.tracks,
         media
-      ).catch((err) => {
-        failed.push({ id: track.id, error: err.message })
-        Log.warn(
-          `track extraction failed stream_index=${track.stream_index} codec=${track.codec_name} error="${err.message}"`
+      ).catch(async (err) => {
+        const message = err instanceof Error ? err.message : String(err)
+
+        failed.push({ id: track.id, error: message })
+        await Log.warn(
+          `track extraction failed stream_index=${track.stream_index} codec=${track.codec_name} error="${message}"`
         )
       })
     }
@@ -82,7 +84,13 @@ export class Extractor {
     tracksRootFolder: string,
     media: FullMedia
   ) {
-    const file = fileMap.get(track.media_file_id)!
+    const file = fileMap.get(track.media_file_id)
+
+    if (!file) {
+      throw new Error(
+        `media_file ${track.media_file_id} not found for track ${track.id}`
+      )
+    }
 
     const outPath = this.outputPath(
       tracksRootFolder,

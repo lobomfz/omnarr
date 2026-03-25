@@ -130,11 +130,11 @@ export const DbDownloads = {
 
   async getCompletedDownloads(mediaId: string) {
     return await db
-      .selectFrom('downloads')
-      .where('media_id', '=', mediaId)
-      .where('status', '=', 'completed')
-      .where('content_path', 'is not', null)
-      .select(['id', 'content_path'])
+      .selectFrom('downloads as d')
+      .where('d.media_id', '=', mediaId)
+      .where('d.status', '=', 'completed')
+      .where('d.content_path', 'is not', null)
+      .select(['d.id', 'd.content_path'])
       .$narrowType<{ content_path: string }>()
       .execute()
   },

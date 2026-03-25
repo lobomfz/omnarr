@@ -1,7 +1,7 @@
 import type { Selectable } from '@lobomfz/db'
 
 import type { DB, download_status } from '@/db/connection'
-import type { DbMedia } from '@/db/media'
+import type { MediaInfo } from '@/db/media'
 
 type MediaTrack = Selectable<DB['media_tracks']>
 
@@ -69,16 +69,21 @@ export const Formatters = {
     return `${(bytesPerSec / 1_000).toFixed(0)}KB/s`
   },
 
+  fileStats(f: {
+    size: number
+    format_name: string | null
+    duration: number | null
+  }) {
+    const duration = f.duration ? `${(f.duration / 60).toFixed(1)}min` : '?'
+
+    return `${Formatters.size(f.size)}, ${f.format_name ?? '?'}, ${duration}`
+  },
+
   scanResult(files: ScanFile[]) {
     const lines: string[] = []
 
     for (const f of files) {
-      const name = f.path.split('/').at(-1)
-      const duration = f.duration ? `${(f.duration / 60).toFixed(1)}min` : '?'
-
-      lines.push(
-        `${name} (${Formatters.size(f.size)}, ${f.format_name ?? '?'}, ${duration})`
-      )
+      lines.push(`${f.path.split('/').at(-1)} (${Formatters.fileStats(f)})`)
 
       for (const t of f.tracks) {
         lines.push(Formatters.trackParts(t, '  ').join(' '))
@@ -157,7 +162,7 @@ export const Formatters = {
     return '—'
   },
 
-  mediaInfo(info: NonNullable<Awaited<ReturnType<typeof DbMedia.getInfo>>>) {
+  mediaInfo(info: MediaInfo) {
     const lines: string[] = [
       `[${info.media_type}] ${Formatters.mediaTitle(info)}`,
     ]
@@ -167,11 +172,7 @@ export const Formatters = {
 
       const header: string[] = [d.status]
 
-      if (
-        d.status === 'downloading' ||
-        d.status === 'seeding' ||
-        d.status === 'paused'
-      ) {
+      if (DOWNLOAD_STATUS_MAP[d.status] === 'downloading') {
         header.push(Formatters.progress(d.progress))
         header.push(Formatters.speed(d.speed))
         header.push(`ETA ${Formatters.eta(d.eta)}`)
@@ -184,11 +185,7 @@ export const Formatters = {
       lines.push(header.join('  '))
 
       for (const f of d.files) {
-        const duration = f.duration ? `${(f.duration / 60).toFixed(1)}min` : '?'
-
-        lines.push(
-          `  ${f.path} (${Formatters.size(f.size)}, ${f.format_name ?? '?'}, ${duration})`
-        )
+        lines.push(`  ${f.path} (${Formatters.fileStats(f)})`)
 
         for (const t of f.tracks) {
           const parts = Formatters.trackParts(t, '    ')
