@@ -56,6 +56,18 @@ export class Handler {
     return result
   }
 
+  async info() {
+    const { media_id } = this.parseArgs('info', type({ media_id: 'string' }))
+
+    const info = await DbMedia.getInfo(media_id)
+
+    if (!info) {
+      throw new Error(`Media '${media_id}' not found.`)
+    }
+
+    this.output(info, Formatters.mediaInfo(info))
+  }
+
   async search() {
     const { query } = this.parseArgs('search', type({ query: 'string' }))
 

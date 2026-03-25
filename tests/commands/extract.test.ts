@@ -162,8 +162,16 @@ describe('extract command', () => {
   test('reports failures in output', async () => {
     const media = await seedAndScan()
 
+    const fakeDl = await DbDownloads.create({
+      media_id: media.id,
+      info_hash: 'fake_hash',
+      download_url: 'magnet:fake',
+      status: 'completed',
+    })
+
     const fakeFile = await DbMediaFiles.create({
       media_id: media.id,
+      download_id: fakeDl.id,
       path: '/nonexistent/fake.mkv',
       size: 0,
     })

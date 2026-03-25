@@ -93,6 +93,10 @@ export const database = new Database({
           references: 'media.id',
           onDelete: 'cascade',
         }),
+        download_id: type('number.integer').configure({
+          references: 'downloads.id',
+          onDelete: 'restrict',
+        }),
         path: 'string',
         size: 'number',
         'format_name?': 'string',

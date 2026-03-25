@@ -156,8 +156,16 @@ describe('new Extractor().extract', () => {
   test('continues extracting after a track fails', async () => {
     const media = await seedAndScan()
 
+    const fakeDl = await DbDownloads.create({
+      media_id: media.id,
+      info_hash: 'fake_hash',
+      download_url: 'magnet:fake',
+      status: 'completed',
+    })
+
     const fakeFile = await DbMediaFiles.create({
       media_id: media.id,
+      download_id: fakeDl.id,
       path: '/nonexistent/fake.mkv',
       size: 0,
     })
@@ -182,8 +190,16 @@ describe('new Extractor().extract', () => {
   test('failed tracks remain with path null', async () => {
     const media = await seedAndScan()
 
+    const fakeDl = await DbDownloads.create({
+      media_id: media.id,
+      info_hash: 'fake_hash_2',
+      download_url: 'magnet:fake2',
+      status: 'completed',
+    })
+
     const fakeFile = await DbMediaFiles.create({
       media_id: media.id,
+      download_id: fakeDl.id,
       path: '/nonexistent/fake.mkv',
       size: 0,
     })
@@ -251,7 +267,7 @@ describe('new Extractor().extract', () => {
     const filename = video.path!.split('/').at(-1)!
 
     expect(video.language).toBeNull()
-    expect(filename).toMatch(/^\d+-h264-\d+x\d+\.mkv$/)
+    expect(filename).toMatch(/^\d+-\d+-h264-\d+x\d+\.mkv$/)
   })
 
   test('uses .ass extension for ass subtitle codec', async () => {

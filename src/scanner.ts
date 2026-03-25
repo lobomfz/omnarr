@@ -28,26 +28,26 @@ export class Scanner {
       await Log.info(`scan force mode: deleted ${deleted} files for ${mediaId}`)
     }
 
-    const contentPaths = await DbDownloads.getCompletedContentPaths(mediaId)
+    const downloads = await DbDownloads.getCompletedDownloads(mediaId)
 
-    if (contentPaths.length === 0) {
+    if (downloads.length === 0) {
       await Log.info('scan: no completed downloads with content_path')
 
       return await DbMediaFiles.getByMediaId(mediaId)
     }
 
-    const diskPaths = await this.discoverFiles(contentPaths)
+    const diskFiles = await this.discoverFiles(downloads)
 
-    return await this.reconcile(mediaId, diskPaths)
+    return await this.reconcile(mediaId, diskFiles)
   }
 
-  private async reconcile(mediaId: string, diskPaths: Set<string>) {
+  private async reconcile(mediaId: string, diskFiles: Map<string, number>) {
     const existingFiles = await DbMediaFiles.getByMediaId(mediaId)
 
     const existingPaths = new Set(existingFiles.map((f) => f.path))
 
     const staleIds = existingFiles
-      .filter((f) => !diskPaths.has(f.path))
+      .filter((f) => !diskFiles.has(f.path))
       .map((f) => f.id)
 
     if (staleIds.length > 0) {
@@ -58,19 +58,21 @@ export class Scanner {
       )
     }
 
-    const newPaths = [...diskPaths].filter((p) => !existingPaths.has(p))
+    const newFiles = [...diskFiles].filter(([p]) => !existingPaths.has(p))
 
     let probed = 0
 
-    for (const path of newPaths) {
-      const success = await this.probeAndPersist(mediaId, path).catch(
-        async (err) => {
-          await Log.warn(
-            `probe failed file="${path}" error="${err instanceof Error ? err.message : String(err)}"`
-          )
-          return false
-        }
-      )
+    for (const [path, downloadId] of newFiles) {
+      const success = await this.probeAndPersist(
+        mediaId,
+        downloadId,
+        path
+      ).catch(async (err) => {
+        await Log.warn(
+          `probe failed file="${path}" error="${err instanceof Error ? err.message : String(err)}"`
+        )
+        return false
+      })
 
       if (success) {
         probed++
@@ -86,27 +88,31 @@ export class Scanner {
     return finalFiles
   }
 
-  private async discoverFiles(contentPaths: string[]) {
-    const paths = new Set<string>()
+  private async discoverFiles(
+    downloads: { id: number; content_path: string }[]
+  ) {
+    const files = new Map<string, number>()
 
-    for (const contentPath of contentPaths) {
-      const resolved = await this.resolveContentPath(contentPath).catch(
+    for (const dl of downloads) {
+      const resolved = await this.resolveContentPath(dl.content_path).catch(
         async () => {
-          await Log.warn(`scan content_path not accessible: "${contentPath}"`)
+          await Log.warn(
+            `scan content_path not accessible: "${dl.content_path}"`
+          )
           return [] as string[]
         }
       )
 
       for (const path of resolved) {
-        paths.add(path)
+        files.set(path, dl.id)
       }
     }
 
     await Log.info(
-      `scan discovered ${paths.size} files from ${contentPaths.length} content_paths`
+      `scan discovered ${files.size} files from ${downloads.length} content_paths`
     )
 
-    return paths
+    return files
   }
 
   private async resolveContentPath(contentPath: string) {
@@ -129,13 +135,18 @@ export class Scanner {
     return paths
   }
 
-  private async probeAndPersist(mediaId: string, fullPath: string) {
+  private async probeAndPersist(
+    mediaId: string,
+    downloadId: number,
+    fullPath: string
+  ) {
     await Log.info(`probing file="${fullPath}"`)
 
     const probe = await new FFmpegBuilder().input(fullPath).probe()
 
     const file = await DbMediaFiles.create({
       media_id: mediaId,
+      download_id: downloadId,
       path: fullPath,
       size: probe.format.size,
       format_name: probe.format.format_name,

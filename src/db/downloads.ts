@@ -128,16 +128,15 @@ export const DbDownloads = {
     return Number(result.numDeletedRows)
   },
 
-  async getCompletedContentPaths(mediaId: string) {
-    const rows = await db
+  async getCompletedDownloads(mediaId: string) {
+    return await db
       .selectFrom('downloads')
       .where('media_id', '=', mediaId)
       .where('status', '=', 'completed')
       .where('content_path', 'is not', null)
-      .select('content_path')
+      .select(['id', 'content_path'])
+      .$narrowType<{ content_path: string }>()
       .execute()
-
-    return rows.map((r) => r.content_path!)
   },
 
   async deleteByMediaId(mediaId: string) {

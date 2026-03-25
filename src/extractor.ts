@@ -51,12 +51,14 @@ export class Extractor {
     }
 
     const files = await DbMediaFiles.getByMediaId(mediaId)
-    const filePathMap = new Map(files.map((f) => [f.id, f.path]))
+    const fileMap = new Map(
+      files.map((f) => [f.id, { path: f.path, download_id: f.download_id }])
+    )
 
     for (const track of tracks) {
       await this.extractSingle(
         track,
-        filePathMap,
+        fileMap,
         config.root_folders.tracks,
         media
       ).catch((err) => {
@@ -76,22 +78,27 @@ export class Extractor {
 
   private async extractSingle(
     track: Track,
-    filePathMap: Map<number, string>,
+    fileMap: Map<number, { path: string; download_id: number }>,
     tracksRootFolder: string,
     media: FullMedia
   ) {
-    const sourcePath = filePathMap.get(track.media_file_id)!
+    const file = fileMap.get(track.media_file_id)!
 
-    const outPath = this.outputPath(tracksRootFolder, media, track)
+    const outPath = this.outputPath(
+      tracksRootFolder,
+      media,
+      track,
+      file.download_id
+    )
 
     await Log.info(
-      `extracting track stream_index=${track.stream_index} codec=${track.codec_name} source="${sourcePath}" output="${outPath}"`
+      `extracting track stream_index=${track.stream_index} codec=${track.codec_name} source="${file.path}" output="${outPath}"`
     )
 
     await mkdir(dirname(outPath), { recursive: true })
 
     await new FFmpegBuilder({ overwrite: true })
-      .input(sourcePath)
+      .input(file.path)
       .raw('-map', `0:${track.stream_index}`)
       .raw('-c', 'copy')
       .output(outPath)
@@ -112,8 +119,12 @@ export class Extractor {
     )
   }
 
-  private filename(track: Track) {
-    const parts = [track.stream_index.toString(), track.codec_name]
+  private filename(track: Track, downloadId: number) {
+    const parts = [
+      downloadId.toString(),
+      track.stream_index.toString(),
+      track.codec_name,
+    ]
 
     if (track.language) {
       parts.push(track.language)
@@ -130,13 +141,18 @@ export class Extractor {
     return `${parts.join('-')}${this.extension(track.stream_type, track.codec_name)}`
   }
 
-  private outputPath(tracksRootFolder: string, media: FullMedia, track: Track) {
+  private outputPath(
+    tracksRootFolder: string,
+    media: FullMedia,
+    track: Track,
+    downloadId: number
+  ) {
     return join(
       tracksRootFolder,
       media.media_type,
       Formatters.mediaTitle({ title: media.title, year: media.year }),
       track.stream_type,
-      this.filename(track)
+      this.filename(track, downloadId)
     )
   }
 }

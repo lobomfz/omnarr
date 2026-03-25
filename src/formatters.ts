@@ -1,8 +1,22 @@
 import type { Selectable } from '@lobomfz/db'
 
 import type { DB, download_status } from '@/db/connection'
+import type { DbMedia } from '@/db/media'
 
 type MediaTrack = Selectable<DB['media_tracks']>
+
+type TrackDisplay = Pick<
+  MediaTrack,
+  | 'stream_index'
+  | 'stream_type'
+  | 'codec_name'
+  | 'language'
+  | 'title'
+  | 'width'
+  | 'height'
+  | 'channel_layout'
+  | 'is_default'
+>
 
 interface ScanFile extends Selectable<DB['media_files']> {
   tracks: MediaTrack[]
@@ -143,7 +157,55 @@ export const Formatters = {
     return '—'
   },
 
-  trackParts(t: MediaTrack, prefix = '') {
+  mediaInfo(info: NonNullable<Awaited<ReturnType<typeof DbMedia.getInfo>>>) {
+    const lines: string[] = [
+      `[${info.media_type}] ${Formatters.mediaTitle(info)}`,
+    ]
+
+    for (const d of info.downloads) {
+      lines.push('')
+
+      const header: string[] = [d.status]
+
+      if (
+        d.status === 'downloading' ||
+        d.status === 'seeding' ||
+        d.status === 'paused'
+      ) {
+        header.push(Formatters.progress(d.progress))
+        header.push(Formatters.speed(d.speed))
+        header.push(`ETA ${Formatters.eta(d.eta)}`)
+      }
+
+      if (d.status === 'error' && d.error_at) {
+        header.push(d.error_at)
+      }
+
+      lines.push(header.join('  '))
+
+      for (const f of d.files) {
+        const duration = f.duration ? `${(f.duration / 60).toFixed(1)}min` : '?'
+
+        lines.push(
+          `  ${f.path} (${Formatters.size(f.size)}, ${f.format_name ?? '?'}, ${duration})`
+        )
+
+        for (const t of f.tracks) {
+          const parts = Formatters.trackParts(t, '    ')
+
+          if (t.path) {
+            parts.push('✓')
+          }
+
+          lines.push(parts.join(' '))
+        }
+      }
+    }
+
+    return lines.join('\n')
+  },
+
+  trackParts(t: TrackDisplay, prefix = '') {
     const parts = [`${prefix}#${t.stream_index}`, t.stream_type, t.codec_name]
 
     if (t.language) {
