@@ -3,6 +3,8 @@ import { sql } from 'kysely'
 
 import { db, media_type, type DB } from '@/db/connection'
 
+export type FullMedia = NonNullable<Awaited<ReturnType<typeof DbMedia.getById>>>
+
 export const DbMedia = {
   async create(data: Insertable<DB['media']>) {
     return await db

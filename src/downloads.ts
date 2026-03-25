@@ -6,6 +6,7 @@ import { Formatters } from '@/formatters'
 import type { DownloadClient } from '@/integrations/download-client'
 import { QBittorrentClient } from '@/integrations/qbittorrent/client'
 import { TmdbClient } from '@/integrations/tmdb/client'
+import { Log } from '@/log'
 import { deriveId } from '@/utils'
 
 export class Downloads {
@@ -54,6 +55,10 @@ export class Downloads {
       root_folder: rootFolder,
     })
 
+    await Log.info(
+      `adding torrent info_hash=${params.info_hash} title="${details.title}"`
+    )
+
     const download = await DbDownloads.create({
       media_id: media.id,
       info_hash: params.info_hash,
@@ -66,6 +71,8 @@ export class Downloads {
       url: params.download_url,
       savepath,
     })
+
+    await Log.info(`torrent sent to client savepath="${savepath}"`)
 
     return { media, download, title: details.title, year: details.year }
   }
@@ -87,6 +94,8 @@ export class Downloads {
   }
 
   private async syncDownloads(client: DownloadClient) {
+    await Log.info('sync started')
+
     const [active, statuses] = await Promise.all([
       DbDownloads.listActive(),
       client.getTorrentStatuses(),
@@ -95,18 +104,27 @@ export class Downloads {
     const statusByHash = new Map(statuses.map((s) => [s.hash, s]))
     const now = new Date().toISOString()
 
-    await DbDownloads.batchUpdate(
-      active.map((d) => {
+    const updates = await Promise.all(
+      active.map(async (d) => {
         const s = statusByHash.get(d.info_hash)
-        const progress = s?.progress ?? d.progress
         const status = s ? (s.progress >= 1 ? 'completed' : s.status) : 'error'
+
+        if (status === 'error') {
+          await Log.warn(
+            `download entered error status info_hash=${d.info_hash}`
+          )
+        } else if (d.error_at) {
+          await Log.info(
+            `download exited error status info_hash=${d.info_hash}`
+          )
+        }
 
         return {
           id: d.id,
           media_id: d.media_id,
           info_hash: d.info_hash,
           download_url: d.download_url,
-          progress,
+          progress: s?.progress ?? d.progress,
           speed: s?.speed ?? 0,
           eta: s?.eta ?? 0,
           status,
@@ -115,6 +133,16 @@ export class Downloads {
       })
     )
 
-    await DbDownloads.deleteStaleErrors()
+    const updatedCount = await DbDownloads.batchUpdate(updates)
+
+    const deleted = await DbDownloads.deleteStaleErrors()
+
+    if (deleted > 0) {
+      await Log.info(`stale errors deleted count=${deleted}`)
+    }
+
+    await Log.info(
+      `sync complete active=${active.length} updated=${updatedCount}`
+    )
   }
 }

@@ -3,7 +3,7 @@
   "root_folders": {
     "movie": "/movies",
     "tv": "/tv",
-    "tracks": "/tracks"
+    "tracks": "/tmp/omnarr-test-tracks"
   },
   "indexers": [
     {

@@ -4,6 +4,7 @@ import { dirname } from 'path'
 import { Database, type, generated } from '@lobomfz/db'
 
 import { envVariables } from '@/env'
+import { Log } from '@/log'
 
 await mkdir(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
 
@@ -152,6 +153,8 @@ export const database = new Database({
     synchronous: 'normal',
   },
 })
+
+await Log.info(`database initialized path=${envVariables.OMNARR_DB_PATH}`)
 
 export type DB = typeof database.infer
 export const db = database.kysely

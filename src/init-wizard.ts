@@ -8,6 +8,7 @@ import type { Config } from '@/config'
 import { configJsonSchema } from '@/config'
 import { envVariables } from '@/env'
 import { indexerMap } from '@/integrations/indexers/registry'
+import { Log } from '@/log'
 
 interface SchemaProp {
   key: string
@@ -138,6 +139,8 @@ export class InitWizard {
         JSON.stringify(configJsonSchema, null, 2)
       ),
     ])
+
+    await Log.info(`config saved path="${configPath}"`)
 
     console.log(`Config saved to ${configPath}`)
   }

@@ -22,7 +22,6 @@ import { deriveId } from '@/utils'
 import { MediaFixtures } from './fixtures/media'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-extract-'))
-const tracksDir = join(tmpDir, 'tracks')
 const refMkv = join(tmpDir, 'ref-subs.mkv')
 const refBasicMkv = join(tmpDir, 'ref-basic.mkv')
 const refAssMkv = join(tmpDir, 'ref-ass.mkv')
@@ -52,7 +51,7 @@ describe('new Extractor().extract', () => {
   })
 
   beforeEach(async () => {
-    await rm(tracksDir, { recursive: true, force: true })
+    await rm('/tmp/omnarr-test-tracks', { recursive: true, force: true })
     database.reset('media_tracks')
     database.reset('media_files')
     database.reset('media')
@@ -94,7 +93,7 @@ describe('new Extractor().extract', () => {
   test('updates path and size for all unextracted tracks', async () => {
     const media = await seedAndScan()
 
-    await new Extractor().extract(media.id, tracksDir)
+    await new Extractor().extract(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
 
@@ -107,7 +106,7 @@ describe('new Extractor().extract', () => {
   test('extracted files exist on disk', async () => {
     const media = await seedAndScan()
 
-    await new Extractor().extract(media.id, tracksDir)
+    await new Extractor().extract(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
 
@@ -119,7 +118,7 @@ describe('new Extractor().extract', () => {
   test('output paths follow naming convention', async () => {
     const media = await seedAndScan()
 
-    await new Extractor().extract(media.id, tracksDir)
+    await new Extractor().extract(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
     const video = tracks.find((t) => t.stream_type === 'video')!
@@ -139,7 +138,7 @@ describe('new Extractor().extract', () => {
     const sourcePath = join(tmpDir, 'media/The Matrix (1999)/movie.mkv')
     const sizeBefore = Bun.file(sourcePath).size
 
-    await new Extractor().extract(media.id, tracksDir)
+    await new Extractor().extract(media.id)
 
     expect(Bun.file(sourcePath).size).toBe(sizeBefore)
   })
@@ -161,7 +160,7 @@ describe('new Extractor().extract', () => {
       is_default: false,
     })
 
-    const { failed } = await new Extractor().extract(media.id, tracksDir)
+    const { failed } = await new Extractor().extract(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
     const extracted = tracks.filter((t) => t.path !== null)
@@ -187,7 +186,7 @@ describe('new Extractor().extract', () => {
       is_default: false,
     })
 
-    await new Extractor().extract(media.id, tracksDir)
+    await new Extractor().extract(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
     const failedTrack = tracks.find((t) => t.id === fakeTrack.id)!
@@ -199,9 +198,9 @@ describe('new Extractor().extract', () => {
   test('re-executing extract skips already extracted tracks', async () => {
     const media = await seedAndScan()
 
-    await new Extractor().extract(media.id, tracksDir)
+    await new Extractor().extract(media.id)
 
-    const { failed } = await new Extractor().extract(media.id, tracksDir)
+    const { failed } = await new Extractor().extract(media.id)
 
     expect(failed).toHaveLength(0)
 
@@ -219,7 +218,7 @@ describe('new Extractor().extract', () => {
       root_folder: join(tmpDir, 'media-noyear'),
     })
 
-    await new Extractor().extract(media.id, tracksDir)
+    await new Extractor().extract(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
     const video = tracks.find((t) => t.stream_type === 'video')!
@@ -235,7 +234,7 @@ describe('new Extractor().extract', () => {
       root_folder: join(tmpDir, 'media-noyear'),
     })
 
-    await new Extractor().extract(media.id, tracksDir)
+    await new Extractor().extract(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
     const video = tracks.find((t) => t.stream_type === 'video')!
@@ -261,7 +260,7 @@ describe('new Extractor().extract', () => {
     })
 
     await new Scanner().scan(media.id)
-    await new Extractor().extract(media.id, tracksDir)
+    await new Extractor().extract(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
     const sub = tracks.find((t) => t.stream_type === 'subtitle')!
