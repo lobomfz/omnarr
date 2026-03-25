@@ -148,7 +148,7 @@ export class Handler {
     this.output(result, `Added: ${Formatters.mediaTitle(result)}`)
   }
 
-  private async listDownloads(limit: number) {
+  private async listDownloads(limit: number, clear = false) {
     const downloads = await new Downloads().list(limit)
 
     if (downloads.length === 0) {
@@ -156,15 +156,19 @@ export class Handler {
       return
     }
 
-    this.output(
-      downloads.map((d) => ({
-        Title: Formatters.mediaTitle(d),
-        Progress: Formatters.progress(d.progress),
-        Speed: Formatters.speed(d.speed),
-        ETA: Formatters.eta(d.eta),
-        Status: d.status,
-      }))
-    )
+    const parsed = downloads.map((d) => ({
+      Title: Formatters.mediaTitle(d),
+      Progress: Formatters.progress(d.progress),
+      Speed: Formatters.speed(d.speed),
+      ETA: Formatters.eta(d.eta),
+      Status: d.status,
+    }))
+
+    if (clear) {
+      console.clear()
+    }
+
+    this.output(parsed)
   }
 
   async status(opts: { watch?: boolean; limit?: number }) {
@@ -178,8 +182,7 @@ export class Handler {
     process.on('SIGINT', () => process.exit(0))
 
     while (true) {
-      console.clear()
-      await this.listDownloads(limit)
+      await this.listDownloads(limit, true)
       await Bun.sleep(2000)
     }
   }
