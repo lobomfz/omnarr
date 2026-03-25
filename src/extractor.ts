@@ -21,12 +21,12 @@ type TrackInput = Pick<
   | 'channel_layout'
 >
 
-const STREAM_EXTENSIONS: Record<string, string> = {
+const STREAM_EXTENSIONS: Partial<Record<stream_type, string>> = {
   video: '.mkv',
   audio: '.mka',
 }
 
-const SUBTITLE_EXTENSIONS: Record<string, string> = {
+const SUBTITLE_CODEC_EXTENSIONS: Record<string, string> = {
   subrip: '.srt',
   ass: '.ass',
   hdmv_pgs_subtitle: '.sup',
@@ -95,7 +95,9 @@ export class Extractor {
 
   private extension(streamType: stream_type, codecName: string) {
     return (
-      STREAM_EXTENSIONS[streamType] ?? SUBTITLE_EXTENSIONS[codecName] ?? '.mks'
+      STREAM_EXTENSIONS[streamType] ??
+      SUBTITLE_CODEC_EXTENSIONS[codecName] ??
+      '.mks'
     )
   }
 

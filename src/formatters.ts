@@ -109,12 +109,8 @@ export const Formatters = {
     track_count: number
     extracted_count: number
   }) {
-    if (media.file_count === 0) {
+    if (media.file_count === 0 || media.track_count === 0) {
       return '—'
-    }
-
-    if (media.track_count === 0) {
-      return 'scanned'
     }
 
     if (media.extracted_count === media.track_count) {
