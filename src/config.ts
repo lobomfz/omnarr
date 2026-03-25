@@ -2,6 +2,7 @@ import { type } from 'arktype'
 
 import { envVariables } from '@/env'
 import { indexerSchema } from '@/integrations/indexers/registry'
+import { Log } from '@/log'
 
 const qbittorrentClient = type({
   type: "'qbittorrent'",
@@ -23,7 +24,12 @@ const configSchema = type({
 
 export type Config = typeof configSchema.infer
 export const configJsonSchema = configSchema.toJsonSchema()
-export const config = await getConfig().catch(() => configSchema.assert({}))
+export const config = await getConfig().catch(async (err) => {
+  await Log.warn(
+    `config load failed path="${envVariables.OMNARR_CONFIG_PATH}" error="${err.message}"`
+  )
+  return configSchema.assert({})
+})
 
 async function getConfig() {
   const json = await Bun.file(envVariables.OMNARR_CONFIG_PATH).json()

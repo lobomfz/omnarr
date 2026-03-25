@@ -28,10 +28,12 @@ export const DbMediaFiles = {
   },
 
   async deleteByMediaId(mediaId: string) {
-    return await db
+    const result = await db
       .deleteFrom('media_files')
       .where('media_id', '=', mediaId)
-      .execute()
+      .executeTakeFirstOrThrow()
+
+    return Number(result.numDeletedRows)
   },
 
   async deleteByIds(ids: number[]) {

@@ -3,20 +3,27 @@ import axios from 'redaxios'
 
 import { media_type } from '@/db/connection'
 import { envVariables } from '@/env'
+import { Log } from '@/log'
 
 import type { TmdbTypes } from './types'
 
 export class TmdbClient {
   private async request<T>(url: string, params?: Record<string, unknown>) {
+    await Log.info(`tmdb request url=${url} params=${JSON.stringify(params)}`)
+
     const { data } = await axios<T>({
       method: 'GET',
       baseURL: envVariables.TMDB_API_URL,
       url,
       params: { api_key: envVariables.TMDB_API_KEY, ...params },
-    }).catch((e) => {
-      throw new Error(
-        `TMDB ${e.status}: ${e.data?.status_message ?? e.statusText}`
+    }).catch(async (e) => {
+      const message = e.data?.status_message ?? e.statusText
+
+      await Log.error(
+        `tmdb request failed url=${url} status=${e.status} message="${message}"`
       )
+
+      throw new Error(`TMDB ${e.status}: ${message}`)
     })
 
     return data

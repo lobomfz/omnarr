@@ -4,6 +4,7 @@ import type {
   DownloadClient,
   TorrentStatus,
 } from '@/integrations/download-client'
+import { Log } from '@/log'
 
 interface QBitTorrent {
   hash: string
@@ -43,6 +44,8 @@ export class QBittorrentClient implements DownloadClient {
   ) {}
 
   private async login() {
+    await Log.info(`qbittorrent login attempt url=${this.config.url}`)
+
     const response = await fetch(`${this.config.url}/api/v2/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -55,10 +58,12 @@ export class QBittorrentClient implements DownloadClient {
       ?.match(/SID=([^;]+)/)?.[1]
 
     if (!sid) {
+      await Log.error(`qbittorrent login failed url=${this.config.url}`)
       throw new Error('qBittorrent login failed')
     }
 
     this.cookie = sid
+    await Log.info('qbittorrent login success')
   }
 
   private async request<T>(options: {
@@ -71,11 +76,17 @@ export class QBittorrentClient implements DownloadClient {
       await this.login()
     }
 
+    await Log.info(`qbittorrent request ${options.method} ${options.url}`)
+
     const { data } = await axios<T>({
       ...options,
       baseURL: this.config.url,
       headers: { Cookie: `SID=${this.cookie}` },
-    }).catch((e) => {
+    }).catch(async (e) => {
+      await Log.error(
+        `qbittorrent request failed ${options.method} ${options.url} status=${e.status} statusText="${e.statusText}"`
+      )
+
       throw new Error(`qBittorrent ${e.status}: ${e.statusText}`)
     })
 

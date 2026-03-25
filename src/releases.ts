@@ -3,6 +3,7 @@ import { media_type } from '@/db/connection'
 import { DbReleases } from '@/db/releases'
 import { indexerMap } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
+import { Log } from '@/log'
 
 export const Releases = {
   async fetch(tmdb_id: number, type: media_type) {
@@ -18,13 +19,34 @@ export const Releases = {
       throw new Error('No indexers configured.')
     }
 
+    await Log.info(
+      `fetching releases tmdb_id=${tmdb_id} type=${type} indexers=${indexers.length}`
+    )
+
     const results = await Promise.all(
-      indexers.map((i) =>
-        i.search({
-          tmdb_id: String(tmdb_id),
-          imdb_id: externalIds.imdb_id!,
-        })
-      )
+      indexers.map(async (i) => {
+        await Log.info(
+          `searching indexer=${i.constructor.name} imdb_id=${externalIds.imdb_id}`
+        )
+
+        return await i
+          .search({
+            tmdb_id: String(tmdb_id),
+            imdb_id: externalIds.imdb_id!,
+          })
+          .then(async (r) => {
+            await Log.info(
+              `indexer=${i.constructor.name} returned ${r.length} results`
+            )
+            return r
+          })
+          .catch(async (err) => {
+            await Log.warn(
+              `indexer=${i.constructor.name} failed error="${err.message}"`
+            )
+            return []
+          })
+      })
     )
 
     return results.flat()
@@ -33,6 +55,10 @@ export const Releases = {
   async search(tmdb_id: number, type: media_type) {
     const releases = await this.fetch(tmdb_id, type)
 
-    return await DbReleases.upsert(tmdb_id, type, releases)
+    const persisted = await DbReleases.upsert(tmdb_id, type, releases)
+
+    await Log.info(`releases persisted count=${persisted.length}`)
+
+    return persisted
   },
 }

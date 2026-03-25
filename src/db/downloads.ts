@@ -92,10 +92,10 @@ export const DbDownloads = {
 
   async batchUpdate(rows: Insertable<DB['downloads']>[]) {
     if (rows.length === 0) {
-      return
+      return 0
     }
 
-    await db
+    const result = await db
       .insertInto('downloads')
       .values(rows)
       .onConflict((oc) =>
@@ -107,17 +107,21 @@ export const DbDownloads = {
           error_at: (eb) => eb.ref('excluded.error_at'),
         })
       )
-      .execute()
+      .executeTakeFirstOrThrow()
+
+    return Number(result.numInsertedOrUpdatedRows)
   },
 
   async deleteStaleErrors() {
     const cutoff = dayjs().subtract(24, 'hours').toISOString()
 
-    await db
+    const result = await db
       .deleteFrom('downloads')
       .where('status', '=', 'error')
       .where('error_at', '<=', cutoff)
-      .execute()
+      .executeTakeFirstOrThrow()
+
+    return Number(result.numDeletedRows)
   },
 
   async deleteByMediaId(mediaId: string) {

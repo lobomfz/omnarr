@@ -6,6 +6,7 @@ import { Formatters } from '@/formatters'
 import type { DownloadClient } from '@/integrations/download-client'
 import { QBittorrentClient } from '@/integrations/qbittorrent/client'
 import { TmdbClient } from '@/integrations/tmdb/client'
+import { Log } from '@/log'
 import { deriveId } from '@/utils'
 
 export class Downloads {
@@ -54,6 +55,10 @@ export class Downloads {
       root_folder: rootFolder,
     })
 
+    await Log.info(
+      `adding torrent info_hash=${params.info_hash} title="${details.title}"`
+    )
+
     const download = await DbDownloads.create({
       media_id: media.id,
       info_hash: params.info_hash,
@@ -66,6 +71,8 @@ export class Downloads {
       url: params.download_url,
       savepath,
     })
+
+    await Log.info(`torrent sent to client savepath="${savepath}"`)
 
     return { media, download, title: details.title, year: details.year }
   }
@@ -87,6 +94,8 @@ export class Downloads {
   }
 
   private async syncDownloads(client: DownloadClient) {
+    await Log.info('sync started')
+
     const [active, statuses] = await Promise.all([
       DbDownloads.listActive(),
       client.getTorrentStatuses(),
@@ -95,26 +104,39 @@ export class Downloads {
     const statusByHash = new Map(statuses.map((s) => [s.hash, s]))
     const now = new Date().toISOString()
 
-    await DbDownloads.batchUpdate(
-      active.map((d) => {
-        const s = statusByHash.get(d.info_hash)
-        const progress = s?.progress ?? d.progress
-        const status = s ? (s.progress >= 1 ? 'completed' : s.status) : 'error'
+    const updates = active.map((d) => {
+      const s = statusByHash.get(d.info_hash)
+      const status = s ? (s.progress >= 1 ? 'completed' : s.status) : 'error'
 
-        return {
-          id: d.id,
-          media_id: d.media_id,
-          info_hash: d.info_hash,
-          download_url: d.download_url,
-          progress,
-          speed: s?.speed ?? 0,
-          eta: s?.eta ?? 0,
-          status,
-          error_at: status === 'error' ? (d.error_at ?? now) : null,
-        }
-      })
+      if (status === 'error') {
+        Log.warn(`download entered error status info_hash=${d.info_hash}`)
+      } else if (d.error_at) {
+        Log.info(`download exited error status info_hash=${d.info_hash}`)
+      }
+
+      return {
+        id: d.id,
+        media_id: d.media_id,
+        info_hash: d.info_hash,
+        download_url: d.download_url,
+        progress: s?.progress ?? d.progress,
+        speed: s?.speed ?? 0,
+        eta: s?.eta ?? 0,
+        status,
+        error_at: status === 'error' ? (d.error_at ?? now) : null,
+      }
+    })
+
+    const updatedCount = await DbDownloads.batchUpdate(updates)
+
+    const deleted = await DbDownloads.deleteStaleErrors()
+
+    if (deleted > 0) {
+      await Log.info(`stale errors deleted count=${deleted}`)
+    }
+
+    await Log.info(
+      `sync complete active=${active.length} updated=${updatedCount}`
     )
-
-    await DbDownloads.deleteStaleErrors()
   }
 }

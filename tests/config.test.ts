@@ -9,7 +9,7 @@ describe('config', () => {
   })
 
   test('parses tracks root folder', () => {
-    expect(config.root_folders?.tracks).toBe('/tracks')
+    expect(config.root_folders?.tracks).toBe('/tmp/omnarr-test-tracks')
   })
 
   test('parses indexers with discriminated union', () => {

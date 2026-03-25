@@ -1,6 +1,5 @@
 import { type, type Type } from 'arktype'
 
-import { config } from '@/config'
 import { DbMedia } from '@/db/media'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbReleases } from '@/db/releases'
@@ -9,6 +8,7 @@ import { Downloads } from '@/downloads'
 import { Extractor } from '@/extractor'
 import { Formatters } from '@/formatters'
 import { TmdbClient } from '@/integrations/tmdb/client'
+import { Log } from '@/log'
 import { Releases } from '@/releases'
 import { Scanner } from '@/scanner'
 import { extractSchemaProps } from '@/utils'
@@ -59,7 +59,13 @@ export class Handler {
   async search() {
     const { query } = this.parseArgs('search', type({ query: 'string' }))
 
+    await Log.info(`command=search query="${query}"`)
+
     const tmdbResults = await new TmdbClient().search(query)
+
+    await Log.info(
+      `tmdb returned ${tmdbResults.length} results query="${query}"`
+    )
 
     if (tmdbResults.length === 0) {
       console.log('No results found.')
@@ -74,6 +80,8 @@ export class Handler {
         year: r.year ?? undefined,
       }))
     )
+
+    await Log.info(`search results persisted count=${results.length}`)
 
     this.output(
       results,
@@ -91,6 +99,8 @@ export class Handler {
       'releases',
       type({ search_id: 'string' })
     )
+
+    await Log.info(`command=releases search_id=${search_id}`)
 
     const searchResult = await DbSearchResults.getById(search_id)
 
@@ -130,6 +140,8 @@ export class Handler {
       'download',
       type({ release_id: 'string' })
     )
+
+    await Log.info(`command=download release_id=${release_id}`)
 
     const release = await DbReleases.getById(release_id)
 
@@ -194,6 +206,8 @@ export class Handler {
       type({ release_id: 'string' })
     )
 
+    await Log.info(`command=wait-for release_id=${release_id}`)
+
     const release = await DbReleases.getById(release_id)
 
     if (!release) {
@@ -212,11 +226,13 @@ export class Handler {
       }
 
       if (download.status === 'completed') {
+        await Log.info(`download completed release_id=${release_id}`)
         this.output(download, `Done: ${Formatters.mediaTitle(download)}`)
         return
       }
 
       if (download.status === 'error') {
+        await Log.warn(`download failed release_id=${release_id}`)
         throw new Error(`Download failed: ${Formatters.mediaTitle(download)}`)
       }
 
@@ -226,6 +242,8 @@ export class Handler {
 
   async scan(opts: { force?: boolean }) {
     const { media_id } = this.parseArgs('scan', type({ media_id: 'string' }))
+
+    await Log.info(`command=scan media_id=${media_id} force=${!!opts.force}`)
 
     const files = await new Scanner().scan(media_id, opts)
 
@@ -249,16 +267,9 @@ export class Handler {
   async extract() {
     const { media_id } = this.parseArgs('extract', type({ media_id: 'string' }))
 
-    if (!config.root_folders?.tracks) {
-      throw new Error(
-        'root_folders.tracks not configured. Run "omnarr init" first.'
-      )
-    }
+    await Log.info(`command=extract media_id=${media_id}`)
 
-    const { failed } = await new Extractor().extract(
-      media_id,
-      config.root_folders.tracks
-    )
+    const { failed } = await new Extractor().extract(media_id)
 
     const tracks = await DbMediaTracks.getByMediaId(media_id)
 
