@@ -61,8 +61,11 @@ export class Scanner {
 
     for (const fullPath of diskPaths) {
       if (!existingPaths.has(fullPath)) {
-        await this.probeAndPersist(mediaId, fullPath)
-        newCount++
+        const success = await this.probeAndPersist(mediaId, fullPath)
+
+        if (success) {
+          newCount++
+        }
       }
     }
 
@@ -105,10 +108,14 @@ export class Scanner {
       await Log.info(
         `probe complete file="${fullPath}" streams=${probe.streams.length} duration=${probe.format.duration} format=${probe.format.format_name}`
       )
+
+      return true
     } catch (err) {
       await Log.warn(
         `probe failed file="${fullPath}" error="${err instanceof Error ? err.message : String(err)}"`
       )
+
+      return false
     }
   }
 

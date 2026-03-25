@@ -104,28 +104,34 @@ export class Downloads {
     const statusByHash = new Map(statuses.map((s) => [s.hash, s]))
     const now = new Date().toISOString()
 
-    const updates = active.map((d) => {
-      const s = statusByHash.get(d.info_hash)
-      const status = s ? (s.progress >= 1 ? 'completed' : s.status) : 'error'
+    const updates = await Promise.all(
+      active.map(async (d) => {
+        const s = statusByHash.get(d.info_hash)
+        const status = s ? (s.progress >= 1 ? 'completed' : s.status) : 'error'
 
-      if (status === 'error') {
-        Log.warn(`download entered error status info_hash=${d.info_hash}`)
-      } else if (d.error_at) {
-        Log.info(`download exited error status info_hash=${d.info_hash}`)
-      }
+        if (status === 'error') {
+          await Log.warn(
+            `download entered error status info_hash=${d.info_hash}`
+          )
+        } else if (d.error_at) {
+          await Log.info(
+            `download exited error status info_hash=${d.info_hash}`
+          )
+        }
 
-      return {
-        id: d.id,
-        media_id: d.media_id,
-        info_hash: d.info_hash,
-        download_url: d.download_url,
-        progress: s?.progress ?? d.progress,
-        speed: s?.speed ?? 0,
-        eta: s?.eta ?? 0,
-        status,
-        error_at: status === 'error' ? (d.error_at ?? now) : null,
-      }
-    })
+        return {
+          id: d.id,
+          media_id: d.media_id,
+          info_hash: d.info_hash,
+          download_url: d.download_url,
+          progress: s?.progress ?? d.progress,
+          speed: s?.speed ?? 0,
+          eta: s?.eta ?? 0,
+          status,
+          error_at: status === 'error' ? (d.error_at ?? now) : null,
+        }
+      })
+    )
 
     const updatedCount = await DbDownloads.batchUpdate(updates)
 
