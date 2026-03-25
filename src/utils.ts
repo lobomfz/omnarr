@@ -1,5 +1,6 @@
 import { type Type } from 'arktype'
 
+// TODO: maybe find a better way to do this
 export function extractSchemaProps(schema: Type) {
   const props: { key: string; required: boolean }[] =
     (schema as any).structure?.props ?? []

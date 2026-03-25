@@ -1,7 +1,9 @@
 import { Mock } from '@lobomfz/ghostapi'
 import { type } from 'arktype'
 
-export const BeyondHdMock = new Mock(
+import { envVariables } from '@/env'
+
+const BeyondHdMock = new Mock(
   {
     results: type({
       id: 'number',
@@ -32,6 +34,9 @@ export const BeyondHdMock = new Mock(
       },
       { params: type({ api_key: 'string' }) }
     )
+  },
+  {
+    base_url: envVariables.BEYOND_HD_API_URL,
   }
 )
 
@@ -68,5 +73,3 @@ await BeyondHdMock.db
     },
   ])
   .execute()
-
-BeyondHdMock.listen(19003)

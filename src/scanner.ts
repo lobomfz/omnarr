@@ -36,11 +36,11 @@ export class Scanner {
 
     const existingPaths = new Set(existingFiles.map((f) => f.path))
 
-    for (const file of existingFiles) {
-      if (!diskPaths.has(file.path)) {
-        await DbMediaFiles.deleteById(file.id)
-      }
-    }
+    const toDelete = existingFiles
+      .filter((f) => !diskPaths.has(f.path))
+      .map((f) => f.id)
+
+    await DbMediaFiles.deleteByIds(toDelete)
 
     for (const fullPath of diskPaths) {
       if (!existingPaths.has(fullPath)) {
@@ -62,8 +62,8 @@ export class Scanner {
       duration: probe.format.duration,
     })
 
-    for (const stream of probe.streams) {
-      await DbMediaTracks.create({
+    await DbMediaTracks.createMany(
+      probe.streams.map((stream) => ({
         media_file_id: file.id,
         stream_index: stream.index,
         stream_type: stream.codec_type,
@@ -72,8 +72,8 @@ export class Scanner {
         title: stream.tags?.title,
         is_default: !!stream.disposition?.default,
         ...this.streamFields(stream),
-      })
-    }
+      }))
+    )
   }
 
   private streamFields(stream: Stream) {

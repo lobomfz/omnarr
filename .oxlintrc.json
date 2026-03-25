@@ -18,7 +18,8 @@
     "eslint/eqeqeq": "off",
     "complexity": ["warn", { "max": 40 }],
     "max-depth": ["warn", { "max": 4 }],
-    "max-nested-callbacks": ["warn", { "max": 4 }]
+    "max-nested-callbacks": ["warn", { "max": 4 }],
+    "no-map-spread": "off"
   },
   "categories": {
     "correctness": "error",

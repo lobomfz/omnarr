@@ -40,6 +40,11 @@ async function runLint() {
   return result.exitCode
 }
 
+async function runKnip() {
+  const result = await $`bunx knip-bun`.cwd(ROOT).nothrow()
+  return result.exitCode
+}
+
 async function runCpd() {
   if (changedFiles.size === 0) {
     console.log('[cpd] No changed TS files in src/ — skipping.')
@@ -88,6 +93,6 @@ async function runCpd() {
   return 1
 }
 
-const exits = await Promise.all([runTypes(), runLint(), runCpd()])
+const exits = await Promise.all([runTypes(), runLint(), runKnip(), runCpd()])
 
 process.exit(exits.some((code) => code !== 0) ? 1 : 0)

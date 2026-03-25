@@ -1,0 +1,15 @@
+{
+  "entry": [
+    "scripts/*.ts",
+    "tests/**/*.test.ts"
+  ],
+  "project": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "scripts/*.ts"
+  ],
+  "ignoreDependencies": [
+    "@lobomfz/ffmpeg",
+    "oxfmt"
+  ]
+}

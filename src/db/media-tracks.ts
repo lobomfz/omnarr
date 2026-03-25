@@ -11,6 +11,14 @@ export const DbMediaTracks = {
       .executeTakeFirstOrThrow()
   },
 
+  async createMany(data: Insertable<DB['media_tracks']>[]) {
+    if (data.length === 0) {
+      return
+    }
+
+    await db.insertInto('media_tracks').values(data).execute()
+  },
+
   async getByMediaFileId(mediaFileId: number) {
     return await db
       .selectFrom('media_tracks')

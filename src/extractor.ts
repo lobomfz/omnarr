@@ -1,27 +1,35 @@
 import { mkdir } from 'fs/promises'
 import { dirname, join } from 'path'
 
+import type { Selectable } from '@lobomfz/db'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
+import type { DB, media_type, stream_type } from '@/db/connection'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { Formatters } from '@/formatters'
 
+type TrackInput = Pick<
+  Selectable<DB['media_tracks']>,
+  | 'stream_index'
+  | 'stream_type'
+  | 'codec_name'
+  | 'language'
+  | 'width'
+  | 'height'
+  | 'channel_layout'
+>
+
+const STREAM_EXTENSIONS: Record<string, string> = {
+  video: '.mkv',
+  audio: '.mka',
+}
+
 const SUBTITLE_EXTENSIONS: Record<string, string> = {
   subrip: '.srt',
   ass: '.ass',
   hdmv_pgs_subtitle: '.sup',
-}
-
-interface TrackInput {
-  stream_index: number
-  stream_type: string
-  codec_name: string
-  language: string | null
-  width: number | null
-  height: number | null
-  channel_layout: string | null
 }
 
 export class Extractor {
@@ -60,7 +68,7 @@ export class Extractor {
     track: { id: number; media_file_id: number } & TrackInput,
     filePathMap: Map<number, string>,
     tracksRootFolder: string,
-    media: { media_type: string; title: string; year: number | null }
+    media: { media_type: media_type; title: string; year: number | null }
   ) {
     const sourcePath = filePathMap.get(track.media_file_id)!
     const outPath = this.outputPath(
@@ -85,16 +93,10 @@ export class Extractor {
     await DbMediaTracks.update(track.id, { path: outPath, size })
   }
 
-  extension(streamType: string, codecName: string) {
-    if (streamType === 'video') {
-      return '.mkv'
-    }
-
-    if (streamType === 'audio') {
-      return '.mka'
-    }
-
-    return SUBTITLE_EXTENSIONS[codecName] ?? '.mks'
+  extension(streamType: stream_type, codecName: string) {
+    return (
+      STREAM_EXTENSIONS[streamType] ?? SUBTITLE_EXTENSIONS[codecName] ?? '.mks'
+    )
   }
 
   filename(track: TrackInput) {
@@ -117,7 +119,7 @@ export class Extractor {
 
   outputPath(
     tracksRootFolder: string,
-    mediaType: string,
+    mediaType: media_type,
     title: string,
     year: number | null,
     track: TrackInput

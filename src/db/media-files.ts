@@ -34,7 +34,11 @@ export const DbMediaFiles = {
       .execute()
   },
 
-  async deleteById(id: number) {
-    return await db.deleteFrom('media_files').where('id', '=', id).execute()
+  async deleteByIds(ids: number[]) {
+    if (ids.length === 0) {
+      return
+    }
+
+    return await db.deleteFrom('media_files').where('id', 'in', ids).execute()
   },
 }

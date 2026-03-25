@@ -1,19 +1,19 @@
 import { Mock } from '@lobomfz/ghostapi'
 import { type } from 'arktype'
 
-const torrentSchema = type({
-  hash: 'string',
-  url: 'string',
-  savepath: 'string',
-  category: 'string',
-  progress: 'number',
-  dlspeed: 'number',
-  eta: 'number',
-  state: 'string',
-})
-
 export const QBittorrentMock = new Mock(
-  { torrents: torrentSchema },
+  {
+    torrents: type({
+      hash: 'string',
+      url: 'string',
+      savepath: 'string',
+      category: 'string',
+      progress: 'number',
+      dlspeed: 'number',
+      eta: 'number',
+      state: 'string',
+    }),
+  },
   (app, { db }) => {
     app.post('/api/v2/auth/login', ({ body }) => {
       const params = new URLSearchParams(body as string)
@@ -60,12 +60,20 @@ export const QBittorrentMock = new Mock(
 
       await db
         .insertInto('torrents')
-        .values({ hash, url, savepath, category, progress: 0, dlspeed: 0, eta: 0, state: 'downloading' })
+        .values({
+          hash,
+          url,
+          savepath,
+          category,
+          progress: 0,
+          dlspeed: 0,
+          eta: 0,
+          state: 'downloading',
+        })
         .execute()
 
       return 'Ok.'
     })
   },
+  { port: 19005 }
 )
-
-QBittorrentMock.listen(19005)

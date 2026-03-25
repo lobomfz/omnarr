@@ -1,6 +1,8 @@
 import { Mock } from '@lobomfz/ghostapi'
 import { type } from 'arktype'
 
+import { envVariables } from '@/env'
+
 export const TmdbMock = new Mock(
   {
     media: type({
@@ -49,7 +51,12 @@ export const TmdbMock = new Mock(
           .where('id', '=', params.id)
           .executeTakeFirstOrThrow()
       },
-      { params: type({ mediaType: "'movie' | 'tv'", id: 'string.integer.parse' }) }
+      {
+        params: type({
+          mediaType: "'movie' | 'tv'",
+          id: 'string.integer.parse',
+        }),
+      }
     )
 
     app.get(
@@ -61,8 +68,16 @@ export const TmdbMock = new Mock(
           .where('tmdb_id', '=', params.id)
           .executeTakeFirstOrThrow()
       },
-      { params: type({ mediaType: "'movie' | 'tv'", id: 'string.integer.parse' }) }
+      {
+        params: type({
+          mediaType: "'movie' | 'tv'",
+          id: 'string.integer.parse',
+        }),
+      }
     )
+  },
+  {
+    base_url: envVariables.TMDB_API_URL,
   }
 )
 
@@ -91,5 +106,3 @@ await TmdbMock.db
   .insertInto('external_ids')
   .values({ tmdb_id: 603, imdb_id: 'tt0133093' })
   .execute()
-
-TmdbMock.listen(19001)
