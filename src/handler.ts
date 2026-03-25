@@ -1,11 +1,16 @@
 import { type, type Type } from 'arktype'
 
+import { config } from '@/config'
+import { DbMediaTracks } from '@/db/media-tracks'
 import { DbReleases } from '@/db/releases'
 import { DbSearchResults } from '@/db/search-results'
 import { Downloads } from '@/downloads'
+import { Extractor } from '@/extractor'
 import { Formatters } from '@/formatters'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/releases'
+import { Scanner } from '@/scanner'
+import { extractSchemaProps } from '@/utils'
 
 export class Handler {
   constructor(
@@ -29,9 +34,7 @@ export class Handler {
   }
 
   private parseArgs<T extends Type>(command: string, schema: T): T['infer'] {
-    const jsonSchema = schema.toJsonSchema()
-    const keys = Object.keys((jsonSchema as any).properties ?? {})
-    const required = new Set<string>((jsonSchema as any).required ?? [])
+    const { keys, required } = extractSchemaProps(schema)
 
     const obj: Record<string, string> = {}
 
@@ -215,5 +218,56 @@ export class Handler {
 
       await Bun.sleep(interval)
     }
+  }
+
+  async scan() {
+    const { media_id } = this.parseArgs(
+      'scan',
+      type({ media_id: 'string.numeric.parse' })
+    )
+
+    const files = await new Scanner().scan(media_id)
+
+    if (files.length === 0) {
+      console.log('No media files found.')
+      return
+    }
+
+    const allTracks = await DbMediaTracks.getByMediaId(media_id)
+
+    const tracksByFile = Map.groupBy(allTracks, (t) => t.media_file_id)
+
+    const result = files.map((f) =>
+      Object.assign(f, { tracks: tracksByFile.get(f.id) ?? [] })
+    )
+
+    this.output(result, Formatters.scanResult(result))
+  }
+
+  async extract() {
+    const { media_id } = this.parseArgs(
+      'extract',
+      type({ media_id: 'string.numeric.parse' })
+    )
+
+    if (!config.root_folders?.tracks) {
+      throw new Error(
+        'root_folders.tracks not configured. Run "omnarr init" first.'
+      )
+    }
+
+    const { failed } = await new Extractor().extract(
+      media_id,
+      config.root_folders.tracks
+    )
+
+    const tracks = await DbMediaTracks.getByMediaId(media_id)
+
+    if (tracks.length === 0) {
+      console.log('No tracks to extract.')
+      return
+    }
+
+    this.output({ tracks, failed }, Formatters.extractResult(tracks, failed))
   }
 }

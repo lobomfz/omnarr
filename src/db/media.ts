@@ -23,7 +23,7 @@ export const DbMedia = {
       .selectFrom('media as m')
       .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
       .where('m.id', '=', id)
-      .select(['m.root_folder', 't.title', 't.year'])
+      .select(['m.root_folder', 'm.media_type', 't.title', 't.year'])
       .executeTakeFirst()
   },
 

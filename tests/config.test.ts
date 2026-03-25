@@ -8,6 +8,10 @@ describe('config', () => {
     expect(config.root_folders?.tv).toBe('/tv')
   })
 
+  test('parses tracks root folder', () => {
+    expect(config.root_folders?.tracks).toBe('/tracks')
+  })
+
   test('parses indexers with discriminated union', () => {
     expect(config.indexers).toHaveLength(2)
     expect(config.indexers![0].type).toBe('beyond-hd')

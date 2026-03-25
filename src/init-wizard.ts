@@ -42,7 +42,11 @@ export class InitWizard {
       placeholder: '/media/tv',
     })
 
-    return { movie, tv }
+    const tracks = await this.prompt('Tracks root folder:', {
+      placeholder: '/media/tracks',
+    })
+
+    return { movie, tv, tracks }
   }
 
   private async promptIndexers() {

@@ -8,6 +8,7 @@ import { envVariables } from '@/env'
 mkdirSync(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
 
 const media_type = type.enumerated('movie', 'tv')
+const stream_type = type.enumerated('video', 'audio', 'subtitle')
 const download_status = type.enumerated(
   'downloading',
   'seeding',
@@ -82,6 +83,42 @@ export const database = new Database({
         error_at: 'string | null',
         started_at: generated('now'),
       }),
+
+      media_files: type({
+        id: generated('autoincrement'),
+        media_id: type('number.integer').configure({
+          references: 'media.id',
+          onDelete: 'cascade',
+        }),
+        path: 'string',
+        size: 'number',
+        'format_name?': 'string',
+        'duration?': 'number',
+        scanned_at: generated('now'),
+      }),
+
+      media_tracks: type({
+        id: generated('autoincrement'),
+        media_file_id: type('number.integer').configure({
+          references: 'media_files.id',
+          onDelete: 'cascade',
+        }),
+        stream_index: 'number.integer',
+        stream_type: stream_type,
+        codec_name: 'string',
+        'language?': 'string',
+        'title?': 'string',
+        is_default: 'boolean',
+        'path?': 'string',
+        'size?': 'number',
+        'width?': 'number.integer',
+        'height?': 'number.integer',
+        'framerate?': 'number',
+        'bit_rate?': 'number',
+        'channels?': 'number.integer',
+        'channel_layout?': 'string',
+        'sample_rate?': 'number.integer',
+      }),
     },
     indexes: {
       tmdb_media: [
@@ -119,4 +156,5 @@ export const database = new Database({
 export type DB = typeof database.infer
 export const db = database.kysely
 export type media_type = typeof media_type.infer
+export type stream_type = typeof stream_type.infer
 export type download_status = typeof download_status.infer
