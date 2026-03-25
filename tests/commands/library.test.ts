@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { testCommand } from '@bunli/test'
+
+import { LibraryCommand } from '@/commands/library'
 import { database } from '@/db/connection'
-import { DbMedia } from '@/db/media'
 import { DbReleases } from '@/db/releases'
 import { Downloads } from '@/downloads'
-import { Formatters } from '@/formatters'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/releases'
 
@@ -41,10 +42,15 @@ describe('library command', async () => {
   test('shows downloading status when torrent is active', async () => {
     await new Downloads().add(addParams)
 
-    const media = await DbMedia.list()
+    const result = await testCommand(LibraryCommand, {
+      args: [],
+      flags: { json: true },
+    })
 
-    expect(media).toHaveLength(1)
-    expect(Formatters.mediaStatus(media[0])).toBe('downloading')
+    const rows = JSON.parse(result.stdout)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].download_status).toBe('downloading')
   })
 
   test('shows downloaded status when torrent is completed but not scanned', async () => {
@@ -55,9 +61,14 @@ describe('library command', async () => {
       .set({ status: 'completed' })
       .execute()
 
-    const media = await DbMedia.list()
+    const result = await testCommand(LibraryCommand, {
+      args: [],
+      flags: { json: true },
+    })
 
-    expect(media).toHaveLength(1)
-    expect(Formatters.mediaStatus(media[0])).toBe('downloaded')
+    const rows = JSON.parse(result.stdout)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].download_status).toBe('completed')
   })
 })

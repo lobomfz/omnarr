@@ -36,18 +36,23 @@ export class Scanner {
       return await DbMediaFiles.getByMediaId(mediaId)
     }
 
-    const diskFiles = await this.discoverFiles(downloads)
+    const { files: diskFiles, resolvedIds } =
+      await this.discoverFiles(downloads)
 
-    return await this.reconcile(mediaId, diskFiles)
+    return await this.reconcile(mediaId, diskFiles, resolvedIds)
   }
 
-  private async reconcile(mediaId: string, diskFiles: Map<string, number>) {
+  private async reconcile(
+    mediaId: string,
+    diskFiles: Map<string, number>,
+    resolvedIds: Set<number>
+  ) {
     const existingFiles = await DbMediaFiles.getByMediaId(mediaId)
 
     const existingPaths = new Set(existingFiles.map((f) => f.path))
 
     const staleIds = existingFiles
-      .filter((f) => !diskFiles.has(f.path))
+      .filter((f) => resolvedIds.has(f.download_id) && !diskFiles.has(f.path))
       .map((f) => f.id)
 
     if (staleIds.length > 0) {
@@ -92,6 +97,7 @@ export class Scanner {
     downloads: { id: number; content_path: string }[]
   ) {
     const files = new Map<string, number>()
+    const resolvedIds = new Set<number>()
 
     for (const dl of downloads) {
       const resolved = await this.resolveContentPath(dl.content_path).catch(
@@ -99,9 +105,15 @@ export class Scanner {
           await Log.warn(
             `scan content_path not accessible: "${dl.content_path}"`
           )
-          return [] as string[]
+          return null
         }
       )
+
+      if (!resolved) {
+        continue
+      }
+
+      resolvedIds.add(dl.id)
 
       for (const path of resolved) {
         files.set(path, dl.id)
@@ -112,7 +124,7 @@ export class Scanner {
       `scan discovered ${files.size} files from ${downloads.length} content_paths`
     )
 
-    return files
+    return { files, resolvedIds }
   }
 
   private async resolveContentPath(contentPath: string) {
