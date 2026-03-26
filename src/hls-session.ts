@@ -1,4 +1,5 @@
-import { mkdir, rm } from 'fs/promises'
+import { watch as fsWatch, type FSWatcher } from 'fs'
+import { mkdir, rm, readdir, unlink } from 'fs/promises'
 import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
@@ -8,9 +9,14 @@ import { Log } from '@/log'
 export class HlsSession {
   private segments: { pts: number; duration: number }[]
   private process: ReturnType<FFmpegBuilder['spawn']> | null = null
-  private processExited = false
   private processStartIndex = 0
   private starting: Promise<void> | null = null
+  private sealedSegments = new Set<number>()
+  private segmentWaiters = new Map<
+    number,
+    { resolve: () => void; reject: (err: Error) => void }
+  >()
+  private watcher: FSWatcher | null = null
 
   constructor(
     private opts: {
@@ -55,12 +61,12 @@ export class HlsSession {
   async getSegment(index: number) {
     const segPath = join(this.opts.outDir, this.segmentFilename(index))
 
-    if (this.isSegmentSealed(index)) {
+    if (this.sealedSegments.has(index)) {
       return segPath
     }
 
     await this.ensureProcessFor(index)
-    await this.pollForSegmentSealed(index)
+    await this.waitForSegment(index)
 
     await Log.info(`segment ${index} ready size=${Bun.file(segPath).size}`)
 
@@ -95,20 +101,30 @@ export class HlsSession {
       return true
     }
 
-    return index - this.findLastWrittenSegment() > 10
+    return index - this.lastSealedSegment() > 10
   }
 
-  private findLastWrittenSegment() {
-    for (let i = this.segments.length - 1; i >= this.processStartIndex; i--) {
-      if (Bun.file(join(this.opts.outDir, this.segmentFilename(i))).size > 0) {
-        return i
+  private lastSealedSegment() {
+    let max = this.processStartIndex - 1
+
+    for (const index of this.sealedSegments) {
+      if (index > max) {
+        max = index
       }
     }
 
-    return this.processStartIndex - 1
+    return max
   }
 
   private async killProcess() {
+    this.stopWatcher()
+
+    for (const [, waiter] of this.segmentWaiters) {
+      waiter.reject(new Error('Process killed'))
+    }
+
+    this.segmentWaiters.clear()
+
     if (this.process) {
       this.process.kill()
       await this.process.exited
@@ -125,10 +141,11 @@ export class HlsSession {
   }
 
   private async doStartProcess(fromIndex: number) {
+    await this.clearSegments()
     await mkdir(this.opts.outDir, { recursive: true })
 
     this.processStartIndex = fromIndex
-    this.processExited = false
+    this.sealedSegments.clear()
 
     const segment = this.segments[fromIndex]
     const sameFile = this.opts.videoFilePath === this.opts.audioFilePath
@@ -173,44 +190,88 @@ export class HlsSession {
       `starting FFmpeg from segment ${fromIndex} pts=${segment.pts} args=${builder.toArgs().join(' ')}`
     )
 
-    this.processExited = false
+    this.startWatcher(fromIndex)
     this.process = builder.spawn()
+
     this.process.exited.then(() => {
-      this.processExited = true
+      this.sealAllWrittenSegments()
     })
   }
 
-  private isSegmentSealed(index: number) {
-    if (
-      Bun.file(join(this.opts.outDir, this.segmentFilename(index))).size === 0
-    ) {
-      return false
-    }
+  private startWatcher(fromIndex: number) {
+    this.stopWatcher()
 
-    if (
-      Bun.file(join(this.opts.outDir, this.segmentFilename(index + 1))).size > 0
-    ) {
-      return true
-    }
-
-    return this.processExited
-  }
-
-  private async pollForSegmentSealed(index: number) {
-    const maxWait = 30_000
-    const interval = 50
-    let waited = 0
-
-    while (waited < maxWait) {
-      if (this.isSegmentSealed(index)) {
+    this.watcher = fsWatch(this.opts.outDir, (_eventType, filename) => {
+      if (!filename?.endsWith('.ts')) {
         return
       }
 
-      await Bun.sleep(interval)
-      waited += interval
+      const index = this.parseSegmentIndex(filename)
+
+      if (index === null || index <= fromIndex) {
+        return
+      }
+
+      for (let i = fromIndex; i < index; i++) {
+        this.sealSegment(i)
+      }
+    })
+  }
+
+  private stopWatcher() {
+    if (this.watcher) {
+      this.watcher.close()
+      this.watcher = null
+    }
+  }
+
+  private sealSegment(index: number) {
+    this.sealedSegments.add(index)
+
+    const waiter = this.segmentWaiters.get(index)
+
+    if (waiter) {
+      waiter.resolve()
+      this.segmentWaiters.delete(index)
+    }
+  }
+
+  private sealAllWrittenSegments() {
+    for (let i = this.processStartIndex; i < this.segments.length; i++) {
+      if (Bun.file(join(this.opts.outDir, this.segmentFilename(i))).size > 0) {
+        this.sealSegment(i)
+      }
+    }
+  }
+
+  private waitForSegment(index: number) {
+    if (this.sealedSegments.has(index)) {
+      return Promise.resolve()
     }
 
-    throw new Error(`Timeout waiting for segment ${index}`)
+    return new Promise<void>((resolve, reject) => {
+      this.segmentWaiters.set(index, { resolve, reject })
+    })
+  }
+
+  private parseSegmentIndex(filename: string) {
+    const match = filename.match(/^seg_(\d+)\.ts$/)
+
+    if (!match) {
+      return null
+    }
+
+    return parseInt(match[1], 10)
+  }
+
+  private async clearSegments() {
+    const entries = await readdir(this.opts.outDir).catch(() => [])
+
+    await Promise.all(
+      entries
+        .filter((f) => f.endsWith('.ts'))
+        .map((f) => unlink(join(this.opts.outDir, f)))
+    )
   }
 
   private segmentFilename(index: number) {
