@@ -1,55 +1,44 @@
 import { describe, expect, test, afterAll } from 'bun:test'
-import { mkdtemp, rm } from 'fs/promises'
+import { mkdir, mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-import { database } from '@/db/connection'
+import { FFmpegBuilder } from '@lobomfz/ffmpeg'
+
+import { HlsSession } from '@/hls-session'
 import { Player } from '@/player'
 
 import { MediaFixtures } from '../fixtures/media'
-import { seedMedia, seedDownloadWithTracks } from './seed'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-serve-'))
 const refMkv = join(tmpDir, 'ref.mkv')
 
 await MediaFixtures.generate(refMkv)
 
-database.reset()
+const probe = await new FFmpegBuilder().input(refMkv).probe()
+const keyframes = await new FFmpegBuilder().input(refMkv).probeKeyframes()
 
-const media = await seedMedia()
-const filePath = join(tmpDir, 'movie.mkv')
-
-await MediaFixtures.copy(refMkv, filePath)
-
-await seedDownloadWithTracks(media.id, 'serve_hash', filePath, [
-  {
-    stream_index: 0,
-    stream_type: 'video',
-    codec_name: 'h264',
-    is_default: true,
-    width: 320,
-    height: 240,
-  },
-  {
-    stream_index: 1,
-    stream_type: 'audio',
-    codec_name: 'aac',
-    is_default: true,
-  },
-])
-
-const player = new Player(media.id)
-const resolved = await player.resolveTracks({})
 const hlsDir = join(tmpDir, 'hls')
 
-await player.generateHls(resolved, hlsDir)
+await mkdir(hlsDir, { recursive: true })
+
+const session = new HlsSession({
+  videoFilePath: refMkv,
+  audioFilePath: refMkv,
+  videoStreamIndex: 0,
+  audioStreamIndex: 1,
+  keyframes,
+  duration: probe.format.duration,
+  outDir: hlsDir,
+})
+
+await Bun.write(join(hlsDir, 'video.m3u8'), session.getPlaylist())
 await Bun.write(join(hlsDir, 'master.m3u8'), Player.masterPlaylist())
 
-const server = Player.serve(hlsDir, 0)
+const server = Player.serve(hlsDir, session, 0)
 
 afterAll(async () => {
   server?.stop()
-  database.reset()
   await rm(tmpDir, { recursive: true })
 })
 
@@ -83,18 +72,14 @@ describe('Player — HLS server', () => {
   })
 
   test('serves .ts segments with correct content type', async () => {
-    const segments = await Array.fromAsync(new Bun.Glob('*.ts').scan(hlsDir))
-
-    expect(segments.length).toBeGreaterThan(0)
-
-    const res = await fetch(`http://localhost:${server.port}/${segments[0]}`)
+    const res = await fetch(`http://localhost:${server.port}/seg_000.ts`)
 
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toBe('video/mp2t')
   })
 
   test('returns 404 for missing files', async () => {
-    const res = await fetch(`http://localhost:${server.port}/nonexistent.ts`)
+    const res = await fetch(`http://localhost:${server.port}/nonexistent.m3u8`)
 
     expect(res.status).toBe(404)
   })

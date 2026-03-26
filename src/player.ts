@@ -5,6 +5,10 @@ import { join, resolve } from 'path'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
 import { db } from '@/db/connection'
+import { DbMediaFiles } from '@/db/media-files'
+import { DbMediaKeyframes } from '@/db/media-keyframes'
+import { HlsSession } from '@/hls-session'
+import { Log } from '@/log'
 
 const HLS_VIDEO_CODECS = ['h264', 'hevc']
 const HLS_AUDIO_CODECS = ['aac', 'ac3', 'eac3']
@@ -25,27 +29,48 @@ type TrackSelection = {
 export class Player {
   private hlsDir?: string
   private server?: ReturnType<typeof Bun.serve>
+  private session?: HlsSession
 
   constructor(private mediaId: string) {}
 
   async start(selection: TrackSelection, opts: { port?: number }) {
-    console.time('resolveTracks')
     const resolved = await this.resolveTracks(selection)
-    console.timeEnd('resolveTracks')
 
     this.validateCodecs(resolved)
 
     this.hlsDir = await mkdtemp(join(tmpdir(), 'omnarr-play-'))
 
-    const tasks: Promise<void>[] = [this.generateHls(resolved, this.hlsDir)]
+    const file = await DbMediaFiles.getByPath(resolved.video.file_path)
 
-    if (resolved.subtitle) {
-      tasks.push(Player.convertSubtitle(resolved.subtitle, this.hlsDir))
+    if (!file?.duration) {
+      throw new Error('Media file not scanned. Run scan first.')
     }
 
-    console.time('ffmpeg')
-    await Promise.all(tasks)
-    console.timeEnd('ffmpeg')
+    const keyframes = await DbMediaKeyframes.getByFileId(file.id)
+
+    if (keyframes.length === 0) {
+      throw new Error('No keyframes found. Run scan first.')
+    }
+
+    await Log.info(
+      `player start keyframes=${keyframes.length} duration=${file.duration} video=${resolved.video.file_path} audio=${resolved.audio.file_path}`
+    )
+
+    this.session = new HlsSession({
+      videoFilePath: resolved.video.file_path,
+      audioFilePath: resolved.audio.file_path,
+      videoStreamIndex: resolved.video.stream_index,
+      audioStreamIndex: resolved.audio.stream_index,
+      keyframes: keyframes.map((k) => k.pts_time),
+      duration: file.duration,
+      outDir: this.hlsDir,
+    })
+
+    await Bun.write(join(this.hlsDir, 'video.m3u8'), this.session.getPlaylist())
+
+    if (resolved.subtitle) {
+      await Player.convertSubtitle(resolved.subtitle, this.hlsDir)
+    }
 
     await Bun.write(
       join(this.hlsDir, 'master.m3u8'),
@@ -59,7 +84,7 @@ export class Player {
       )
     )
 
-    this.server = Player.serve(this.hlsDir, opts.port ?? 8787)
+    this.server = Player.serve(this.hlsDir, this.session, opts.port ?? 8787)
 
     return {
       url: `http://localhost:${this.server.port}/master.m3u8`,
@@ -70,8 +95,12 @@ export class Player {
   async stop() {
     this.server?.stop()
 
+    if (this.session) {
+      await this.session.cleanup()
+    }
+
     if (this.hlsDir) {
-      await rm(this.hlsDir, { recursive: true })
+      await rm(this.hlsDir, { recursive: true, force: true })
     }
   }
 
@@ -184,41 +213,7 @@ export class Player {
     }
   }
 
-  async generateHls(
-    resolved: {
-      video: { file_path: string; stream_index: number }
-      audio: { file_path: string; stream_index: number }
-    },
-    outDir: string
-  ) {
-    await mkdir(outDir, { recursive: true })
-
-    const sameFile = resolved.video.file_path === resolved.audio.file_path
-    const audioInputIndex = sameFile ? 0 : 1
-
-    let builder = new FFmpegBuilder({ overwrite: true }).input(
-      resolved.video.file_path
-    )
-
-    if (!sameFile) {
-      builder = builder.input(resolved.audio.file_path)
-    }
-
-    await builder
-      .map(`0:${resolved.video.stream_index}`)
-      .map(`${audioInputIndex}:${resolved.audio.stream_index}`)
-      .codec('v', 'copy')
-      .codec('a', 'copy')
-      .hls({
-        time: 6,
-        listSize: 0,
-        segmentFilename: join(outDir, 'seg_%03d.ts'),
-      })
-      .output(join(outDir, 'video.m3u8'))
-      .run()
-  }
-
-  static serve(hlsDir: string, port: number) {
+  static serve(hlsDir: string, session: HlsSession, port: number) {
     return Bun.serve({
       port,
       fetch: async (req) => {
@@ -235,13 +230,45 @@ export class Player {
           return new Response('Forbidden', { status: 403 })
         }
 
+        const ext = pathname.slice(pathname.lastIndexOf('.'))
+
+        if (ext === '.ts') {
+          const match = pathname.match(/seg_(\d+)\.ts$/)
+
+          if (match) {
+            const index = parseInt(match[1], 10)
+
+            try {
+              const start = performance.now()
+              const segPath = await session.getSegment(index)
+              const elapsed = (performance.now() - start).toFixed(0)
+              const size = Bun.file(segPath).size
+
+              await Log.info(
+                `serve segment=${index} status=200 size=${size} elapsed=${elapsed}ms`
+              )
+
+              return new Response(Bun.file(segPath), {
+                headers: {
+                  'Content-Type': 'video/mp2t',
+                  'Access-Control-Allow-Origin': '*',
+                },
+              })
+            } catch (err) {
+              await Log.error(
+                `serve segment=${index} status=404 error=${err instanceof Error ? err.message : String(err)}`
+              )
+
+              return new Response('Not Found', { status: 404 })
+            }
+          }
+        }
+
         const file = Bun.file(filePath)
 
         if (!(await file.exists())) {
           return new Response('Not Found', { status: 404 })
         }
-
-        const ext = pathname.slice(pathname.lastIndexOf('.'))
 
         return new Response(file, {
           headers: {

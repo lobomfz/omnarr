@@ -14,6 +14,7 @@ import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
+import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { Scanner } from '@/scanner'
@@ -305,6 +306,50 @@ describe('new Scanner().scan — probe + tracks', () => {
 
     expect(sub.codec_name).toBe('subrip')
     expect(sub.language).toBe('por')
+  })
+})
+
+describe('new Scanner().scan — keyframe probing', () => {
+  test('persists keyframes for video stream after scan', async () => {
+    const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
+    await new Scanner().scan(media.id)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+    const keyframes = await DbMediaKeyframes.getByFileId(files[0].id)
+
+    expect(keyframes.length).toBeGreaterThan(0)
+    expect(keyframes[0].stream_index).toBe(0)
+  })
+
+  test('keyframes have valid pts_time positions', async () => {
+    const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
+    await new Scanner().scan(media.id)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+    const keyframes = await DbMediaKeyframes.getByFileId(files[0].id)
+
+    expect(keyframes.length).toBeGreaterThan(0)
+    expect(keyframes[0].pts_time).toBeCloseTo(0.0, 1)
+
+    for (const kf of keyframes) {
+      expect(kf.pts_time).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  test('re-scan does not duplicate keyframes', async () => {
+    const media = await seedMedia(join(tmpDir, 'recon-keep/The Matrix (1999)'))
+    await new Scanner().scan(media.id)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+    const first = await DbMediaKeyframes.getByFileId(files[0].id)
+
+    expect(first.length).toBeGreaterThan(0)
+
+    await new Scanner().scan(media.id)
+
+    const second = await DbMediaKeyframes.getByFileId(files[0].id)
+
+    expect(second).toHaveLength(first.length)
   })
 })
 

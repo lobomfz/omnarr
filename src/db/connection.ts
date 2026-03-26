@@ -104,6 +104,16 @@ export const database = new Database({
         scanned_at: generated('now'),
       }),
 
+      media_keyframes: type({
+        id: generated('autoincrement'),
+        media_file_id: type('number.integer').configure({
+          references: 'media_files.id',
+          onDelete: 'cascade',
+        }),
+        stream_index: 'number.integer',
+        pts_time: 'number',
+      }),
+
       media_tracks: type({
         id: generated('autoincrement'),
         media_file_id: type('number.integer').configure({

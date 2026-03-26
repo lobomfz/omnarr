@@ -4,6 +4,7 @@ import { type DB } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
+import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { deriveId } from '@/utils'
@@ -28,7 +29,8 @@ export async function seedDownloadWithTracks(
   mediaId: string,
   infoHash: string,
   filePath: string,
-  tracks: Omit<Insertable<DB['media_tracks']>, 'media_file_id'>[]
+  tracks: Omit<Insertable<DB['media_tracks']>, 'media_file_id'>[],
+  opts?: { duration?: number; keyframes?: number[] }
 ) {
   const download = await DbDownloads.create({
     media_id: mediaId,
@@ -43,11 +45,22 @@ export async function seedDownloadWithTracks(
     download_id: download.id,
     path: filePath,
     size: 8_000_000_000,
+    duration: opts?.duration,
   })
 
   await DbMediaTracks.createMany(
     tracks.map((t) => ({ media_file_id: file.id, ...t }))
   )
+
+  if (opts?.keyframes && opts.keyframes.length > 0) {
+    await DbMediaKeyframes.createBatch(
+      opts.keyframes.map((pts_time) => ({
+        media_file_id: file.id,
+        stream_index: 0,
+        pts_time,
+      }))
+    )
+  }
 
   return { download, file }
 }

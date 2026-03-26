@@ -10,6 +10,8 @@ import { mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
+import { FFmpegBuilder } from '@lobomfz/ffmpeg'
+
 import { database } from '@/db/connection'
 import { Player } from '@/player'
 
@@ -20,9 +22,26 @@ const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-start-'))
 const refMkv = join(tmpDir, 'ref.mkv')
 const refSubsMkv = join(tmpDir, 'ref-subs.mkv')
 
+let refKeyframes: number[]
+let refDuration: number
+let refSubsKeyframes: number[]
+let refSubsDuration: number
+
 beforeAll(async () => {
   await MediaFixtures.generate(refMkv)
   await MediaFixtures.generateWithSubs(refSubsMkv, tmpDir)
+
+  const probe = await new FFmpegBuilder().input(refMkv).probe()
+
+  refKeyframes = await new FFmpegBuilder().input(refMkv).probeKeyframes()
+  refDuration = probe.format.duration
+
+  const subsProbe = await new FFmpegBuilder().input(refSubsMkv).probe()
+
+  refSubsKeyframes = await new FFmpegBuilder()
+    .input(refSubsMkv)
+    .probeKeyframes()
+  refSubsDuration = subsProbe.format.duration
 })
 
 beforeEach(() => {
@@ -40,22 +59,28 @@ describe('Player — start', () => {
 
     await MediaFixtures.copy(refMkv, filePath)
 
-    await seedDownloadWithTracks(media.id, 'start_hash', filePath, [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 320,
-        height: 240,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-    ])
+    await seedDownloadWithTracks(
+      media.id,
+      'start_hash',
+      filePath,
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 320,
+          height: 240,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+      ],
+      { duration: refDuration, keyframes: refKeyframes }
+    )
 
     const player = new Player(media.id)
     const result = await player.start({}, { port: 0 })
@@ -92,29 +117,35 @@ describe('Player — start', () => {
 
     await MediaFixtures.copy(refSubsMkv, filePath)
 
-    await seedDownloadWithTracks(media.id, 'startsub_hash', filePath, [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 320,
-        height: 240,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-      {
-        stream_index: 2,
-        stream_type: 'subtitle',
-        codec_name: 'subrip',
-        is_default: false,
-        language: 'por',
-      },
-    ])
+    await seedDownloadWithTracks(
+      media.id,
+      'startsub_hash',
+      filePath,
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 320,
+          height: 240,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+        {
+          stream_index: 2,
+          stream_type: 'subtitle',
+          codec_name: 'subrip',
+          is_default: false,
+          language: 'por',
+        },
+      ],
+      { duration: refSubsDuration, keyframes: refSubsKeyframes }
+    )
 
     const player = new Player(media.id)
     const result = await player.start({ sub: 0 }, { port: 0 })

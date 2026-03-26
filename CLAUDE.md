@@ -55,6 +55,10 @@ All user-facing IDs are 6-char uppercase strings derived via `deriveId()` (polyn
 - **Indexers as plugins**: registry with Arktype schema per indexer, parallel searches, isolated failures
 - **Idempotent extraction**: tracks with `path` already set are skipped on re-extract
 
+### FFmpeg
+
+All FFmpeg/ffprobe operations must go through `@lobomfz/ffmpeg` (`FFmpegBuilder`). Never spawn `ffmpeg` or `ffprobe` directly via `Bun.spawn`, `child_process`, or any other execution method. If the builder doesn't support an operation, add it to the library first.
+
 ## Conventions
 
 - Path alias: `@/*` maps to `src/*`
