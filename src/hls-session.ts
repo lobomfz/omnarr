@@ -59,6 +59,12 @@ export class HlsSession {
   }
 
   async getSegment(index: number) {
+    if (index < 0 || index >= this.segments.length) {
+      throw new Error(
+        `segment ${index} out of range [0, ${this.segments.length})`
+      )
+    }
+
     const segPath = join(this.opts.outDir, this.segmentFilename(index))
 
     if (this.sealedSegments.has(index)) {
@@ -75,7 +81,7 @@ export class HlsSession {
 
   async cleanup() {
     await this.killProcess()
-    await rm(this.opts.outDir, { recursive: true })
+    await rm(this.opts.outDir, { recursive: true, force: true })
   }
 
   private async ensureProcessFor(index: number) {
@@ -195,6 +201,12 @@ export class HlsSession {
 
     this.process.exited.then(() => {
       this.sealAllWrittenSegments()
+
+      for (const [, waiter] of this.segmentWaiters) {
+        waiter.reject(new Error('Process exited without producing segment'))
+      }
+
+      this.segmentWaiters.clear()
     })
   }
 

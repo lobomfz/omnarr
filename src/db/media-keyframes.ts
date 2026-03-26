@@ -13,10 +13,10 @@ export const DbMediaKeyframes = {
 
   async getByFileId(mediaFileId: number) {
     return await db
-      .selectFrom('media_keyframes')
-      .where('media_file_id', '=', mediaFileId)
-      .selectAll()
-      .orderBy('pts_time', 'asc')
+      .selectFrom('media_keyframes as mk')
+      .where('mk.media_file_id', '=', mediaFileId)
+      .selectAll('mk')
+      .orderBy('mk.pts_time', 'asc')
       .execute()
   },
 }

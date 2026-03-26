@@ -29,7 +29,8 @@ omnarr releases <search_id> --json         # → [{ id, name, size, seeders, res
 omnarr download <release_id> --json        # → { title, year, media }
 omnarr status --json [--limit N]           # → [{ title, progress, speed, eta, status }]
 omnarr wait-for <release_id> --json        # blocks until done or error
-omnarr library --json                      # → [{ id, media_type, title, year, file_count, track_count, extracted_count }]
+omnarr library --json                      # → [{ id, media_type, title, year, file_count, track_count }]
+omnarr play <media_id> --json [--video N] [--audio N] [--sub N] [--port N]  # HLS stream + mpv
 ```
 
 Each command returns IDs that feed into the next. If an ID is not found, re-run the earlier step.

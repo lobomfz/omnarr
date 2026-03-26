@@ -1,12 +1,11 @@
-import { mkdir, mkdtemp, rm } from 'fs/promises'
+import { mkdir, mkdtemp } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
-import { db } from '@/db/connection'
-import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
+import { DbMediaTracks } from '@/db/media-tracks'
 import { HlsSession } from '@/hls-session'
 import { Log } from '@/log'
 
@@ -40,20 +39,18 @@ export class Player {
 
     this.hlsDir = await mkdtemp(join(tmpdir(), 'omnarr-play-'))
 
-    const file = await DbMediaFiles.getByPath(resolved.video.file_path)
-
-    if (!file?.duration) {
+    if (!resolved.video.file_duration) {
       throw new Error('Media file not scanned. Run scan first.')
     }
 
-    const keyframes = await DbMediaKeyframes.getByFileId(file.id)
+    const keyframes = await DbMediaKeyframes.getByFileId(resolved.video.file_id)
 
     if (keyframes.length === 0) {
       throw new Error('No keyframes found. Run scan first.')
     }
 
     await Log.info(
-      `player start keyframes=${keyframes.length} duration=${file.duration} video=${resolved.video.file_path} audio=${resolved.audio.file_path}`
+      `player start keyframes=${keyframes.length} duration=${resolved.video.file_duration} video=${resolved.video.file_path} audio=${resolved.audio.file_path}`
     )
 
     this.session = new HlsSession({
@@ -62,7 +59,7 @@ export class Player {
       videoStreamIndex: resolved.video.stream_index,
       audioStreamIndex: resolved.audio.stream_index,
       keyframes: keyframes.map((k) => k.pts_time),
-      duration: file.duration,
+      duration: resolved.video.file_duration,
       outDir: this.hlsDir,
     })
 
@@ -103,10 +100,6 @@ export class Player {
     if (this.session) {
       await this.session.cleanup()
     }
-
-    if (this.hlsDir) {
-      await rm(this.hlsDir, { recursive: true, force: true })
-    }
   }
 
   async play(url: string) {
@@ -119,26 +112,7 @@ export class Player {
   }
 
   async resolveTracks(selection: TrackSelection) {
-    const allTracks = await db
-      .selectFrom('media_tracks as t')
-      .innerJoin('media_files as f', 'f.id', 't.media_file_id')
-      .where('f.media_id', '=', this.mediaId)
-      .select([
-        't.stream_index',
-        't.stream_type',
-        't.codec_name',
-        't.language',
-        't.title',
-        't.is_default',
-        't.width',
-        't.height',
-        't.channel_layout',
-        'f.path as file_path',
-        'f.download_id',
-      ])
-      .orderBy('f.download_id', 'desc')
-      .orderBy('t.stream_index', 'asc')
-      .execute()
+    const allTracks = await DbMediaTracks.getWithFileByMediaId(this.mediaId)
 
     if (allTracks.length === 0) {
       throw new Error(`No tracks found for media '${this.mediaId}'.`)
@@ -162,8 +136,10 @@ export class Player {
     return { video, audio, subtitle }
   }
 
-  private pickTrack<T extends { download_id: number; is_default: boolean }>(
-    tracks: T[] | undefined,
+  private pickTrack(
+    tracks:
+      | Awaited<ReturnType<typeof DbMediaTracks.getWithFileByMediaId>>
+      | undefined,
     type: string,
     index?: number
   ) {

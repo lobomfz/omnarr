@@ -169,6 +169,53 @@ describe('HlsSession', () => {
     await session.cleanup()
   })
 
+  test('getSegment rejects out-of-range index', async () => {
+    const outDir = join(tmpDir, 'out-of-range')
+    const session = createSession(outDir)
+
+    await expect(session.getSegment(999)).rejects.toThrow(
+      /segment.*out of range/i
+    )
+
+    await session.cleanup()
+  })
+
+  test('getSegment rejects negative index', async () => {
+    const outDir = join(tmpDir, 'negative')
+    const session = createSession(outDir)
+
+    await expect(session.getSegment(-1)).rejects.toThrow(
+      /segment.*out of range/i
+    )
+
+    await session.cleanup()
+  })
+
+  test('rejects waiter when process exits without producing segment', async () => {
+    const outDir = join(tmpDir, 'ffmpeg-crash')
+    const session = new HlsSession({
+      videoFilePath: '/tmp/nonexistent.mkv',
+      audioFilePath: '/tmp/nonexistent.mkv',
+      videoStreamIndex: 0,
+      audioStreamIndex: 1,
+      keyframes: [0],
+      duration: 1,
+      outDir,
+    })
+
+    const result = await Promise.race([
+      session.getSegment(0).then(
+        () => 'resolved',
+        () => 'rejected'
+      ),
+      Bun.sleep(500).then(() => 'hung'),
+    ])
+
+    expect(result).toBe('rejected')
+
+    await session.cleanup()
+  })
+
   test('cleanup kills process and removes all files', async () => {
     const outDir = join(tmpDir, 'cleanup')
     const session = createSession(outDir)
