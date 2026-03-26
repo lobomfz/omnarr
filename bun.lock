@@ -7,8 +7,8 @@
       "devDependencies": {
         "@bunli/core": "^0.8.2",
         "@bunli/test": "^0.5.2",
-        "@lobomfz/db": "^0.3.1",
-        "@lobomfz/ffmpeg": "^0.1.0",
+        "@lobomfz/db": "^0.3.2",
+        "@lobomfz/ffmpeg": "^0.1.1",
         "@lobomfz/ghostapi": "^0.3.1",
         "@types/bun": "^1.3.11",
         "@typescript/native-preview": "^7.0.0-dev.20260325.1",
@@ -124,9 +124,9 @@
 
     "@jscpd/tokenizer": ["@jscpd/tokenizer@4.0.4", "", { "dependencies": { "@jscpd/core": "4.0.4", "reprism": "^0.0.11", "spark-md5": "^3.0.2" } }, "sha512-xxYYY/qaLah/FlwogEbGIxx9CjDO+G9E6qawcy26WwrflzJb6wsnhjwdneN6Wb0RNCDsqvzY+bzG453jsin4UQ=="],
 
-    "@lobomfz/db": ["@lobomfz/db@0.3.1", "", { "peerDependencies": { "arktype": "^2.1.29", "kysely": "^0.28.14" } }, "sha512-CAk524ot8aj3bou57tl8CC4wof2/FTBHdZoJetUi6cSH/VzrLTwdZmUvVUfzlYRRMXg6soWryVUOIrt14ao+4w=="],
+    "@lobomfz/db": ["@lobomfz/db@0.3.2", "", { "peerDependencies": { "arktype": "^2.1.29", "kysely": "^0.28.14" } }, "sha512-tQqx9BSJeE+yrXbZ61sRLBBlAwYVttEU3on4bZhbPLSxNprwrwcrD2aiIW24FTDrMmBUg+5yBytZvF23jLIqCQ=="],
 
-    "@lobomfz/ffmpeg": ["@lobomfz/ffmpeg@0.1.0", "", {}, "sha512-Hjh6mjxAnXdOL4nWKftLBOVsIZxEF5aOCiatNY6j4Yy+g8skyhb4o+2Zjrle5e2TIfOMOkCMv01qoLy6DEfIzA=="],
+    "@lobomfz/ffmpeg": ["@lobomfz/ffmpeg@0.1.1", "", {}, "sha512-piKbkF3JUvSIDNR/sZbVkz0WUd5dHGdNLNwFXJEs6E5R4kipXQ0Vdb9/4Tf6TpU+MPpj8bx2iiH2wQzUFP2ysg=="],
 
     "@lobomfz/ghostapi": ["@lobomfz/ghostapi@0.3.1", "", { "peerDependencies": { "@lobomfz/db": "^0.2.0", "arktype": "^2.1.29", "elysia": "^1.0.0", "kysely": "^0.28.14" } }, "sha512-AeCBUxjOU0032AiCcfWvvxabTtTuWBRoKKX3RaalU6oxU4efvQXAYc7NhQAVcgblnxrASujhTuts+eagyCw9FQ=="],
 

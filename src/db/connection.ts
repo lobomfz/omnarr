@@ -104,6 +104,16 @@ export const database = new Database({
         scanned_at: generated('now'),
       }),
 
+      media_keyframes: type({
+        id: generated('autoincrement'),
+        media_file_id: type('number.integer').configure({
+          references: 'media_files.id',
+          onDelete: 'cascade',
+        }),
+        stream_index: 'number.integer',
+        pts_time: 'number',
+      }),
+
       media_tracks: type({
         id: generated('autoincrement'),
         media_file_id: type('number.integer').configure({
@@ -116,8 +126,6 @@ export const database = new Database({
         'language?': 'string',
         'title?': 'string',
         is_default: 'boolean',
-        'path?': 'string',
-        'size?': 'number',
         'width?': 'number.integer',
         'height?': 'number.integer',
         'framerate?': 'number',
@@ -171,5 +179,4 @@ await Log.info(`database initialized path=${envVariables.OMNARR_DB_PATH}`)
 export type DB = typeof database.infer
 export const db = database.kysely
 export type media_type = typeof media_type.infer
-export type stream_type = typeof stream_type.infer
 export type download_status = typeof download_status.infer

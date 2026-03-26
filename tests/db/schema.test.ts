@@ -9,9 +9,7 @@ import { DbTmdbMedia } from '@/db/tmdb-media'
 import { deriveId } from '@/utils'
 
 beforeEach(() => {
-  database.reset('downloads')
-  database.reset('media')
-  database.reset('tmdb_media')
+  database.reset()
 })
 
 describe('schema - tmdb_media', () => {

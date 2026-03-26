@@ -6,6 +6,7 @@ import { FFmpegBuilder, type Stream } from '@lobomfz/ffmpeg'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
+import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { Log } from '@/log'
 
@@ -177,6 +178,26 @@ export class Scanner {
         ...this.streamFields(stream),
       }))
     )
+
+    const videoStream = probe.streams.find((s) => s.codec_type === 'video')
+
+    if (videoStream) {
+      const keyframeTimes = await new FFmpegBuilder()
+        .input(fullPath)
+        .probeKeyframes()
+
+      await DbMediaKeyframes.createBatch(
+        keyframeTimes.map((pts_time) => ({
+          media_file_id: file.id,
+          stream_index: videoStream.index,
+          pts_time,
+        }))
+      )
+
+      await Log.info(
+        `keyframe probe complete file="${fullPath}" keyframes=${keyframeTimes.length}`
+      )
+    }
 
     await Log.info(
       `probe complete file="${fullPath}" streams=${probe.streams.length} duration=${probe.format.duration} format=${probe.format.format_name}`

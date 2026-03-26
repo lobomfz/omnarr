@@ -4,7 +4,6 @@ import { jsonArrayFrom } from 'kysely/helpers/sqlite'
 
 import { db, media_type, type DB } from '@/db/connection'
 
-export type FullMedia = NonNullable<Awaited<ReturnType<typeof DbMedia.getById>>>
 export type MediaInfo = NonNullable<Awaited<ReturnType<typeof DbMedia.getInfo>>>
 
 export const DbMedia = {
@@ -50,7 +49,6 @@ export const DbMedia = {
         't.year',
         sql<number>`count(distinct mf.id)`.as('file_count'),
         sql<number>`count(mt.id)`.as('track_count'),
-        sql<number>`count(mt.path)`.as('extracted_count'),
         (eb) =>
           eb
             .selectFrom('downloads as d')
@@ -118,7 +116,6 @@ export const DbMedia = {
                                 'mt.language',
                                 'mt.title',
                                 'mt.is_default',
-                                'mt.path',
                                 'mt.width',
                                 'mt.height',
                                 'mt.channel_layout',
