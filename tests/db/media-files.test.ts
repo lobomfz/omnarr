@@ -8,10 +8,7 @@ import { DbTmdbMedia } from '@/db/tmdb-media'
 import { deriveId } from '@/utils'
 
 beforeEach(() => {
-  database.reset('media_files')
-  database.reset('downloads')
-  database.reset('media')
-  database.reset('tmdb_media')
+  database.reset()
 })
 
 async function seedMedia() {

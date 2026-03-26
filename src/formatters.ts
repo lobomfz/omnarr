@@ -93,27 +93,6 @@ export const Formatters = {
     return lines.join('\n')
   },
 
-  extractResult(tracks: MediaTrack[], failed: { id: number; error: string }[]) {
-    const failedMap = new Map(failed.map((f) => [f.id, f.error]))
-    const lines: string[] = []
-
-    for (const t of tracks) {
-      const parts = Formatters.trackParts(t)
-
-      const error = failedMap.get(t.id)
-
-      if (error) {
-        parts.push('[FAILED]', error)
-      } else if (t.path) {
-        parts.push('→', t.path.split('/').at(-1)!)
-      }
-
-      lines.push(parts.join(' '))
-    }
-
-    return lines.join('\n')
-  },
-
   eta(seconds: number) {
     if (seconds <= 0 || seconds >= 8640000) {
       return '—'
@@ -140,18 +119,9 @@ export const Formatters = {
   mediaStatus(media: {
     file_count: number
     track_count: number
-    extracted_count: number
     download_status: download_status | null
   }) {
     if (media.file_count > 0 && media.track_count > 0) {
-      if (media.extracted_count === media.track_count) {
-        return 'extracted'
-      }
-
-      if (media.extracted_count > 0) {
-        return `${media.extracted_count}/${media.track_count} extracted`
-      }
-
       return 'scanned'
     }
 
@@ -166,6 +136,8 @@ export const Formatters = {
     const lines: string[] = [
       `[${info.media_type}] ${Formatters.mediaTitle(info)}`,
     ]
+
+    const typeCounters: Record<string, number> = {}
 
     for (const d of info.downloads) {
       lines.push('')
@@ -188,13 +160,9 @@ export const Formatters = {
         lines.push(`  ${f.path} (${Formatters.fileStats(f)})`)
 
         for (const t of f.tracks) {
-          const parts = Formatters.trackParts(t, '    ')
-
-          if (t.path) {
-            parts.push('✓')
-          }
-
-          lines.push(parts.join(' '))
+          const idx = typeCounters[t.stream_type] ?? 0
+          typeCounters[t.stream_type] = idx + 1
+          lines.push(Formatters.trackParts(t, '    ', idx).join(' '))
         }
       }
     }
@@ -202,8 +170,43 @@ export const Formatters = {
     return lines.join('\n')
   },
 
-  trackParts(t: TrackDisplay, prefix = '') {
-    const parts = [`${prefix}#${t.stream_index}`, t.stream_type, t.codec_name]
+  trackSummary(
+    label: string,
+    t: {
+      codec_name: string
+      width: number | null
+      height: number | null
+      channel_layout: string | null
+      language: string | null
+    }
+  ) {
+    const parts = [`${label}:`, t.codec_name]
+
+    if (t.width && t.height) {
+      parts.push(`${t.width}x${t.height}`)
+    }
+
+    if (t.channel_layout) {
+      parts.push(t.channel_layout)
+    }
+
+    if (t.language) {
+      parts.push(t.language)
+    }
+
+    return parts.join(' ')
+  },
+
+  trackParts(t: TrackDisplay, prefix = '', typeIndex?: number) {
+    const parts: string[] = []
+
+    if (typeIndex === undefined) {
+      parts.push(`${prefix}#${t.stream_index}`, t.stream_type)
+    } else {
+      parts.push(`${prefix}${t.stream_type} ${typeIndex}:`)
+    }
+
+    parts.push(t.codec_name)
 
     if (t.language) {
       parts.push(t.language)

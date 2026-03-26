@@ -9,11 +9,7 @@ import { DbTmdbMedia } from '@/db/tmdb-media'
 import { deriveId } from '@/utils'
 
 beforeEach(() => {
-  database.reset('media_tracks')
-  database.reset('media_files')
-  database.reset('downloads')
-  database.reset('media')
-  database.reset('tmdb_media')
+  database.reset()
 })
 
 async function seedMediaFile() {
@@ -75,8 +71,6 @@ describe('schema - media_tracks', () => {
     expect(track.height).toBe(1080)
     expect(track.framerate).toBe(23.976)
     expect(track.bit_rate).toBe(8_000_000)
-    expect(track.path).toBeNull()
-    expect(track.size).toBeNull()
   })
 
   test('create persists an audio track with audio-specific fields', async () => {
@@ -137,8 +131,6 @@ describe('schema - media_tracks', () => {
 
     expect(track.language).toBeNull()
     expect(track.title).toBeNull()
-    expect(track.path).toBeNull()
-    expect(track.size).toBeNull()
     expect(track.width).toBeNull()
     expect(track.height).toBeNull()
     expect(track.framerate).toBeNull()
@@ -221,89 +213,6 @@ describe('schema - media_tracks', () => {
     const tracks = await DbMediaTracks.getByMediaId('NONEXISTENT')
 
     expect(tracks).toHaveLength(0)
-  })
-
-  test('update modifies path and size of a track', async () => {
-    const { file } = await seedMediaFile()
-
-    const track = await DbMediaTracks.create({
-      media_file_id: file.id,
-      stream_index: 0,
-      stream_type: 'video',
-      codec_name: 'h264',
-      is_default: true,
-    })
-
-    const updated = await DbMediaTracks.update(track.id, {
-      path: '/tracks/movie/The Matrix (1999)/video/0-h264-1080p.mkv',
-      size: 7_500_000_000,
-    })
-
-    expect(updated).toBeDefined()
-    expect(updated!.path).toBe(
-      '/tracks/movie/The Matrix (1999)/video/0-h264-1080p.mkv'
-    )
-    expect(updated!.size).toBe(7_500_000_000)
-  })
-
-  test('update returns undefined for non-existent track', async () => {
-    const updated = await DbMediaTracks.update(999, {
-      path: '/some/path.mkv',
-      size: 100,
-    })
-
-    expect(updated).toBeUndefined()
-  })
-
-  test('getUnextracted returns tracks with path null for a media', async () => {
-    const { media, file } = await seedMediaFile()
-
-    await DbMediaTracks.create({
-      media_file_id: file.id,
-      stream_index: 0,
-      stream_type: 'video',
-      codec_name: 'h264',
-      is_default: true,
-    })
-
-    const extracted = await DbMediaTracks.create({
-      media_file_id: file.id,
-      stream_index: 1,
-      stream_type: 'audio',
-      codec_name: 'aac',
-      is_default: true,
-    })
-
-    await DbMediaTracks.update(extracted.id, {
-      path: '/tracks/movie/The Matrix (1999)/audio/1-aac-5.1.mka',
-      size: 400_000_000,
-    })
-
-    const unextracted = await DbMediaTracks.getUnextracted(media.id)
-
-    expect(unextracted).toHaveLength(1)
-    expect(unextracted[0].stream_index).toBe(0)
-  })
-
-  test('getUnextracted returns empty when all tracks are extracted', async () => {
-    const { media, file } = await seedMediaFile()
-
-    const track = await DbMediaTracks.create({
-      media_file_id: file.id,
-      stream_index: 0,
-      stream_type: 'video',
-      codec_name: 'h264',
-      is_default: true,
-    })
-
-    await DbMediaTracks.update(track.id, {
-      path: '/tracks/movie/The Matrix (1999)/video/0-h264-1080p.mkv',
-      size: 7_500_000_000,
-    })
-
-    const unextracted = await DbMediaTracks.getUnextracted(media.id)
-
-    expect(unextracted).toHaveLength(0)
   })
 
   test('cascade delete: removing media_file removes its tracks', async () => {

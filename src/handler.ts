@@ -5,10 +5,10 @@ import { DbMediaTracks } from '@/db/media-tracks'
 import { DbReleases } from '@/db/releases'
 import { DbSearchResults } from '@/db/search-results'
 import { Downloads } from '@/downloads'
-import { Extractor } from '@/extractor'
 import { Formatters } from '@/formatters'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Log } from '@/log'
+import { Player } from '@/player'
 import { Releases } from '@/releases'
 import { Scanner } from '@/scanner'
 import { extractSchemaProps } from '@/utils'
@@ -277,21 +277,41 @@ export class Handler {
     this.output(result, Formatters.scanResult(result))
   }
 
-  async extract() {
-    const { media_id } = this.parseArgs('extract', type({ media_id: 'string' }))
+  async play(opts: {
+    port?: number
+    video?: number
+    audio?: number
+    sub?: number
+  }) {
+    const { media_id } = this.parseArgs('play', type({ media_id: 'string' }))
 
-    await Log.info(`command=extract media_id=${media_id}`)
+    const media = await DbMedia.getById(media_id)
 
-    const { failed } = await new Extractor().extract(media_id)
-
-    const tracks = await DbMediaTracks.getByMediaId(media_id)
-
-    if (tracks.length === 0) {
-      console.log('No tracks to extract.')
-      return
+    if (!media) {
+      throw new Error(`Media '${media_id}' not found.`)
     }
 
-    this.output({ tracks, failed }, Formatters.extractResult(tracks, failed))
+    const player = new Player(media_id)
+    const result = await player.start(
+      { video: opts.video, audio: opts.audio, sub: opts.sub },
+      { port: opts.port }
+    )
+
+    const displayLines = [
+      Formatters.mediaTitle(media),
+      Formatters.trackSummary('video', result.video),
+      Formatters.trackSummary('audio', result.audio),
+    ]
+
+    if (result.subtitle) {
+      displayLines.push(Formatters.trackSummary('subtitle', result.subtitle))
+    }
+
+    displayLines.push('', result.url)
+
+    this.output(result, displayLines.join('\n'))
+
+    await player.wait()
   }
 
   async library() {

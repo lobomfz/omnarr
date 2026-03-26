@@ -127,11 +127,7 @@ afterAll(async () => {
 })
 
 beforeEach(() => {
-  database.reset('media_tracks')
-  database.reset('media_files')
-  database.reset('downloads')
-  database.reset('media')
-  database.reset('tmdb_media')
+  database.reset()
 })
 
 async function seedMedia(contentPath: string) {
@@ -310,18 +306,6 @@ describe('new Scanner().scan — probe + tracks', () => {
     expect(sub.codec_name).toBe('subrip')
     expect(sub.language).toBe('por')
   })
-
-  test('track path and size are null (not extracted)', async () => {
-    const media = await seedMedia(join(tmpDir, 'probe/The Matrix (1999)'))
-    await new Scanner().scan(media.id)
-
-    const tracks = await DbMediaTracks.getByMediaId(media.id)
-
-    for (const track of tracks) {
-      expect(track.path).toBeNull()
-      expect(track.size).toBeNull()
-    }
-  })
 })
 
 describe('new Scanner().scan — reconciliation', () => {
@@ -402,56 +386,18 @@ describe('new Scanner().scan — reconciliation', () => {
     expect(filesAfter[0].path).toBe(filesBefore[0].path)
   })
 
-  test('preserves track data on re-scan including extraction path', async () => {
-    const media = await seedMedia(
-      join(tmpDir, 'recon-tracks/The Matrix (1999)')
-    )
-
-    await new Scanner().scan(media.id)
-
-    const tracksBefore = await DbMediaTracks.getByMediaId(media.id)
-
-    await DbMediaTracks.update(tracksBefore[0].id, {
-      path: '/extracted/track.mkv',
-      size: 12345,
-    })
-
-    await new Scanner().scan(media.id)
-
-    const tracksAfter = await DbMediaTracks.getByMediaId(media.id)
-
-    expect(tracksAfter).toHaveLength(tracksBefore.length)
-
-    const updated = tracksAfter.find((t) => t.id === tracksBefore[0].id)!
-
-    expect(updated.path).toBe('/extracted/track.mkv')
-    expect(updated.size).toBe(12345)
-  })
-
   test('force re-scan deletes all files and re-probes from scratch', async () => {
     const media = await seedMedia(join(tmpDir, 'force/The Matrix (1999)'))
 
     await new Scanner().scan(media.id)
 
     const filesBefore = await DbMediaFiles.getByMediaId(media.id)
-    const tracksBefore = await DbMediaTracks.getByMediaId(media.id)
-
-    await DbMediaTracks.update(tracksBefore[0].id, {
-      path: '/extracted/track.mkv',
-      size: 12345,
-    })
 
     await new Scanner().scan(media.id, { force: true })
 
     const filesAfter = await DbMediaFiles.getByMediaId(media.id)
-    const tracksAfter = await DbMediaTracks.getByMediaId(media.id)
 
     expect(filesAfter).toHaveLength(1)
     expect(filesAfter[0].id).not.toBe(filesBefore[0].id)
-
-    for (const track of tracksAfter) {
-      expect(track.path).toBeNull()
-      expect(track.size).toBeNull()
-    }
   })
 })

@@ -116,8 +116,6 @@ export const database = new Database({
         'language?': 'string',
         'title?': 'string',
         is_default: 'boolean',
-        'path?': 'string',
-        'size?': 'number',
         'width?': 'number.integer',
         'height?': 'number.integer',
         'framerate?': 'number',
@@ -171,5 +169,4 @@ await Log.info(`database initialized path=${envVariables.OMNARR_DB_PATH}`)
 export type DB = typeof database.infer
 export const db = database.kysely
 export type media_type = typeof media_type.infer
-export type stream_type = typeof stream_type.infer
 export type download_status = typeof download_status.infer

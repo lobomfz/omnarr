@@ -44,14 +44,4 @@ export const DbMediaTracks = {
       .returningAll()
       .executeTakeFirst()
   },
-
-  async getUnextracted(mediaId: string) {
-    return await db
-      .selectFrom('media_tracks as t')
-      .innerJoin('media_files as f', 'f.id', 't.media_file_id')
-      .where('f.media_id', '=', mediaId)
-      .where('t.path', 'is', null)
-      .selectAll('t')
-      .execute()
-  },
 }

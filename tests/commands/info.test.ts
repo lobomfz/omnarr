@@ -21,6 +21,7 @@ import { Scanner } from '@/scanner'
 import { deriveId } from '@/utils'
 
 import { MediaFixtures } from '../fixtures/media'
+import { seedDownloadWithTracks } from '../player/seed'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-info-cmd-'))
 const refMkv = join(tmpDir, 'ref-subs.mkv')
@@ -38,11 +39,7 @@ afterAll(async () => {
 })
 
 beforeEach(() => {
-  database.reset('media_tracks')
-  database.reset('media_files')
-  database.reset('downloads')
-  database.reset('media')
-  database.reset('tmdb_media')
+  database.reset()
 })
 
 async function seedMedia() {
@@ -166,5 +163,43 @@ describe('info command', () => {
     })
 
     expect(result.exitCode).not.toBe(0)
+  })
+
+  test('shows per-type track indices matching play command numbering', async () => {
+    const media = await seedMedia()
+
+    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
+      {
+        stream_index: 0,
+        stream_type: 'video',
+        codec_name: 'h264',
+        is_default: true,
+        width: 1920,
+        height: 1080,
+      },
+      {
+        stream_index: 1,
+        stream_type: 'audio',
+        codec_name: 'aac',
+        is_default: true,
+        language: 'eng',
+      },
+      {
+        stream_index: 2,
+        stream_type: 'audio',
+        codec_name: 'ac3',
+        is_default: false,
+        language: 'por',
+      },
+    ])
+
+    const result = await testCommand(InfoCommand, {
+      args: [media.id],
+      flags: {},
+    })
+
+    expect(result.stdout).toContain('video 0:')
+    expect(result.stdout).toContain('audio 0:')
+    expect(result.stdout).toContain('audio 1:')
   })
 })
