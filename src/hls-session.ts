@@ -4,8 +4,8 @@ import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
-import { CodecStrategy } from '@/codec-strategy'
 import { Log } from '@/log'
+import type { Transcoder } from '@/transcoder'
 
 export class HlsSession {
   private segments: { pts: number; duration: number }[]
@@ -28,7 +28,7 @@ export class HlsSession {
       keyframes: number[]
       duration: number
       outDir: string
-      codecStrategy: ReturnType<typeof CodecStrategy.resolve>
+      transcoder: Transcoder
     }
   ) {
     this.segments = opts.keyframes.map((pts, i) => ({
@@ -156,10 +156,6 @@ export class HlsSession {
 
     let builder = new FFmpegBuilder({ overwrite: true })
 
-    if (this.opts.codecStrategy.video.mode === 'transcode') {
-      builder = builder.rawInput('-hwaccel', 'auto')
-    }
-
     if (segment.pts > 0) {
       builder = builder.seek(segment.pts)
     }
@@ -179,28 +175,7 @@ export class HlsSession {
       .map(`0:${this.opts.videoStreamIndex}`)
       .map(`${audioInputIndex}:${this.opts.audioStreamIndex}`)
 
-    const videoStrategy = this.opts.codecStrategy.video
-
-    if (videoStrategy.mode === 'copy') {
-      builder = builder.codec('v', 'copy')
-    } else {
-      builder = builder
-        .codec('v', videoStrategy.codec)
-        .crf(videoStrategy.crf)
-        .preset(videoStrategy.preset)
-    }
-
-    const audioStrategy = this.opts.codecStrategy.audio
-
-    if (audioStrategy.mode === 'copy') {
-      builder = builder.codec('a', 'copy')
-    } else {
-      builder = builder.codec('a', audioStrategy.codec)
-
-      if ('channels' in audioStrategy) {
-        builder = builder.raw('-ac', String(audioStrategy.channels))
-      }
-    }
+    builder = this.opts.transcoder.apply(builder)
 
     builder = builder.hls({
       time: hlsTime,

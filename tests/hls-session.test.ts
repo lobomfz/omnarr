@@ -7,6 +7,7 @@ import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
 import { HlsSession } from '@/hls-session'
 import { Player } from '@/player'
+import { Transcoder } from '@/transcoder'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-hlssession-'))
 const testMkv = join(tmpDir, 'test.mkv')
@@ -38,10 +39,10 @@ afterAll(async () => {
   await rm(tmpDir, { recursive: true })
 })
 
-const COPY_STRATEGY = {
-  video: { mode: 'copy' as const },
-  audio: { mode: 'copy' as const },
-}
+const copyTranscoder = await Transcoder.create(
+  { video: { codec_name: 'h264' }, audio: { codec_name: 'aac' } },
+  { video_crf: 21, video_preset: 'veryfast' }
+)
 
 function createSession(outDir: string) {
   return new HlsSession({
@@ -52,7 +53,7 @@ function createSession(outDir: string) {
     keyframes,
     duration,
     outDir,
-    codecStrategy: COPY_STRATEGY,
+    transcoder: copyTranscoder,
   })
 }
 
@@ -207,7 +208,7 @@ describe('HlsSession', () => {
       keyframes: [0],
       duration: 1,
       outDir,
-      codecStrategy: COPY_STRATEGY,
+      transcoder: copyTranscoder,
     })
 
     const result = await Promise.race([
@@ -280,7 +281,7 @@ describe('HlsSession — seek', () => {
       keyframes: seekKeyframes,
       duration: seekDuration,
       outDir,
-      codecStrategy: COPY_STRATEGY,
+      transcoder: copyTranscoder,
     })
   }
 
@@ -371,7 +372,7 @@ describe('HlsSession — integration: dual-file', () => {
       keyframes: longKeyframes,
       duration: longDuration,
       outDir: hlsDir,
-      codecStrategy: COPY_STRATEGY,
+      transcoder: copyTranscoder,
     })
 
     await Bun.write(join(hlsDir, 'video.m3u8'), session.getPlaylist())

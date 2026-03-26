@@ -7,6 +7,7 @@ import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
 import { HlsSession } from '@/hls-session'
 import { Player } from '@/player'
+import { Transcoder } from '@/transcoder'
 
 import { MediaFixtures } from '../fixtures/media'
 
@@ -22,6 +23,11 @@ const hlsDir = join(tmpDir, 'hls')
 
 await mkdir(hlsDir, { recursive: true })
 
+const copyTranscoder = await Transcoder.create(
+  { video: { codec_name: 'h264' }, audio: { codec_name: 'aac' } },
+  { video_crf: 21, video_preset: 'veryfast' }
+)
+
 const session = new HlsSession({
   videoFilePath: refMkv,
   audioFilePath: refMkv,
@@ -30,10 +36,7 @@ const session = new HlsSession({
   keyframes,
   duration: probe.format.duration,
   outDir: hlsDir,
-  codecStrategy: {
-    video: { mode: 'copy' as const },
-    audio: { mode: 'copy' as const },
-  },
+  transcoder: copyTranscoder,
 })
 
 await Bun.write(join(hlsDir, 'video.m3u8'), session.getPlaylist())

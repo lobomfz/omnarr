@@ -1,17 +1,52 @@
-import { describe, expect, test, beforeEach } from 'bun:test'
+import {
+  afterEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+  beforeEach,
+} from 'bun:test'
+import * as fsPromises from 'fs/promises'
 
-import { CodecStrategy } from '@/codec-strategy'
+import { FFmpegBuilder } from '@lobomfz/ffmpeg'
+
 import { config } from '@/config'
 import { database } from '@/db/connection'
 import { Player } from '@/player'
+import { Transcoder } from '@/transcoder'
 
 import { seedMedia, seedDownloadWithTracks } from './seed'
 
-beforeEach(() => {
-  database.reset()
+const originalAccess = fsPromises.access.bind(fsPromises)
+
+afterEach(() => {
+  mock.restore()
 })
 
-describe('Player — codec strategy resolution', () => {
+function argAfter(args: string[], flag: string) {
+  const idx = args.indexOf(flag)
+
+  if (idx < 0) {
+    return undefined
+  }
+
+  return args[idx + 1]
+}
+
+beforeEach(() => {
+  database.reset()
+
+  spyOn(fsPromises, 'access').mockImplementation((path: any) => {
+    if (path === '/dev/dri/renderD128') {
+      return Promise.reject(new Error('ENOENT'))
+    }
+
+    return originalAccess(path)
+  })
+})
+
+describe('Player — transcoder resolution', () => {
   test('compatible codecs produce copy strategy', async () => {
     const media = await seedMedia()
 
@@ -36,10 +71,14 @@ describe('Player — codec strategy resolution', () => {
 
     const player = new Player(media.id)
     const resolved = await player.resolveTracks({})
-    const strategy = CodecStrategy.resolve(resolved, config.transcoding)
+    const transcoder = await Transcoder.create(resolved, config.transcoding)
 
-    expect(strategy.video).toEqual({ mode: 'copy' })
-    expect(strategy.audio).toEqual({ mode: 'copy' })
+    const args = transcoder
+      .apply(new FFmpegBuilder().input('/test.mkv'))
+      .toArgs()
+
+    expect(argAfter(args, '-c:v')).toBe('copy')
+    expect(argAfter(args, '-c:a')).toBe('copy')
   })
 
   test('incompatible video codec produces transcode strategy', async () => {
@@ -66,13 +105,17 @@ describe('Player — codec strategy resolution', () => {
 
     const player = new Player(media.id)
     const resolved = await player.resolveTracks({})
-    const strategy = CodecStrategy.resolve(resolved, config.transcoding)
+    const transcoder = await Transcoder.create(resolved, config.transcoding)
 
-    expect(strategy.video.mode).toBe('transcode')
-    expect(strategy.audio).toEqual({ mode: 'copy' })
+    const args = transcoder
+      .apply(new FFmpegBuilder().input('/test.mkv'))
+      .toArgs()
+
+    expect(argAfter(args, '-c:v')).toBe('libx264')
+    expect(argAfter(args, '-c:a')).toBe('copy')
   })
 
-  test('incompatible audio codec produces transcode strategy preserving channels', async () => {
+  test('incompatible audio codec produces transcode with channel preservation', async () => {
     const media = await seedMedia()
 
     await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
@@ -96,14 +139,15 @@ describe('Player — codec strategy resolution', () => {
 
     const player = new Player(media.id)
     const resolved = await player.resolveTracks({})
-    const strategy = CodecStrategy.resolve(resolved, config.transcoding)
+    const transcoder = await Transcoder.create(resolved, config.transcoding)
 
-    expect(strategy.video).toEqual({ mode: 'copy' })
-    expect(strategy.audio).toEqual({
-      mode: 'transcode',
-      codec: 'aac',
-      channels: 6,
-    })
+    const args = transcoder
+      .apply(new FFmpegBuilder().input('/test.mkv'))
+      .toArgs()
+
+    expect(argAfter(args, '-c:v')).toBe('copy')
+    expect(argAfter(args, '-c:a')).toBe('aac')
+    expect(argAfter(args, '-ac')).toBe('6')
   })
 
   test('incompatible subtitle codec still produces error', async () => {

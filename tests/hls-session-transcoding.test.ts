@@ -1,8 +1,28 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, mock, spyOn, test } from 'bun:test'
+import * as fsPromises from 'fs/promises'
 
 import { HlsSession } from '@/hls-session'
+import { Transcoder } from '@/transcoder'
 
-type SessionOpts = ConstructorParameters<typeof HlsSession>[0]
+const originalAccess = fsPromises.access.bind(fsPromises)
+
+function mockVaapiDevice(present: boolean) {
+  spyOn(fsPromises, 'access').mockImplementation((path: any) => {
+    if (path === '/dev/dri/renderD128') {
+      if (present) {
+        return Promise.resolve()
+      }
+
+      return Promise.reject(new Error('ENOENT'))
+    }
+
+    return originalAccess(path)
+  })
+}
+
+afterEach(() => {
+  mock.restore()
+})
 
 function argAfter(args: string[], flag: string) {
   const idx = args.indexOf(flag)
@@ -14,7 +34,17 @@ function argAfter(args: string[], flag: string) {
   return args[idx + 1]
 }
 
-function createSession(codecStrategy: SessionOpts['codecStrategy']) {
+async function createSession(tracks: {
+  video: { codec_name: string }
+  audio: { codec_name: string; channels?: number | null }
+}) {
+  mockVaapiDevice(false)
+
+  const transcoder = await Transcoder.create(tracks, {
+    video_crf: 21,
+    video_preset: 'veryfast',
+  })
+
   return new HlsSession({
     videoFilePath: '/test/video.mkv',
     audioFilePath: '/test/video.mkv',
@@ -23,15 +53,15 @@ function createSession(codecStrategy: SessionOpts['codecStrategy']) {
     keyframes: [0, 5, 10],
     duration: 15,
     outDir: '/tmp/test-hls',
-    codecStrategy,
+    transcoder,
   })
 }
 
-describe('HlsSession — codec strategy FFmpeg args', () => {
-  test('both copy → codec copy, no encoding flags, no -hwaccel', () => {
-    const session = createSession({
-      video: { mode: 'copy' },
-      audio: { mode: 'copy' },
+describe('HlsSession — transcoder FFmpeg args', () => {
+  test('both copy → codec copy, no encoding flags, no -hwaccel', async () => {
+    const session = await createSession({
+      video: { codec_name: 'h264' },
+      audio: { codec_name: 'aac' },
     })
     const args = session.buildCommand(0).toArgs()
 
@@ -42,15 +72,10 @@ describe('HlsSession — codec strategy FFmpeg args', () => {
     expect(args).not.toContain('-preset')
   })
 
-  test('video transcode + audio copy → libx264 with CRF/preset, -hwaccel auto', () => {
-    const session = createSession({
-      video: {
-        mode: 'transcode',
-        codec: 'libx264',
-        crf: 21,
-        preset: 'veryfast',
-      },
-      audio: { mode: 'copy' },
+  test('video transcode + audio copy → libx264 with CRF/preset, -hwaccel auto', async () => {
+    const session = await createSession({
+      video: { codec_name: 'hevc' },
+      audio: { codec_name: 'aac' },
     })
     const args = session.buildCommand(0).toArgs()
 
@@ -61,10 +86,10 @@ describe('HlsSession — codec strategy FFmpeg args', () => {
     expect(argAfter(args, '-c:a')).toBe('copy')
   })
 
-  test('audio transcode + video copy → aac with -ac, no -hwaccel', () => {
-    const session = createSession({
-      video: { mode: 'copy' },
-      audio: { mode: 'transcode', codec: 'aac', channels: 6 },
+  test('audio transcode + video copy → aac with -ac, no -hwaccel', async () => {
+    const session = await createSession({
+      video: { codec_name: 'h264' },
+      audio: { codec_name: 'dts', channels: 6 },
     })
     const args = session.buildCommand(0).toArgs()
 
@@ -74,51 +99,41 @@ describe('HlsSession — codec strategy FFmpeg args', () => {
     expect(args).not.toContain('-hwaccel')
   })
 
-  test('both transcode → all encoding flags present', () => {
-    const session = createSession({
-      video: {
-        mode: 'transcode',
-        codec: 'libx264',
-        crf: 18,
-        preset: 'medium',
-      },
-      audio: { mode: 'transcode', codec: 'aac', channels: 8 },
+  test('both transcode → all encoding flags present', async () => {
+    const session = await createSession({
+      video: { codec_name: 'av1' },
+      audio: { codec_name: 'dts', channels: 8 },
     })
     const args = session.buildCommand(0).toArgs()
 
     expect(argAfter(args, '-c:v')).toBe('libx264')
-    expect(argAfter(args, '-crf')).toBe('18')
-    expect(argAfter(args, '-preset')).toBe('medium')
+    expect(argAfter(args, '-crf')).toBe('21')
+    expect(argAfter(args, '-preset')).toBe('veryfast')
     expect(argAfter(args, '-hwaccel')).toBe('auto')
     expect(argAfter(args, '-c:a')).toBe('aac')
     expect(argAfter(args, '-ac')).toBe('8')
   })
 
-  test('-hwaccel auto only when video is transcoded', () => {
-    const audiOnlyTranscode = createSession({
-      video: { mode: 'copy' },
-      audio: { mode: 'transcode', codec: 'aac' },
+  test('-hwaccel auto only when video is transcoded', async () => {
+    const audioOnly = await createSession({
+      video: { codec_name: 'h264' },
+      audio: { codec_name: 'dts' },
     })
 
-    expect(audiOnlyTranscode.buildCommand(0).toArgs()).not.toContain('-hwaccel')
+    expect(audioOnly.buildCommand(0).toArgs()).not.toContain('-hwaccel')
 
-    const videoTranscode = createSession({
-      video: {
-        mode: 'transcode',
-        codec: 'libx264',
-        crf: 21,
-        preset: 'veryfast',
-      },
-      audio: { mode: 'copy' },
+    const videoTranscode = await createSession({
+      video: { codec_name: 'hevc' },
+      audio: { codec_name: 'aac' },
     })
 
     expect(videoTranscode.buildCommand(0).toArgs()).toContain('-hwaccel')
   })
 
-  test('audio transcode without channels omits -ac', () => {
-    const session = createSession({
-      video: { mode: 'copy' },
-      audio: { mode: 'transcode', codec: 'aac' },
+  test('audio transcode without channels omits -ac', async () => {
+    const session = await createSession({
+      video: { codec_name: 'h264' },
+      audio: { codec_name: 'dts' },
     })
     const args = session.buildCommand(0).toArgs()
 
@@ -126,15 +141,10 @@ describe('HlsSession — codec strategy FFmpeg args', () => {
     expect(args).not.toContain('-ac')
   })
 
-  test('-hwaccel auto appears before -i', () => {
-    const session = createSession({
-      video: {
-        mode: 'transcode',
-        codec: 'libx264',
-        crf: 21,
-        preset: 'veryfast',
-      },
-      audio: { mode: 'copy' },
+  test('-hwaccel auto appears before -i', async () => {
+    const session = await createSession({
+      video: { codec_name: 'hevc' },
+      audio: { codec_name: 'aac' },
     })
     const args = session.buildCommand(0).toArgs()
 

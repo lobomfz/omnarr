@@ -4,12 +4,12 @@ import { join, resolve } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
-import { CodecStrategy } from '@/codec-strategy'
 import { config } from '@/config'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { HlsSession } from '@/hls-session'
 import { Log } from '@/log'
+import { Transcoder } from '@/transcoder'
 
 const HLS_SUBTITLE_CODECS = ['subrip', 'ass', 'mov_text']
 
@@ -35,7 +35,7 @@ export class Player {
   async start(selection: TrackSelection, opts: { port?: number }) {
     const resolved = await this.resolveTracks(selection)
 
-    const codecStrategy = CodecStrategy.resolve(resolved, config.transcoding)
+    const transcoder = await Transcoder.create(resolved, config.transcoding)
 
     if (resolved.subtitle) {
       this.validateSubtitleCodec(resolved.subtitle.codec_name)
@@ -65,7 +65,7 @@ export class Player {
       keyframes: keyframes.map((k) => k.pts_time),
       duration: resolved.video.file_duration,
       outDir: this.hlsDir,
-      codecStrategy,
+      transcoder,
     })
 
     await Bun.write(join(this.hlsDir, 'video.m3u8'), this.session.getPlaylist())
