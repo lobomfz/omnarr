@@ -35,7 +35,9 @@ const session = new HlsSession({
 await Bun.write(join(hlsDir, 'video.m3u8'), session.getPlaylist())
 await Bun.write(join(hlsDir, 'master.m3u8'), Player.masterPlaylist())
 
-const server = Player.serve(hlsDir, session, 0)
+const mediaId = 'TEST01'
+const server = Player.serve(hlsDir, session, 0, mediaId)
+const base = `http://localhost:${server.port}/${mediaId}`
 
 afterAll(async () => {
   server?.stop()
@@ -44,7 +46,7 @@ afterAll(async () => {
 
 describe('Player — HLS server', () => {
   test('serves master.m3u8 at root', async () => {
-    const res = await fetch(`http://localhost:${server.port}/`)
+    const res = await fetch(`${base}/`)
 
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toBe(
@@ -58,7 +60,7 @@ describe('Player — HLS server', () => {
   })
 
   test('serves video.m3u8 media playlist', async () => {
-    const res = await fetch(`http://localhost:${server.port}/video.m3u8`)
+    const res = await fetch(`${base}/video.m3u8`)
 
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toBe(
@@ -72,20 +74,26 @@ describe('Player — HLS server', () => {
   })
 
   test('serves .ts segments with correct content type', async () => {
-    const res = await fetch(`http://localhost:${server.port}/seg_000.ts`)
+    const res = await fetch(`${base}/seg_000.ts`)
 
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toBe('video/mp2t')
   })
 
   test('returns 404 for missing files', async () => {
-    const res = await fetch(`http://localhost:${server.port}/nonexistent.m3u8`)
+    const res = await fetch(`${base}/nonexistent.m3u8`)
+
+    expect(res.status).toBe(404)
+  })
+
+  test('returns 404 for wrong mediaId prefix', async () => {
+    const res = await fetch(`http://localhost:${server.port}/WRONG1/video.m3u8`)
 
     expect(res.status).toBe(404)
   })
 
   test('includes CORS header', async () => {
-    const res = await fetch(`http://localhost:${server.port}/video.m3u8`)
+    const res = await fetch(`${base}/video.m3u8`)
 
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
   })
@@ -95,9 +103,7 @@ describe('Player — HLS server', () => {
 
     await Bun.write(join(siblingDir, 'secret.txt'), 'leaked')
 
-    const req = new Request(
-      `http://localhost:${server.port}/${siblingDir}/secret.txt`
-    )
+    const req = new Request(`${base}/${siblingDir}/secret.txt`)
     const res = await server.fetch(req)
 
     expect(res.status).toBe(403)

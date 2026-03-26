@@ -84,10 +84,15 @@ export class Player {
       )
     )
 
-    this.server = Player.serve(this.hlsDir, this.session, opts.port ?? 8787)
+    this.server = Player.serve(
+      this.hlsDir,
+      this.session,
+      opts.port ?? 8787,
+      this.mediaId
+    )
 
     return {
-      url: `http://localhost:${this.server.port}/master.m3u8`,
+      url: `http://localhost:${this.server.port}/${this.mediaId}/master.m3u8`,
       ...resolved,
     }
   }
@@ -104,13 +109,13 @@ export class Player {
     }
   }
 
-  async wait() {
-    process.on('SIGINT', async () => {
-      await this.stop()
-      process.exit(0)
+  async play(url: string) {
+    const proc = Bun.spawn(['mpv', url], {
+      stdio: ['inherit', 'inherit', 'inherit'],
     })
 
-    await new Promise(() => {})
+    await proc.exited
+    await this.stop()
   }
 
   async resolveTracks(selection: TrackSelection) {
@@ -213,12 +218,25 @@ export class Player {
     }
   }
 
-  static serve(hlsDir: string, session: HlsSession, port: number) {
+  static serve(
+    hlsDir: string,
+    session: HlsSession,
+    port: number,
+    mediaId: string
+  ) {
+    const prefix = `/${mediaId}`
+
     return Bun.serve({
       port,
       fetch: async (req) => {
         const url = new URL(req.url)
-        let pathname = url.pathname
+        const raw = url.pathname
+
+        if (!raw.startsWith(prefix)) {
+          return new Response('Not Found', { status: 404 })
+        }
+
+        let pathname = raw.slice(prefix.length) || '/'
 
         if (pathname === '/') {
           pathname = '/master.m3u8'

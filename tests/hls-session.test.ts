@@ -320,8 +320,8 @@ describe('HlsSession — integration: dual-file', () => {
 
     await Bun.write(join(hlsDir, 'video.m3u8'), session.getPlaylist())
 
-    server = Player.serve(hlsDir, session, 0)
-    baseUrl = `http://localhost:${server.port}`
+    server = Player.serve(hlsDir, session, 0, 'HLSTEST')
+    baseUrl = `http://localhost:${server.port}/HLSTEST`
   })
 
   afterAll(async () => {

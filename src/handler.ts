@@ -311,7 +311,7 @@ export class Handler {
 
     this.output(result, displayLines.join('\n'))
 
-    await player.wait()
+    await player.play(result.url)
   }
 
   async library() {
