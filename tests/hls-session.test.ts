@@ -38,6 +38,11 @@ afterAll(async () => {
   await rm(tmpDir, { recursive: true })
 })
 
+const COPY_STRATEGY = {
+  video: { mode: 'copy' as const },
+  audio: { mode: 'copy' as const },
+}
+
 function createSession(outDir: string) {
   return new HlsSession({
     videoFilePath: testMkv,
@@ -47,6 +52,7 @@ function createSession(outDir: string) {
     keyframes,
     duration,
     outDir,
+    codecStrategy: COPY_STRATEGY,
   })
 }
 
@@ -201,6 +207,7 @@ describe('HlsSession', () => {
       keyframes: [0],
       duration: 1,
       outDir,
+      codecStrategy: COPY_STRATEGY,
     })
 
     const result = await Promise.race([
@@ -273,6 +280,7 @@ describe('HlsSession — seek', () => {
       keyframes: seekKeyframes,
       duration: seekDuration,
       outDir,
+      codecStrategy: COPY_STRATEGY,
     })
   }
 
@@ -363,6 +371,7 @@ describe('HlsSession — integration: dual-file', () => {
       keyframes: longKeyframes,
       duration: longDuration,
       outDir: hlsDir,
+      codecStrategy: COPY_STRATEGY,
     })
 
     await Bun.write(join(hlsDir, 'video.m3u8'), session.getPlaylist())

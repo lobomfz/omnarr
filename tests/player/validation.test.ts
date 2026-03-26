@@ -1,5 +1,7 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
+import { CodecStrategy } from '@/codec-strategy'
+import { config } from '@/config'
 import { database } from '@/db/connection'
 import { Player } from '@/player'
 
@@ -9,8 +11,8 @@ beforeEach(() => {
   database.reset()
 })
 
-describe('Player — codec validation', () => {
-  test('compatible codecs pass validation', async () => {
+describe('Player — codec strategy resolution', () => {
+  test('compatible codecs produce copy strategy', async () => {
     const media = await seedMedia()
 
     await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
@@ -27,24 +29,27 @@ describe('Player — codec validation', () => {
         stream_type: 'audio',
         codec_name: 'aac',
         is_default: true,
+        channels: 6,
         channel_layout: '5.1',
       },
     ])
 
     const player = new Player(media.id)
     const resolved = await player.resolveTracks({})
+    const strategy = CodecStrategy.resolve(resolved, config.transcoding)
 
-    player.validateCodecs(resolved)
+    expect(strategy.video).toEqual({ mode: 'copy' })
+    expect(strategy.audio).toEqual({ mode: 'copy' })
   })
 
-  test('incompatible video codec produces error with details', async () => {
+  test('incompatible video codec produces transcode strategy', async () => {
     const media = await seedMedia()
 
     await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
       {
         stream_index: 0,
         stream_type: 'video',
-        codec_name: 'vp9',
+        codec_name: 'av1',
         is_default: true,
         width: 1920,
         height: 1080,
@@ -54,19 +59,20 @@ describe('Player — codec validation', () => {
         stream_type: 'audio',
         codec_name: 'aac',
         is_default: true,
-        channel_layout: '5.1',
+        channels: 2,
+        channel_layout: 'stereo',
       },
     ])
 
     const player = new Player(media.id)
     const resolved = await player.resolveTracks({})
+    const strategy = CodecStrategy.resolve(resolved, config.transcoding)
 
-    expect(() => player.validateCodecs(resolved)).toThrow(
-      /video.*vp9.*h264.*hevc/i
-    )
+    expect(strategy.video.mode).toBe('transcode')
+    expect(strategy.audio).toEqual({ mode: 'copy' })
   })
 
-  test('incompatible audio codec produces error with details', async () => {
+  test('incompatible audio codec produces transcode strategy preserving channels', async () => {
     const media = await seedMedia()
 
     await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
@@ -81,21 +87,26 @@ describe('Player — codec validation', () => {
       {
         stream_index: 1,
         stream_type: 'audio',
-        codec_name: 'opus',
+        codec_name: 'dts',
         is_default: true,
+        channels: 6,
         channel_layout: '5.1',
       },
     ])
 
     const player = new Player(media.id)
     const resolved = await player.resolveTracks({})
+    const strategy = CodecStrategy.resolve(resolved, config.transcoding)
 
-    expect(() => player.validateCodecs(resolved)).toThrow(
-      /audio.*opus.*aac.*ac3.*eac3/i
-    )
+    expect(strategy.video).toEqual({ mode: 'copy' })
+    expect(strategy.audio).toEqual({
+      mode: 'transcode',
+      codec: 'aac',
+      channels: 6,
+    })
   })
 
-  test('incompatible subtitle codec produces error with details', async () => {
+  test('incompatible subtitle codec still produces error', async () => {
     const media = await seedMedia()
 
     await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
@@ -122,9 +133,8 @@ describe('Player — codec validation', () => {
     ])
 
     const player = new Player(media.id)
-    const resolved = await player.resolveTracks({ sub: 0 })
 
-    expect(() => player.validateCodecs(resolved)).toThrow(
+    await expect(player.start({ sub: 0 }, { port: 0 })).rejects.toThrow(
       /subtitle.*dvd_subtitle.*subrip.*ass.*mov_text/i
     )
   })

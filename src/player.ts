@@ -4,13 +4,13 @@ import { join, resolve } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
+import { CodecStrategy } from '@/codec-strategy'
+import { config } from '@/config'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { HlsSession } from '@/hls-session'
 import { Log } from '@/log'
 
-const HLS_VIDEO_CODECS = ['h264', 'hevc']
-const HLS_AUDIO_CODECS = ['aac', 'ac3', 'eac3']
 const HLS_SUBTITLE_CODECS = ['subrip', 'ass', 'mov_text']
 
 const HLS_CONTENT_TYPES: Record<string, string> = {
@@ -35,7 +35,11 @@ export class Player {
   async start(selection: TrackSelection, opts: { port?: number }) {
     const resolved = await this.resolveTracks(selection)
 
-    this.validateCodecs(resolved)
+    const codecStrategy = CodecStrategy.resolve(resolved, config.transcoding)
+
+    if (resolved.subtitle) {
+      this.validateSubtitleCodec(resolved.subtitle.codec_name)
+    }
 
     this.hlsDir = await mkdtemp(join(tmpdir(), 'omnarr-play-'))
 
@@ -61,6 +65,7 @@ export class Player {
       keyframes: keyframes.map((k) => k.pts_time),
       duration: resolved.video.file_duration,
       outDir: this.hlsDir,
+      codecStrategy,
     })
 
     await Bun.write(join(this.hlsDir, 'video.m3u8'), this.session.getPlaylist())
@@ -169,27 +174,10 @@ export class Player {
     return tracks[0]
   }
 
-  validateCodecs(resolved: {
-    video: { codec_name: string }
-    audio: { codec_name: string }
-    subtitle?: { codec_name: string } | null
-  }) {
-    this.validateCodec('video', resolved.video.codec_name, HLS_VIDEO_CODECS)
-    this.validateCodec('audio', resolved.audio.codec_name, HLS_AUDIO_CODECS)
-
-    if (resolved.subtitle) {
-      this.validateCodec(
-        'subtitle',
-        resolved.subtitle.codec_name,
-        HLS_SUBTITLE_CODECS
-      )
-    }
-  }
-
-  private validateCodec(type: string, codec: string, supported: string[]) {
-    if (!supported.includes(codec)) {
+  private validateSubtitleCodec(codec: string) {
+    if (!HLS_SUBTITLE_CODECS.includes(codec)) {
       throw new Error(
-        `Incompatible ${type} codec '${codec}'. Supported: ${supported.join(', ')}.`
+        `Incompatible subtitle codec '${codec}'. Supported: ${HLS_SUBTITLE_CODECS.join(', ')}.`
       )
     }
   }
@@ -204,6 +192,7 @@ export class Player {
 
     return Bun.serve({
       port,
+      idleTimeout: 255,
       fetch: async (req) => {
         const url = new URL(req.url)
         const raw = url.pathname

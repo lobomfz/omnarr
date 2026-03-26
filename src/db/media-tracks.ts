@@ -50,6 +50,7 @@ export const DbMediaTracks = {
         't.is_default',
         't.width',
         't.height',
+        't.channels',
         't.channel_layout',
         'f.path as file_path',
         'f.id as file_id',

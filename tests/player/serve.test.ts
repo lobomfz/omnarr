@@ -30,6 +30,10 @@ const session = new HlsSession({
   keyframes,
   duration: probe.format.duration,
   outDir: hlsDir,
+  codecStrategy: {
+    video: { mode: 'copy' as const },
+    audio: { mode: 'copy' as const },
+  },
 })
 
 await Bun.write(join(hlsDir, 'video.m3u8'), session.getPlaylist())

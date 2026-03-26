@@ -4,7 +4,7 @@ import { dirname, join } from 'path'
 import type { PromptApi } from '@bunli/core'
 import type { Type } from 'arktype'
 
-import type { Config } from '@/config'
+import type { Config, ConfigInput } from '@/config'
 import { configJsonSchema } from '@/config'
 import { envVariables } from '@/env'
 import { indexerMap } from '@/integrations/indexers/registry'
@@ -125,7 +125,7 @@ export class InitWizard {
     }
   }
 
-  private async save(config: Config) {
+  private async save(config: ConfigInput) {
     const configPath = envVariables.OMNARR_CONFIG_PATH
     const configDir = dirname(configPath)
     const output = { $schema: './schema.json', ...config }

@@ -20,9 +20,27 @@ const configSchema = type({
   }),
   indexers: indexerSchema.array().default(() => []),
   'download_client?': qbittorrentClient.or('null'),
+  transcoding: type({
+    video_crf: 'number.integer = 21',
+    video_preset: type
+      .enumerated(
+        'ultrafast',
+        'superfast',
+        'veryfast',
+        'faster',
+        'fast',
+        'medium',
+        'slow',
+        'slower',
+        'veryslow',
+        'placebo'
+      )
+      .default('veryfast'),
+  }).default(() => ({})),
 })
 
 export type Config = typeof configSchema.infer
+export type ConfigInput = typeof configSchema.inferIn
 export const configJsonSchema = configSchema.toJsonSchema()
 export const config = await getConfig().catch(async (err) => {
   await Log.warn(

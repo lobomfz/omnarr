@@ -4,6 +4,7 @@ import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
+import { CodecStrategy } from '@/codec-strategy'
 import { Log } from '@/log'
 
 export class HlsSession {
@@ -27,6 +28,7 @@ export class HlsSession {
       keyframes: number[]
       duration: number
       outDir: string
+      codecStrategy: ReturnType<typeof CodecStrategy.resolve>
     }
   ) {
     this.segments = opts.keyframes.map((pts, i) => ({
@@ -146,19 +148,17 @@ export class HlsSession {
     this.starting = null
   }
 
-  private async doStartProcess(fromIndex: number) {
-    await this.clearSegments()
-    await mkdir(this.opts.outDir, { recursive: true })
-
-    this.processStartIndex = fromIndex
-    this.sealedSegments.clear()
-
+  buildCommand(fromIndex: number) {
     const segment = this.segments[fromIndex]
     const sameFile = this.opts.videoFilePath === this.opts.audioFilePath
     const audioInputIndex = sameFile ? 0 : 1
     const hlsTime = Math.min(...this.segments.map((s) => s.duration)) * 0.9
 
     let builder = new FFmpegBuilder({ overwrite: true })
+
+    if (this.opts.codecStrategy.video.mode === 'transcode') {
+      builder = builder.rawInput('-hwaccel', 'auto')
+    }
 
     if (segment.pts > 0) {
       builder = builder.seek(segment.pts)
@@ -178,22 +178,54 @@ export class HlsSession {
       .raw('-copyts', '-start_at_zero', '-avoid_negative_ts', 'disabled')
       .map(`0:${this.opts.videoStreamIndex}`)
       .map(`${audioInputIndex}:${this.opts.audioStreamIndex}`)
-      .codec('v', 'copy')
-      .codec('a', 'copy')
-      .hls({
-        time: hlsTime,
-        listSize: 0,
-        segmentFilename: join(this.opts.outDir, 'seg_%03d.ts'),
-      })
+
+    const videoStrategy = this.opts.codecStrategy.video
+
+    if (videoStrategy.mode === 'copy') {
+      builder = builder.codec('v', 'copy')
+    } else {
+      builder = builder
+        .codec('v', videoStrategy.codec)
+        .crf(videoStrategy.crf)
+        .preset(videoStrategy.preset)
+    }
+
+    const audioStrategy = this.opts.codecStrategy.audio
+
+    if (audioStrategy.mode === 'copy') {
+      builder = builder.codec('a', 'copy')
+    } else {
+      builder = builder.codec('a', audioStrategy.codec)
+
+      if ('channels' in audioStrategy) {
+        builder = builder.raw('-ac', String(audioStrategy.channels))
+      }
+    }
+
+    builder = builder.hls({
+      time: hlsTime,
+      listSize: 0,
+      segmentFilename: join(this.opts.outDir, 'seg_%03d.ts'),
+    })
 
     if (fromIndex > 0) {
       builder = builder.raw('-start_number', String(fromIndex))
     }
 
-    builder = builder.output(join(this.opts.outDir, 'ffmpeg_playlist.m3u8'))
+    return builder.output(join(this.opts.outDir, 'ffmpeg_playlist.m3u8'))
+  }
+
+  private async doStartProcess(fromIndex: number) {
+    await this.clearSegments()
+    await mkdir(this.opts.outDir, { recursive: true })
+
+    this.processStartIndex = fromIndex
+    this.sealedSegments.clear()
+
+    const builder = this.buildCommand(fromIndex)
 
     await Log.info(
-      `starting FFmpeg from segment ${fromIndex} pts=${segment.pts} args=${builder.toArgs().join(' ')}`
+      `starting FFmpeg from segment ${fromIndex} pts=${this.segments[fromIndex].pts} args=${builder.toArgs().join(' ')}`
     )
 
     this.startWatcher(fromIndex)
