@@ -340,7 +340,7 @@ describe('info command — TV', () => {
 
     const result = await testCommand(InfoCommand, {
       args: [media.id],
-      flags: { json: true, season: 1 },
+      flags: { json: true, season: '1' },
     })
 
     const data = JSON.parse(result.stdout)
@@ -354,7 +354,7 @@ describe('info command — TV', () => {
 
     const result = await testCommand(InfoCommand, {
       args: [media.id],
-      flags: { json: true, season: 1, episode: 1 },
+      flags: { json: true, season: '1', episode: '1' },
     })
 
     const data = JSON.parse(result.stdout)
@@ -369,7 +369,7 @@ describe('info command — TV', () => {
 
     const result = await testCommand(InfoCommand, {
       args: [media.id],
-      flags: { json: true, season: 99 },
+      flags: { json: true, season: '99' },
     })
 
     const data = JSON.parse(result.stdout)

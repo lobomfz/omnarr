@@ -185,7 +185,7 @@ export class Scanner {
       size: probe.format.size,
       format_name: probe.format.format_name,
       duration: probe.format.duration,
-      ...(episodeId !== undefined && { episode_id: episodeId }),
+      episode_id: episodeId,
     })
 
     await DbMediaTracks.createMany(

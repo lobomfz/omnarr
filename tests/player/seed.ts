@@ -89,7 +89,7 @@ export async function seedDownloadWithTracks(
     path: filePath,
     size: 8_000_000_000,
     duration: opts?.duration,
-    ...(opts?.episode_id !== undefined && { episode_id: opts.episode_id }),
+    episode_id: opts?.episode_id,
   })
 
   await DbMediaTracks.createMany(

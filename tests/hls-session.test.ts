@@ -180,7 +180,7 @@ describe('HlsSession', () => {
     const outDir = join(tmpDir, 'out-of-range')
     const session = createSession(outDir)
 
-    await expect(session.getSegment(999)).rejects.toThrow(
+    await expect(() => session.getSegment(999)).toThrow(
       /segment.*out of range/i
     )
 
@@ -191,9 +191,7 @@ describe('HlsSession', () => {
     const outDir = join(tmpDir, 'negative')
     const session = createSession(outDir)
 
-    await expect(session.getSegment(-1)).rejects.toThrow(
-      /segment.*out of range/i
-    )
+    await expect(() => session.getSegment(-1)).toThrow(/segment.*out of range/i)
 
     await session.cleanup()
   })

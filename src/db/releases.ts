@@ -14,7 +14,9 @@ export const DbReleases = {
     media_type: media_type,
     releases: SourcedRelease[]
   ) {
-    if (releases.length === 0) return []
+    if (releases.length === 0) {
+      return []
+    }
 
     return await db
       .insertInto('releases')

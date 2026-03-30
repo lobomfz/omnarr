@@ -29,10 +29,7 @@ export class TmdbClient {
     return data
   }
 
-  private parse(
-    raw: TmdbTypes['raw_media'],
-    defaultType: media_type
-  ): TmdbTypes['media'] {
+  private parse(raw: TmdbTypes['raw_media'], defaultType: media_type) {
     const date = raw.release_date ?? raw.first_air_date
 
     return {
@@ -73,9 +70,13 @@ export class TmdbClient {
   async getShowWithSeasons(tmdbId: number) {
     const data = await this.request<TmdbTypes['raw_media']>(`/tv/${tmdbId}`)
 
+    if (!data.seasons) {
+      throw new Error('TMDB /tv endpoint did not return seasons')
+    }
+
     return {
       ...this.parse(data, 'tv'),
-      seasons: data.seasons!,
+      seasons: data.seasons,
     }
   }
 

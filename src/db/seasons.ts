@@ -4,7 +4,9 @@ import { db, type DB } from '@/db/connection'
 
 export const DbSeasons = {
   async upsert(seasons: Insertable<DB['seasons']>[]) {
-    if (seasons.length === 0) return []
+    if (seasons.length === 0) {
+      return []
+    }
 
     return await db
       .insertInto('seasons')

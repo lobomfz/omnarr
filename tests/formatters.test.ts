@@ -193,4 +193,63 @@ describe('Formatters', () => {
       ).toBe('downloading')
     })
   })
+
+  describe('appendDownloads', () => {
+    test('track indices reset per file', () => {
+      const lines: string[] = []
+
+      const track = (
+        index: number,
+        type: 'video' | 'audio',
+        codec: string
+      ) => ({
+        stream_index: index,
+        stream_type: type,
+        codec_name: codec,
+        language: null,
+        title: null,
+        is_default: true,
+        width: null,
+        height: null,
+        channel_layout: null,
+      })
+
+      Formatters.appendDownloads(lines, [
+        {
+          id: 1,
+          status: 'completed' as const,
+          progress: 1,
+          speed: 0,
+          eta: 0,
+          content_path: null,
+          error_at: null,
+          started_at: '2026-01-01',
+          files: [
+            {
+              id: 1,
+              path: '/a/file1.mkv',
+              size: 1_000_000_000,
+              format_name: 'matroska',
+              duration: 7200,
+              tracks: [track(0, 'video', 'h264'), track(1, 'audio', 'aac')],
+            },
+            {
+              id: 2,
+              path: '/a/file2.mkv',
+              size: 2_000_000_000,
+              format_name: 'matroska',
+              duration: 5400,
+              tracks: [track(0, 'video', 'hevc'), track(1, 'audio', 'opus')],
+            },
+          ],
+        },
+      ])
+
+      const hevcLine = lines.find((l) => l.includes('hevc'))
+      const opusLine = lines.find((l) => l.includes('opus'))
+
+      expect(hevcLine).toContain('video 0:')
+      expect(opusLine).toContain('audio 0:')
+    })
+  })
 })

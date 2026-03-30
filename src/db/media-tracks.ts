@@ -21,9 +21,9 @@ export const DbMediaTracks = {
 
   async getByMediaFileId(mediaFileId: number) {
     return await db
-      .selectFrom('media_tracks')
-      .where('media_file_id', '=', mediaFileId)
-      .selectAll()
+      .selectFrom('media_tracks as mt')
+      .where('mt.media_file_id', '=', mediaFileId)
+      .selectAll('mt')
       .execute()
   },
 

@@ -47,7 +47,7 @@ export class Releases {
       }))
     )
 
-    const episodesByseason = await Promise.all(
+    const episodesBySeason = await Promise.all(
       seasonRows.map(async (row) => {
         const episodes = await this.tmdb.getSeasonEpisodes(
           tmdb_id,
@@ -62,7 +62,7 @@ export class Releases {
       })
     )
 
-    await DbEpisodes.upsert(episodesByseason.flat())
+    await DbEpisodes.upsert(episodesBySeason.flat())
 
     Log.info(
       `seasons fetched tmdb_id=${tmdb_id} seasons=${showData.seasons.length}`
