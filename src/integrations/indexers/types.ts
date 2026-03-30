@@ -1,6 +1,8 @@
 import type { DbFieldMeta } from '@lobomfz/db'
 import type { Type } from 'arktype'
 
+import { media_type } from '@/db/connection'
+
 declare global {
   interface ArkEnv {
     meta(): DbFieldMeta & { label?: string }
@@ -34,4 +36,5 @@ export interface IndexerClass {
   new (config: any): Indexer
   schema: Type<{ type: string }>
   name: string
+  types: media_type[]
 }

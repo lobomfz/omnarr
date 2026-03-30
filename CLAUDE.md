@@ -60,6 +60,10 @@ All user-facing IDs are 6-char uppercase strings derived via `deriveId()` (polyn
 
 All FFmpeg/ffprobe operations must go through `@lobomfz/ffmpeg` (`FFmpegBuilder`). Never spawn `ffmpeg` or `ffprobe` directly via `Bun.spawn`, `child_process`, or any other execution method. If the builder doesn't support an operation, add it to the library first.
 
+## Agent Usage
+
+This is a small codebase. Use direct tool calls (Read, Grep, Glob) instead of Explore subagents. Subagents are unnecessary overhead here.
+
 ## Conventions
 
 - Path alias: `@/*` maps to `src/*`

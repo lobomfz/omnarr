@@ -21,7 +21,6 @@ export const DbMedia = {
         'tmdb_media_id',
         'media_type',
         'root_folder',
-        'has_file',
         'added_at',
       ])
       .executeTakeFirstOrThrow()
@@ -32,7 +31,13 @@ export const DbMedia = {
       .selectFrom('media as m')
       .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
       .where('m.id', '=', id)
-      .select(['m.root_folder', 'm.media_type', 't.title', 't.year'])
+      .select([
+        'm.root_folder',
+        'm.media_type',
+        'm.tmdb_media_id',
+        't.title',
+        't.year',
+      ])
       .executeTakeFirst()
   },
 
@@ -58,6 +63,19 @@ export const DbMedia = {
             .select('d.status')
             .limit(1)
             .as('download_status'),
+        (eb) =>
+          eb
+            .selectFrom('seasons as s2')
+            .whereRef('s2.tmdb_media_id', '=', 'm.tmdb_media_id')
+            .select(sql<number>`coalesce(sum(s2.episode_count), 0)`.as('total'))
+            .as('total_episodes'),
+        (eb) =>
+          eb
+            .selectFrom('media_files as mf2')
+            .whereRef('mf2.media_id', '=', 'm.id')
+            .where('mf2.episode_id', 'is not', null)
+            .select(sql<number>`count(distinct mf2.episode_id)`.as('count'))
+            .as('episodes_with_files'),
       ])
       .groupBy('m.id')
 
@@ -68,7 +86,7 @@ export const DbMedia = {
     return await query.execute()
   },
 
-  async getInfo(id: string) {
+  async getInfo(id: string, filters?: { season?: number; episode?: number }) {
     return await db
       .selectFrom('media as m')
       .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
@@ -76,6 +94,7 @@ export const DbMedia = {
       .select([
         'm.id',
         'm.media_type',
+        'm.tmdb_media_id',
         'm.added_at',
         't.title',
         't.year',
@@ -128,6 +147,87 @@ export const DbMedia = {
               ])
               .orderBy('d.started_at', 'desc')
           ).as('downloads'),
+        (eb) =>
+          jsonArrayFrom(
+            (() => {
+              let seasonsQuery = eb
+                .selectFrom('seasons as s')
+                .whereRef('s.tmdb_media_id', '=', 'm.tmdb_media_id')
+
+              if (filters?.season !== undefined) {
+                seasonsQuery = seasonsQuery.where(
+                  's.season_number',
+                  '=',
+                  filters.season
+                )
+              }
+
+              return seasonsQuery
+                .select([
+                  's.season_number',
+                  's.title',
+                  (eb2) =>
+                    jsonArrayFrom(
+                      (() => {
+                        let episodesQuery = eb2
+                          .selectFrom('episodes as e')
+                          .whereRef('e.season_id', '=', 's.id')
+
+                        if (filters?.episode !== undefined) {
+                          episodesQuery = episodesQuery.where(
+                            'e.episode_number',
+                            '=',
+                            filters.episode
+                          )
+                        }
+
+                        return episodesQuery
+                          .select([
+                            'e.episode_number',
+                            'e.title',
+                            (eb3) =>
+                              jsonArrayFrom(
+                                eb3
+                                  .selectFrom('media_files as mf')
+                                  .whereRef('mf.episode_id', '=', 'e.id')
+                                  .select([
+                                    'mf.path',
+                                    'mf.size',
+                                    'mf.format_name',
+                                    'mf.duration',
+                                    (eb4) =>
+                                      jsonArrayFrom(
+                                        eb4
+                                          .selectFrom('media_tracks as mt')
+                                          .whereRef(
+                                            'mt.media_file_id',
+                                            '=',
+                                            'mf.id'
+                                          )
+                                          .select([
+                                            'mt.stream_index',
+                                            'mt.stream_type',
+                                            'mt.codec_name',
+                                            'mt.language',
+                                            'mt.title',
+                                            'mt.is_default',
+                                            'mt.width',
+                                            'mt.height',
+                                            'mt.channel_layout',
+                                          ])
+                                          .orderBy('mt.stream_index')
+                                      ).as('tracks'),
+                                  ])
+                                  .orderBy('mf.path')
+                              ).as('files'),
+                          ])
+                          .orderBy('e.episode_number')
+                      })()
+                    ).as('episodes'),
+                ])
+                .orderBy('s.season_number')
+            })()
+          ).as('seasons'),
       ])
       .executeTakeFirst()
   },

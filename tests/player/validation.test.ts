@@ -69,7 +69,7 @@ describe('Player — transcoder resolution', () => {
       },
     ])
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
     const transcoder = await Transcoder.create(resolved, config.transcoding)
 
@@ -103,7 +103,7 @@ describe('Player — transcoder resolution', () => {
       },
     ])
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
     const transcoder = await Transcoder.create(resolved, config.transcoding)
 
@@ -137,7 +137,7 @@ describe('Player — transcoder resolution', () => {
       },
     ])
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
     const transcoder = await Transcoder.create(resolved, config.transcoding)
 
@@ -176,7 +176,7 @@ describe('Player — transcoder resolution', () => {
       },
     ])
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
 
     await expect(player.start({ sub: 0 }, { port: 0 })).rejects.toThrow(
       /subtitle.*dvd_subtitle.*subrip.*ass.*mov_text/i

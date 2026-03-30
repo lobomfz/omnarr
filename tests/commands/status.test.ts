@@ -19,7 +19,7 @@ import { QBittorrentMock } from '../mocks/qbittorrent'
 
 describe('status command', async () => {
   const results = await new TmdbClient().search('Matrix')
-  const releases = await Releases.search(
+  const releases = await new Releases().search(
     results[0].tmdb_id,
     results[0].media_type
   )
@@ -31,6 +31,14 @@ describe('status command', async () => {
     download_url: release.download_url,
     type: release.media_type,
   }
+
+  const tvResults = await new TmdbClient().search('Breaking Bad')
+  const tvReleases = await new Releases().search(
+    tvResults[0].tmdb_id,
+    tvResults[0].media_type
+  )
+  const tvEpisodeRelease = (await DbReleases.getById(tvReleases[0].id))!
+  const tvSeasonPackRelease = (await DbReleases.getById(tvReleases[1].id))!
 
   beforeEach(() => {
     database.reset('media_tracks')
@@ -230,5 +238,58 @@ describe('status command', async () => {
 
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('No downloads.')
+  })
+
+  test('shows S/E context for TV episode download', async () => {
+    await new Downloads().add({
+      tmdb_id: tvEpisodeRelease.tmdb_id,
+      info_hash: tvEpisodeRelease.info_hash,
+      download_url: tvEpisodeRelease.download_url,
+      type: tvEpisodeRelease.media_type,
+    })
+
+    const result = await testCommand(StatusCommand, {
+      args: [],
+      flags: { json: true },
+    })
+
+    const rows = JSON.parse(result.stdout)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].Title).toContain('Breaking Bad (2008) - S01E01')
+  })
+
+  test('shows season-only for TV season pack download', async () => {
+    await new Downloads().add({
+      tmdb_id: tvSeasonPackRelease.tmdb_id,
+      info_hash: tvSeasonPackRelease.info_hash,
+      download_url: tvSeasonPackRelease.download_url,
+      type: tvSeasonPackRelease.media_type,
+    })
+
+    const result = await testCommand(StatusCommand, {
+      args: [],
+      flags: { json: true },
+    })
+
+    const rows = JSON.parse(result.stdout)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].Title).toContain('Breaking Bad (2008) - S01')
+    expect(rows[0].Title).not.toContain('S01E')
+  })
+
+  test('shows no S/E for movie download', async () => {
+    await new Downloads().add(addParams)
+
+    const result = await testCommand(StatusCommand, {
+      args: [],
+      flags: { json: true },
+    })
+
+    const rows = JSON.parse(result.stdout)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].Title).toBe('The Matrix (1999) [beyond-hd]')
   })
 })

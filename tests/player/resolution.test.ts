@@ -3,7 +3,7 @@ import { describe, expect, test, beforeEach } from 'bun:test'
 import { database } from '@/db/connection'
 import { Player } from '@/player'
 
-import { seedMedia, seedDownloadWithTracks } from './seed'
+import { seedMedia, seedTvMedia, seedDownloadWithTracks } from './seed'
 
 beforeEach(() => {
   database.reset()
@@ -49,7 +49,7 @@ describe('Player — track resolution defaults', () => {
       },
     ])
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
 
     expect(resolved.video.codec_name).toBe('hevc')
@@ -86,7 +86,7 @@ describe('Player — track resolution defaults', () => {
       },
     ])
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
 
     expect(resolved.audio.codec_name).toBe('aac')
@@ -123,7 +123,7 @@ describe('Player — track resolution defaults', () => {
       },
     ])
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
 
     expect(resolved.video.codec_name).toBe('h264')
@@ -158,7 +158,7 @@ describe('Player — track resolution defaults', () => {
       },
     ])
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
 
     expect(resolved.subtitle).toBeNull()
@@ -167,7 +167,7 @@ describe('Player — track resolution defaults', () => {
   test('no tracks throws error', async () => {
     const media = await seedMedia()
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
 
     expect(() => player.resolveTracks({})).toThrow(/no tracks found/i)
   })
@@ -204,7 +204,7 @@ describe('Player — explicit track selection', () => {
       },
     ])
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({ audio: 1 })
 
     expect(resolved.audio.codec_name).toBe('ac3')
@@ -239,7 +239,7 @@ describe('Player — explicit track selection', () => {
       },
     ])
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({ sub: 0 })
 
     expect(resolved.subtitle).not.toBeNull()
@@ -267,10 +267,125 @@ describe('Player — explicit track selection', () => {
       },
     ])
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
 
     expect(() => player.resolveTracks({ audio: 5 })).toThrow(
       /audio.*out of range/i
     )
+  })
+})
+
+describe('Player — TV episode resolution', () => {
+  test('resolves only tracks from the specified episode', async () => {
+    const { media, episodes } = await seedTvMedia()
+
+    await seedDownloadWithTracks(
+      media.id,
+      'hash1',
+      '/tv/Breaking.Bad.S01E01.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          language: 'eng',
+        },
+      ],
+      { episode_id: episodes[0].id }
+    )
+
+    await seedDownloadWithTracks(
+      media.id,
+      'hash2',
+      '/tv/Breaking.Bad.S01E02.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'hevc',
+          is_default: true,
+          width: 3840,
+          height: 2160,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'eac3',
+          is_default: true,
+          language: 'por',
+        },
+      ],
+      { episode_id: episodes[1].id }
+    )
+
+    const playerEp1 = new Player({ id: media.id, episode_id: episodes[0].id })
+    const resolved1 = await playerEp1.resolveTracks({})
+
+    expect(resolved1.video.codec_name).toBe('h264')
+    expect(resolved1.audio.language).toBe('eng')
+
+    const playerEp2 = new Player({ id: media.id, episode_id: episodes[1].id })
+    const resolved2 = await playerEp2.resolveTracks({})
+
+    expect(resolved2.video.codec_name).toBe('hevc')
+    expect(resolved2.audio.language).toBe('por')
+  })
+
+  test('track selection works scoped to episode', async () => {
+    const { media, episodes } = await seedTvMedia()
+
+    await seedDownloadWithTracks(
+      media.id,
+      'hash1',
+      '/tv/Breaking.Bad.S01E01.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          language: 'eng',
+        },
+        {
+          stream_index: 2,
+          stream_type: 'audio',
+          codec_name: 'ac3',
+          is_default: false,
+          language: 'por',
+        },
+      ],
+      { episode_id: episodes[0].id }
+    )
+
+    const player = new Player({ id: media.id, episode_id: episodes[0].id })
+    const resolved = await player.resolveTracks({ audio: 1 })
+
+    expect(resolved.audio.codec_name).toBe('ac3')
+    expect(resolved.audio.language).toBe('por')
+  })
+
+  test('throws when episode has no tracks', async () => {
+    const { media, episodes } = await seedTvMedia()
+
+    const player = new Player({ id: media.id, episode_id: episodes[2].id })
+
+    expect(() => player.resolveTracks({})).toThrow(/no tracks found/i)
   })
 })

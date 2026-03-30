@@ -78,6 +78,9 @@ export const DbDownloads = {
         't.title',
         't.year',
         'r.indexer_source',
+        'm.media_type',
+        'r.season_number',
+        'r.episode_number',
       ])
       .orderBy('d.started_at', 'desc')
       .limit(limit)

@@ -23,8 +23,14 @@ const BeyondHdMock = new Mock(
   (app, { db }) => {
     app.post(
       '/:api_key',
-      async () => {
-        const rows = await db.selectFrom('results').selectAll().execute()
+      async ({ body }) => {
+        let query = db.selectFrom('results').selectAll()
+
+        if (body?.imdb_id) {
+          query = query.where('imdb_id', '=', body.imdb_id)
+        }
+
+        const rows = await query.execute()
 
         return {
           status_code: 0,
@@ -32,7 +38,15 @@ const BeyondHdMock = new Mock(
           success: true,
         }
       },
-      { params: type({ api_key: 'string' }) }
+      {
+        params: type({ api_key: 'string' }),
+        body: type({
+          'action?': 'string',
+          'rsskey?': 'string',
+          'imdb_id?': 'string',
+          'search?': 'string',
+        }),
+      }
     )
   },
   {
@@ -70,6 +84,48 @@ await BeyondHdMock.db
       hdr10plus: 0,
       hlg: 0,
       download_url: 'https://beyond-hd.me/dl/def456',
+    },
+    {
+      id: 1003,
+      name: 'Breaking.Bad.S01E01.720p.BluRay.x264-GROUP',
+      info_hash: 'bb_hash_s01e01',
+      size: 1_000_000_000,
+      seeders: 50,
+      category: 'TV',
+      imdb_id: 'tt0903747',
+      dv: 0,
+      hdr10: 0,
+      hdr10plus: 0,
+      hlg: 0,
+      download_url: 'https://beyond-hd.me/dl/bb_s01e01',
+    },
+    {
+      id: 1004,
+      name: 'Breaking.Bad.S01.COMPLETE.1080p.BluRay.x265-OTHER',
+      info_hash: 'bb_hash_s01',
+      size: 30_000_000_000,
+      seeders: 25,
+      category: 'TV',
+      imdb_id: 'tt0903747',
+      dv: 0,
+      hdr10: 0,
+      hdr10plus: 0,
+      hlg: 0,
+      download_url: 'https://beyond-hd.me/dl/bb_s01',
+    },
+    {
+      id: 1005,
+      name: 'Breaking.Bad.S02E01.1080p.BluRay.x265-GROUP',
+      info_hash: 'bb_hash_s02e01',
+      size: 1_500_000_000,
+      seeders: 30,
+      category: 'TV',
+      imdb_id: 'tt0903747',
+      dv: 0,
+      hdr10: 0,
+      hdr10plus: 0,
+      hlg: 0,
+      download_url: 'https://beyond-hd.me/dl/bb_s02e01',
     },
   ])
   .execute()

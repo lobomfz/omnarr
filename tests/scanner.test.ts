@@ -12,10 +12,12 @@ import { join } from 'path'
 
 import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
+import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
+import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { Scanner } from '@/scanner'
 import { deriveId } from '@/utils'
@@ -121,6 +123,27 @@ beforeAll(async () => {
   await MediaFixtures.copy(refMkv, join(tmpDir, 'single-file/movie.mkv'))
   await MediaFixtures.copy(refMkv, join(tmpDir, 'multi/dl1/movie.mkv'))
   await MediaFixtures.copy(refMkv, join(tmpDir, 'multi/dl2/bonus.mkv'))
+  await MediaFixtures.copy(
+    refMkv,
+    join(tmpDir, 'tv-basic/Breaking.Bad.S01E01.mkv')
+  )
+  await MediaFixtures.copy(
+    refMkv,
+    join(tmpDir, 'tv-basic/Breaking.Bad.S01E02.mkv')
+  )
+  await MediaFixtures.copy(refMkv, join(tmpDir, 'tv-orphan/random-file.mkv'))
+  await MediaFixtures.copy(
+    refMkv,
+    join(tmpDir, 'tv-nonexistent/Breaking.Bad.S01E99.mkv')
+  )
+  await MediaFixtures.copy(
+    refMkv,
+    join(tmpDir, 'tv-multi-ep/Breaking.Bad.S01E01E02.mkv')
+  )
+  await MediaFixtures.copy(
+    refMkv,
+    join(tmpDir, 'tv-force/Breaking.Bad.S01E01.mkv')
+  )
 })
 
 afterAll(async () => {
@@ -149,6 +172,55 @@ async function seedMedia(contentPath: string) {
   await DbDownloads.create({
     media_id: media.id,
     info_hash: 'test_hash',
+    download_url: 'magnet:test',
+    status: 'completed',
+    content_path: contentPath,
+  })
+
+  return media
+}
+
+async function seedTvMedia(contentPath: string) {
+  const tmdb = await DbTmdbMedia.upsert({
+    tmdb_id: 1396,
+    media_type: 'tv',
+    title: 'Breaking Bad',
+    year: 2008,
+  })
+
+  const media = await DbMedia.create({
+    id: deriveId('1396:tv'),
+    tmdb_media_id: tmdb.id,
+    media_type: 'tv',
+    root_folder: '/tv',
+  })
+
+  const seasons = await DbSeasons.upsert([
+    {
+      tmdb_media_id: tmdb.id,
+      season_number: 1,
+      title: 'Season 1',
+      episode_count: 7,
+    },
+  ])
+
+  await DbEpisodes.upsert([
+    { season_id: seasons[0].id, episode_number: 1, title: 'Pilot' },
+    {
+      season_id: seasons[0].id,
+      episode_number: 2,
+      title: "Cat's in the Bag...",
+    },
+    {
+      season_id: seasons[0].id,
+      episode_number: 3,
+      title: "...And the Bag's in the River",
+    },
+  ])
+
+  await DbDownloads.create({
+    media_id: media.id,
+    info_hash: 'tv_test_hash',
     download_url: 'magnet:test',
     status: 'completed',
     content_path: contentPath,
@@ -444,5 +516,82 @@ describe('new Scanner().scan — reconciliation', () => {
 
     expect(filesAfter).toHaveLength(1)
     expect(filesAfter[0].id).not.toBe(filesBefore[0].id)
+  })
+})
+
+describe('new Scanner().scan — TV episode association', () => {
+  test('sets episode_id on files matching S/E pattern for TV media', async () => {
+    const media = await seedTvMedia(join(tmpDir, 'tv-basic'))
+    await new Scanner().scan(media.id)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+
+    expect(files).toHaveLength(2)
+
+    const ep1 = files.find((f) => f.path.includes('S01E01'))!
+    const ep2 = files.find((f) => f.path.includes('S01E02'))!
+
+    expect(ep1.episode_id).not.toBeNull()
+    expect(ep2.episode_id).not.toBeNull()
+    expect(ep1.episode_id).not.toBe(ep2.episode_id)
+  })
+
+  test('leaves episode_id null for files without S/E pattern', async () => {
+    const media = await seedTvMedia(join(tmpDir, 'tv-orphan'))
+    await new Scanner().scan(media.id)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+
+    expect(files).toHaveLength(1)
+    expect(files[0].episode_id).toBeNull()
+  })
+
+  test('leaves episode_id null for nonexistent episode numbers', async () => {
+    const media = await seedTvMedia(join(tmpDir, 'tv-nonexistent'))
+    await new Scanner().scan(media.id)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+
+    expect(files).toHaveLength(1)
+    expect(files[0].episode_id).toBeNull()
+  })
+
+  test('associates multi-episode files with first episode', async () => {
+    const media = await seedTvMedia(join(tmpDir, 'tv-multi-ep'))
+    await new Scanner().scan(media.id)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+
+    expect(files).toHaveLength(1)
+    expect(files[0].episode_id).not.toBeNull()
+
+    const ep1 = await DbEpisodes.getBySeasonEpisode(media.tmdb_media_id, 1, 1)
+
+    expect(files[0].episode_id).toBe(ep1!.id)
+  })
+
+  test('force re-scan re-associates files to episodes', async () => {
+    const media = await seedTvMedia(join(tmpDir, 'tv-force'))
+    await new Scanner().scan(media.id)
+
+    const filesBefore = await DbMediaFiles.getByMediaId(media.id)
+
+    expect(filesBefore[0].episode_id).not.toBeNull()
+
+    await new Scanner().scan(media.id, { force: true })
+
+    const filesAfter = await DbMediaFiles.getByMediaId(media.id)
+
+    expect(filesAfter[0].episode_id).not.toBeNull()
+    expect(filesAfter[0].id).not.toBe(filesBefore[0].id)
+  })
+
+  test('does not set episode_id for movie media', async () => {
+    const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
+    await new Scanner().scan(media.id)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+
+    expect(files[0].episode_id).toBeNull()
   })
 })

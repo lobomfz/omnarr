@@ -36,11 +36,11 @@ export const DbMediaTracks = {
       .execute()
   },
 
-  async getWithFileByMediaId(mediaId: string) {
-    return await db
+  async getWithFile(filter: { media_id: string; episode_id?: number }) {
+    let query = db
       .selectFrom('media_tracks as t')
       .innerJoin('media_files as f', 'f.id', 't.media_file_id')
-      .where('f.media_id', '=', mediaId)
+      .where('f.media_id', '=', filter.media_id)
       .select([
         't.stream_index',
         't.stream_type',
@@ -59,7 +59,12 @@ export const DbMediaTracks = {
       ])
       .orderBy('f.download_id', 'desc')
       .orderBy('t.stream_index', 'asc')
-      .execute()
+
+    if (filter.episode_id !== undefined) {
+      query = query.where('f.episode_id', '=', filter.episode_id)
+    }
+
+    return await query.execute()
   },
 
   async update(id: number, data: Updateable<DB['media_tracks']>) {
@@ -71,3 +76,7 @@ export const DbMediaTracks = {
       .executeTakeFirst()
   },
 }
+
+export type TracksWithFile = Awaited<
+  ReturnType<typeof DbMediaTracks.getWithFile>
+>

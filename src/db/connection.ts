@@ -33,6 +33,28 @@ export const database = new Database({
         fetched_at: generated('now'),
       }),
 
+      seasons: type({
+        id: generated('autoincrement'),
+        tmdb_media_id: type('number.integer').configure({
+          references: 'tmdb_media.id',
+          onDelete: 'cascade',
+        }),
+        season_number: 'number.integer',
+        'title?': 'string',
+        'episode_count?': 'number.integer',
+        updated_at: generated('now'),
+      }),
+
+      episodes: type({
+        id: generated('autoincrement'),
+        season_id: type('number.integer').configure({
+          references: 'seasons.id',
+          onDelete: 'cascade',
+        }),
+        episode_number: 'number.integer',
+        'title?': 'string',
+      }),
+
       media: type({
         id: type('string').configure({ primaryKey: true }),
         tmdb_media_id: type('number.integer').configure({
@@ -40,7 +62,6 @@ export const database = new Database({
         }),
         media_type,
         root_folder: 'string',
-        has_file: type('boolean').default(false),
         added_at: generated('now'),
       }),
 
@@ -67,6 +88,8 @@ export const database = new Database({
         'codec?': 'string',
         hdr: 'string',
         download_url: 'string',
+        'season_number?': 'number.integer',
+        'episode_number?': 'number.integer',
         searched_at: generated('now'),
       }),
 
@@ -96,6 +119,10 @@ export const database = new Database({
         download_id: type('number.integer').configure({
           references: 'downloads.id',
           onDelete: 'restrict',
+        }),
+        'episode_id?': type('number.integer').configure({
+          references: 'episodes.id',
+          onDelete: 'set null',
         }),
         path: 'string',
         size: 'number',
@@ -139,6 +166,18 @@ export const database = new Database({
       tmdb_media: [
         {
           columns: ['tmdb_id', 'media_type'],
+          unique: true,
+        },
+      ],
+      seasons: [
+        {
+          columns: ['tmdb_media_id', 'season_number'],
+          unique: true,
+        },
+      ],
+      episodes: [
+        {
+          columns: ['season_id', 'episode_number'],
           unique: true,
         },
       ],

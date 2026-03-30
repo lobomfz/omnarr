@@ -6,7 +6,7 @@ import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
 import { config } from '@/config'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
-import { DbMediaTracks } from '@/db/media-tracks'
+import { DbMediaTracks, type TracksWithFile } from '@/db/media-tracks'
 import { HlsSession } from '@/hls-session'
 import { Log } from '@/log'
 import { Transcoder } from '@/transcoder'
@@ -30,7 +30,7 @@ export class Player {
   private server?: ReturnType<typeof Bun.serve>
   private session?: HlsSession
 
-  constructor(private mediaId: string) {}
+  constructor(private media: { id: string; episode_id?: number }) {}
 
   async start(selection: TrackSelection, opts: { port?: number }) {
     const resolved = await this.resolveTracks(selection)
@@ -90,11 +90,11 @@ export class Player {
       this.hlsDir,
       this.session,
       opts.port ?? 8787,
-      this.mediaId
+      this.media.id
     )
 
     return {
-      url: `http://localhost:${this.server.port}/${this.mediaId}/master.m3u8`,
+      url: `http://localhost:${this.server.port}/${this.media.id}/master.m3u8`,
       ...resolved,
     }
   }
@@ -117,10 +117,13 @@ export class Player {
   }
 
   async resolveTracks(selection: TrackSelection) {
-    const allTracks = await DbMediaTracks.getWithFileByMediaId(this.mediaId)
+    const allTracks = await DbMediaTracks.getWithFile({
+      media_id: this.media.id,
+      episode_id: this.media.episode_id,
+    })
 
     if (allTracks.length === 0) {
-      throw new Error(`No tracks found for media '${this.mediaId}'.`)
+      throw new Error('No tracks found. Run scan first.')
     }
 
     const byType = Map.groupBy(allTracks, (t) => t.stream_type)
@@ -142,9 +145,7 @@ export class Player {
   }
 
   private pickTrack(
-    tracks:
-      | Awaited<ReturnType<typeof DbMediaTracks.getWithFileByMediaId>>
-      | undefined,
+    tracks: TracksWithFile | undefined,
     type: string,
     index?: number
   ) {

@@ -82,7 +82,7 @@ describe('Player — start', () => {
       { duration: refDuration, keyframes: refKeyframes }
     )
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
     const result = await player.start({}, { port: 0 })
 
     expect(result.url).toContain('master.m3u8')
@@ -147,7 +147,7 @@ describe('Player — start', () => {
       { duration: refSubsDuration, keyframes: refSubsKeyframes }
     )
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
     const result = await player.start({ sub: 0 }, { port: 0 })
 
     expect(result.subtitle).not.toBeNull()

@@ -22,7 +22,7 @@ describe('Releases', () => {
       .values({ tmdb_id: 1399 })
       .execute()
 
-    await expect(() => Releases.fetch(1399, 'tv')).toThrow(
+    await expect(() => new Releases().search(1399, 'tv')).toThrow(
       'No IMDB ID found for this media.'
     )
   })

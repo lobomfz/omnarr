@@ -64,9 +64,26 @@ export class TmdbClient {
     return this.parse(data, mediaType)
   }
 
-  getExternalIds(tmdbId: number, mediaType: media_type) {
-    return this.request<TmdbTypes['external_ids']>(
+  async getExternalIds(tmdbId: number, mediaType: media_type) {
+    return await this.request<TmdbTypes['external_ids']>(
       `/${mediaType}/${tmdbId}/external_ids`
     )
+  }
+
+  async getShowWithSeasons(tmdbId: number) {
+    const data = await this.request<TmdbTypes['raw_media']>(`/tv/${tmdbId}`)
+
+    return {
+      ...this.parse(data, 'tv'),
+      seasons: data.seasons!,
+    }
+  }
+
+  async getSeasonEpisodes(tmdbId: number, seasonNumber: number) {
+    const data = await this.request<TmdbTypes['season_response']>(
+      `/tv/${tmdbId}/season/${seasonNumber}`
+    )
+
+    return data.episodes
   }
 }

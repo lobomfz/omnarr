@@ -5,7 +5,7 @@ import { testCommand } from '@bunli/test'
 import { PlayCommand } from '@/commands/play'
 import { database } from '@/db/connection'
 
-import { seedMedia, seedDownloadWithTracks } from '../player/seed'
+import { seedMedia, seedTvMedia, seedDownloadWithTracks } from '../player/seed'
 
 beforeEach(() => {
   database.reset()
@@ -129,5 +129,67 @@ describe('play command', () => {
 
     expect(result.exitCode).not.toBe(0)
     expect(result.stderr).toContain('out of range')
+  })
+})
+
+describe('play command — TV', () => {
+  test('errors when TV show played without --season/--episode', async () => {
+    const { media } = await seedTvMedia()
+
+    const result = await testCommand(PlayCommand, {
+      args: [media.id],
+      flags: {},
+    })
+
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr).toContain('--season')
+    expect(result.stderr).toContain('--episode')
+  })
+
+  test('errors when episode does not exist', async () => {
+    const { media } = await seedTvMedia()
+
+    const result = await testCommand(PlayCommand, {
+      args: [media.id],
+      flags: { season: '1', episode: '99' },
+    })
+
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr).toContain('not found')
+  })
+
+  test('errors when episode has no associated file', async () => {
+    const { media, episodes } = await seedTvMedia()
+
+    await seedDownloadWithTracks(
+      media.id,
+      'hash1',
+      '/tv/Breaking.Bad.S01E01.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+      ],
+      { episode_id: episodes[0].id }
+    )
+
+    const result = await testCommand(PlayCommand, {
+      args: [media.id],
+      flags: { season: '1', episode: '2' },
+    })
+
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr).toContain('No tracks')
   })
 })

@@ -32,6 +32,8 @@ export class YtsAdapter implements Indexer {
 
   static name = 'YTS'
 
+  static types: ('movie' | 'tv')[] = ['movie']
+
   async search(params: SearchParams) {
     const { data } = await axios<YtsResponse>({
       method: 'GET',

@@ -3,6 +3,28 @@ import { describe, expect, test } from 'bun:test'
 import { Formatters } from '@/formatters'
 
 describe('Formatters', () => {
+  describe('seasonEpisodeTag', () => {
+    test('formats full S/E', () => {
+      expect(Formatters.seasonEpisodeTag(1, 3)).toBe('S01E03')
+    })
+
+    test('formats season-only when episode is null', () => {
+      expect(Formatters.seasonEpisodeTag(1, null)).toBe('S01')
+    })
+
+    test('returns empty for null season', () => {
+      expect(Formatters.seasonEpisodeTag(null, null)).toBe('')
+    })
+
+    test('returns empty for undefined season', () => {
+      expect(Formatters.seasonEpisodeTag(undefined, undefined)).toBe('')
+    })
+
+    test('pads double-digit numbers', () => {
+      expect(Formatters.seasonEpisodeTag(10, 23)).toBe('S10E23')
+    })
+  })
+
   describe('mediaTitle', () => {
     test('includes year when present', () => {
       expect(Formatters.mediaTitle({ title: 'The Matrix', year: 1999 })).toBe(
@@ -14,6 +36,39 @@ describe('Formatters', () => {
       expect(Formatters.mediaTitle({ title: 'The Matrix', year: null })).toBe(
         'The Matrix'
       )
+    })
+
+    test('includes S/E for episode download', () => {
+      expect(
+        Formatters.mediaTitle({
+          title: 'Breaking Bad',
+          year: 2008,
+          season_number: 1,
+          episode_number: 3,
+          indexer_source: 'beyond-hd',
+        })
+      ).toBe('Breaking Bad (2008) - S01E03 [beyond-hd]')
+    })
+
+    test('includes season-only for season pack', () => {
+      expect(
+        Formatters.mediaTitle({
+          title: 'Breaking Bad',
+          year: 2008,
+          season_number: 1,
+          indexer_source: 'beyond-hd',
+        })
+      ).toBe('Breaking Bad (2008) - S01 [beyond-hd]')
+    })
+
+    test('no S/E when season_number is absent', () => {
+      expect(
+        Formatters.mediaTitle({
+          title: 'The Matrix',
+          year: 1999,
+          indexer_source: 'beyond-hd',
+        })
+      ).toBe('The Matrix (1999) [beyond-hd]')
     })
   })
 
@@ -86,6 +141,56 @@ describe('Formatters', () => {
 
     test('formats exact hours', () => {
       expect(Formatters.eta(7200)).toBe('2h')
+    })
+  })
+
+  describe('mediaStatus', () => {
+    test('shows episode progress for TV', () => {
+      expect(
+        Formatters.mediaStatus({
+          file_count: 2,
+          track_count: 4,
+          download_status: null,
+          total_episodes: 20,
+          episodes_with_files: 2,
+        })
+      ).toBe('2/20 episodes')
+    })
+
+    test('shows zero progress for TV with no files', () => {
+      expect(
+        Formatters.mediaStatus({
+          file_count: 0,
+          track_count: 0,
+          download_status: 'downloading',
+          total_episodes: 20,
+          episodes_with_files: 0,
+        })
+      ).toBe('0/20 episodes')
+    })
+
+    test('shows scanned for movie with files', () => {
+      expect(
+        Formatters.mediaStatus({
+          file_count: 1,
+          track_count: 3,
+          download_status: null,
+          total_episodes: 0,
+          episodes_with_files: 0,
+        })
+      ).toBe('scanned')
+    })
+
+    test('shows downloading for movie in progress', () => {
+      expect(
+        Formatters.mediaStatus({
+          file_count: 0,
+          track_count: 0,
+          download_status: 'downloading',
+          total_episodes: 0,
+          episodes_with_files: 0,
+        })
+      ).toBe('downloading')
     })
   })
 })

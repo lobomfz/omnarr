@@ -4,7 +4,9 @@ import { testCommand } from '@bunli/test'
 
 import { LibraryCommand } from '@/commands/library'
 import { database } from '@/db/connection'
+import { DbEpisodes } from '@/db/episodes'
 import { DbReleases } from '@/db/releases'
+import { DbSeasons } from '@/db/seasons'
 import { Downloads } from '@/downloads'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/releases'
@@ -17,7 +19,7 @@ import { QBittorrentMock } from '../mocks/qbittorrent'
 
 describe('library command', async () => {
   const results = await new TmdbClient().search('Matrix')
-  const releases = await Releases.search(
+  const releases = await new Releases().search(
     results[0].tmdb_id,
     results[0].media_type
   )
@@ -66,5 +68,89 @@ describe('library command', async () => {
 
     expect(rows).toHaveLength(1)
     expect(rows[0].download_status).toBe('completed')
+  })
+
+  test('shows episode progress for TV shows', async () => {
+    await new Downloads().add({
+      tmdb_id: 1399,
+      info_hash: 'bb_hash_s01e01',
+      download_url: 'https://beyond-hd.me/dl/bb_hash_s01e01',
+      type: 'tv',
+    })
+
+    const media = await database.kysely
+      .selectFrom('media')
+      .select(['id', 'tmdb_media_id'])
+      .executeTakeFirstOrThrow()
+
+    const seasons = await DbSeasons.upsert([
+      {
+        tmdb_media_id: media.tmdb_media_id,
+        season_number: 1,
+        episode_count: 7,
+      },
+      {
+        tmdb_media_id: media.tmdb_media_id,
+        season_number: 2,
+        episode_count: 13,
+      },
+    ])
+
+    const episodes = await DbEpisodes.upsert([
+      { season_id: seasons[0].id, episode_number: 1 },
+      { season_id: seasons[0].id, episode_number: 2 },
+      { season_id: seasons[0].id, episode_number: 3 },
+    ])
+
+    const download = await database.kysely
+      .selectFrom('downloads')
+      .select('id')
+      .executeTakeFirstOrThrow()
+
+    await database.kysely
+      .insertInto('media_files')
+      .values([
+        {
+          media_id: media.id,
+          download_id: download.id,
+          episode_id: episodes[0].id,
+          path: '/test/s01e01.mkv',
+          size: 1000,
+        },
+        {
+          media_id: media.id,
+          download_id: download.id,
+          episode_id: episodes[1].id,
+          path: '/test/s01e02.mkv',
+          size: 1000,
+        },
+      ])
+      .execute()
+
+    const result = await testCommand(LibraryCommand, {
+      args: [],
+      flags: { json: true },
+    })
+
+    const rows = JSON.parse(result.stdout)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].total_episodes).toBe(20)
+    expect(rows[0].episodes_with_files).toBe(2)
+  })
+
+  test('shows zero total_episodes for movies', async () => {
+    await new Downloads().add(addParams)
+
+    const result = await testCommand(LibraryCommand, {
+      args: [],
+      flags: { json: true },
+    })
+
+    const rows = JSON.parse(result.stdout)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].total_episodes).toBe(0)
+    expect(rows[0].episodes_with_files).toBe(0)
   })
 })

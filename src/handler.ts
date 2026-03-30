@@ -1,5 +1,6 @@
 import { type, type Type } from 'arktype'
 
+import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbReleases } from '@/db/releases'
@@ -56,10 +57,10 @@ export class Handler {
     return result
   }
 
-  async info() {
+  async info(opts?: { season?: number; episode?: number }) {
     const { media_id } = this.parseArgs('info', type({ media_id: 'string' }))
 
-    const info = await DbMedia.getInfo(media_id)
+    const info = await DbMedia.getInfo(media_id, opts)
 
     if (!info) {
       throw new Error(`Media '${media_id}' not found.`)
@@ -75,23 +76,14 @@ export class Handler {
 
     const tmdbResults = await new TmdbClient().search(query)
 
-    Log.info(
-      `tmdb returned ${tmdbResults.length} results query="${query}"`
-    )
+    Log.info(`tmdb returned ${tmdbResults.length} results query="${query}"`)
 
     if (tmdbResults.length === 0) {
       console.log('No results found.')
       return
     }
 
-    const results = await DbSearchResults.upsert(
-      tmdbResults.map((r) => ({
-        tmdb_id: r.tmdb_id,
-        media_type: r.media_type,
-        title: r.title,
-        year: r.year ?? undefined,
-      }))
-    )
+    const results = await DbSearchResults.upsert(tmdbResults)
 
     Log.info(`search results persisted count=${results.length}`)
 
@@ -106,7 +98,7 @@ export class Handler {
     )
   }
 
-  async releases() {
+  async releases(opts?: { season?: number }) {
     const { search_id } = this.parseArgs(
       'releases',
       type({ search_id: 'string' })
@@ -122,9 +114,10 @@ export class Handler {
       )
     }
 
-    const results = await Releases.search(
+    const results = await new Releases().search(
       searchResult.tmdb_id,
-      searchResult.media_type
+      searchResult.media_type,
+      opts
     )
 
     if (results.length === 0) {
@@ -282,6 +275,8 @@ export class Handler {
     video?: number
     audio?: number
     sub?: number
+    season?: number
+    episode?: number
   }) {
     const { media_id } = this.parseArgs('play', type({ media_id: 'string' }))
 
@@ -291,7 +286,13 @@ export class Handler {
       throw new Error(`Media '${media_id}' not found.`)
     }
 
-    const player = new Player(media_id)
+    const episodeId = await this.resolveEpisodeForTv(
+      media,
+      opts.season,
+      opts.episode
+    )
+
+    const player = new Player({ id: media_id, episode_id: episodeId })
     const result = await player.start(
       { video: opts.video, audio: opts.audio, sub: opts.sub },
       { port: opts.port }
@@ -312,6 +313,36 @@ export class Handler {
     this.output(result, displayLines.join('\n'))
 
     await player.play(result.url)
+  }
+
+  private async resolveEpisodeForTv(
+    media: { media_type: string; tmdb_media_id: number },
+    season?: number,
+    episode?: number
+  ) {
+    if (media.media_type !== 'tv') {
+      return
+    }
+
+    if (season === undefined || episode === undefined) {
+      throw new Error(
+        'TV shows require --season and --episode. Use info to see available episodes.'
+      )
+    }
+
+    const ep = await DbEpisodes.getBySeasonEpisode(
+      media.tmdb_media_id,
+      season,
+      episode
+    )
+
+    if (!ep) {
+      throw new Error(
+        `Episode S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} not found.`
+      )
+    }
+
+    return ep.id
   }
 
   async library() {

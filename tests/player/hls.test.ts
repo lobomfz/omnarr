@@ -62,7 +62,7 @@ describe('Player — subtitle conversion', () => {
       },
     ])
 
-    const player = new Player(media.id)
+    const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({ sub: 0 })
     const hlsDir = join(tmpDir, 'hls-subs')
 
