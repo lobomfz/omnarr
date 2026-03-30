@@ -22,17 +22,17 @@ export class Scanner {
       throw new Error(`Media ${mediaId} not found`)
     }
 
-    await Log.info(`scan started media_id=${mediaId}`)
+    Log.info(`scan started media_id=${mediaId}`)
 
     if (opts?.force) {
       const deleted = await DbMediaFiles.deleteByMediaId(mediaId)
-      await Log.info(`scan force mode: deleted ${deleted} files for ${mediaId}`)
+      Log.info(`scan force mode: deleted ${deleted} files for ${mediaId}`)
     }
 
     const downloads = await DbDownloads.getCompletedDownloads(mediaId)
 
     if (downloads.length === 0) {
-      await Log.info('scan: no completed downloads with content_path')
+      Log.info('scan: no completed downloads with content_path')
 
       return await DbMediaFiles.getByMediaId(mediaId)
     }
@@ -59,7 +59,7 @@ export class Scanner {
     if (staleIds.length > 0) {
       await DbMediaFiles.deleteByIds(staleIds)
 
-      await Log.info(
+      Log.info(
         `scan stale files removed: ${staleIds.length} ids=${staleIds.join(',')}`
       )
     }
@@ -73,8 +73,8 @@ export class Scanner {
         mediaId,
         downloadId,
         path
-      ).catch(async (err) => {
-        await Log.warn(
+      ).catch((err) => {
+        Log.warn(
           `probe failed file="${path}" error="${err instanceof Error ? err.message : String(err)}"`
         )
         return false
@@ -87,7 +87,7 @@ export class Scanner {
 
     const finalFiles = await DbMediaFiles.getByMediaId(mediaId)
 
-    await Log.info(
+    Log.info(
       `scan complete total=${finalFiles.length} new=${probed} deleted=${staleIds.length}`
     )
 
@@ -102,8 +102,8 @@ export class Scanner {
 
     for (const dl of downloads) {
       const resolved = await this.resolveContentPath(dl.content_path).catch(
-        async () => {
-          await Log.warn(
+        () => {
+          Log.warn(
             `scan content_path not accessible: "${dl.content_path}"`
           )
           return null
@@ -121,7 +121,7 @@ export class Scanner {
       }
     }
 
-    await Log.info(
+    Log.info(
       `scan discovered ${files.size} files from ${downloads.length} content_paths`
     )
 
@@ -153,7 +153,7 @@ export class Scanner {
     downloadId: number,
     fullPath: string
   ) {
-    await Log.info(`probing file="${fullPath}"`)
+    Log.info(`probing file="${fullPath}"`)
 
     const probe = await new FFmpegBuilder().input(fullPath).probe()
 
@@ -194,12 +194,12 @@ export class Scanner {
         }))
       )
 
-      await Log.info(
+      Log.info(
         `keyframe probe complete file="${fullPath}" keyframes=${keyframeTimes.length}`
       )
     }
 
-    await Log.info(
+    Log.info(
       `probe complete file="${fullPath}" streams=${probe.streams.length} duration=${probe.format.duration} format=${probe.format.format_name}`
     )
 

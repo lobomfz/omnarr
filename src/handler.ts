@@ -71,11 +71,11 @@ export class Handler {
   async search() {
     const { query } = this.parseArgs('search', type({ query: 'string' }))
 
-    await Log.info(`command=search query="${query}"`)
+    Log.info(`command=search query="${query}"`)
 
     const tmdbResults = await new TmdbClient().search(query)
 
-    await Log.info(
+    Log.info(
       `tmdb returned ${tmdbResults.length} results query="${query}"`
     )
 
@@ -93,7 +93,7 @@ export class Handler {
       }))
     )
 
-    await Log.info(`search results persisted count=${results.length}`)
+    Log.info(`search results persisted count=${results.length}`)
 
     this.output(
       results,
@@ -112,7 +112,7 @@ export class Handler {
       type({ search_id: 'string' })
     )
 
-    await Log.info(`command=releases search_id=${search_id}`)
+    Log.info(`command=releases search_id=${search_id}`)
 
     const searchResult = await DbSearchResults.getById(search_id)
 
@@ -154,7 +154,7 @@ export class Handler {
       type({ release_id: 'string' })
     )
 
-    await Log.info(`command=download release_id=${release_id}`)
+    Log.info(`command=download release_id=${release_id}`)
 
     const release = await DbReleases.getById(release_id)
 
@@ -219,7 +219,7 @@ export class Handler {
       type({ release_id: 'string' })
     )
 
-    await Log.info(`command=wait-for release_id=${release_id}`)
+    Log.info(`command=wait-for release_id=${release_id}`)
 
     const release = await DbReleases.getById(release_id)
 
@@ -239,13 +239,13 @@ export class Handler {
       }
 
       if (download.status === 'completed') {
-        await Log.info(`download completed release_id=${release_id}`)
+        Log.info(`download completed release_id=${release_id}`)
         this.output(download, `Done: ${Formatters.mediaTitle(download)}`)
         return
       }
 
       if (download.status === 'error') {
-        await Log.warn(`download failed release_id=${release_id}`)
+        Log.warn(`download failed release_id=${release_id}`)
         throw new Error(`Download failed: ${Formatters.mediaTitle(download)}`)
       }
 
@@ -256,7 +256,7 @@ export class Handler {
   async scan(opts: { force?: boolean }) {
     const { media_id } = this.parseArgs('scan', type({ media_id: 'string' }))
 
-    await Log.info(`command=scan media_id=${media_id} force=${!!opts.force}`)
+    Log.info(`command=scan media_id=${media_id} force=${!!opts.force}`)
 
     const files = await new Scanner().scan(media_id, opts)
 

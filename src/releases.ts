@@ -17,7 +17,7 @@ export const Releases = {
       throw new Error('No indexers configured.')
     }
 
-    await Log.info(
+    Log.info(
       `fetching releases tmdb_id=${tmdb_id} type=${type} indexers=${config.indexers.length}`
     )
 
@@ -25,7 +25,7 @@ export const Releases = {
       config.indexers.map(async (c) => {
         const indexer = new indexerMap[c.type](c)
 
-        await Log.info(
+        Log.info(
           `searching indexer=${c.type} imdb_id=${externalIds.imdb_id}`
         )
 
@@ -34,12 +34,12 @@ export const Releases = {
             tmdb_id: String(tmdb_id),
             imdb_id: externalIds.imdb_id!,
           })
-          .then(async (r) => {
-            await Log.info(`indexer=${c.type} returned ${r.length} results`)
+          .then((r) => {
+            Log.info(`indexer=${c.type} returned ${r.length} results`)
             return r.map((release) => ({ ...release, indexer_source: c.type }))
           })
-          .catch(async (err) => {
-            await Log.warn(`indexer=${c.type} failed error="${err.message}"`)
+          .catch((err) => {
+            Log.warn(`indexer=${c.type} failed error="${err.message}"`)
             return []
           })
       })
@@ -53,7 +53,7 @@ export const Releases = {
 
     const persisted = await DbReleases.upsert(tmdb_id, type, releases)
 
-    await Log.info(`releases persisted count=${persisted.length}`)
+    Log.info(`releases persisted count=${persisted.length}`)
 
     return persisted
   },

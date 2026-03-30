@@ -53,7 +53,7 @@ export class Player {
       throw new Error('No keyframes found. Run scan first.')
     }
 
-    await Log.info(
+    Log.info(
       `player start keyframes=${keyframes.length} duration=${resolved.video.file_duration} video=${resolved.video.file_path} audio=${resolved.audio.file_path}`
     )
 
@@ -227,7 +227,7 @@ export class Player {
               const elapsed = (performance.now() - start).toFixed(0)
               const size = Bun.file(segPath).size
 
-              await Log.info(
+              Log.info(
                 `serve segment=${index} status=200 size=${size} elapsed=${elapsed}ms`
               )
 
@@ -238,7 +238,7 @@ export class Player {
                 },
               })
             } catch (err) {
-              await Log.error(
+              Log.error(
                 `serve segment=${index} status=404 error=${err instanceof Error ? err.message : String(err)}`
               )
 

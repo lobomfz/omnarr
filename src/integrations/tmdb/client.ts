@@ -9,17 +9,17 @@ import type { TmdbTypes } from './types'
 
 export class TmdbClient {
   private async request<T>(url: string, params?: Record<string, unknown>) {
-    await Log.info(`tmdb request url=${url} params=${JSON.stringify(params)}`)
+    Log.info(`tmdb request url=${url} params=${JSON.stringify(params)}`)
 
     const { data } = await axios<T>({
       method: 'GET',
       baseURL: envVariables.TMDB_API_URL,
       url,
       params: { api_key: envVariables.TMDB_API_KEY, ...params },
-    }).catch(async (e) => {
+    }).catch((e) => {
       const message = e.data?.status_message ?? e.statusText
 
-      await Log.error(
+      Log.error(
         `tmdb request failed url=${url} status=${e.status} message="${message}"`
       )
 

@@ -54,7 +54,7 @@ export class Downloads {
       root_folder: rootFolder,
     })
 
-    await Log.info(
+    Log.info(
       `adding torrent info_hash=${params.info_hash} title="${details.title}"`
     )
 
@@ -66,7 +66,7 @@ export class Downloads {
       download_url: params.download_url,
     })
 
-    await Log.info(`torrent sent to client info_hash=${params.info_hash}`)
+    Log.info(`torrent sent to client info_hash=${params.info_hash}`)
 
     return { media, download, title: details.title, year: details.year }
   }
@@ -88,7 +88,7 @@ export class Downloads {
   }
 
   private async syncDownloads(client: DownloadClient) {
-    await Log.info('sync started')
+    Log.info('sync started')
 
     const [active, statuses] = await Promise.all([
       DbDownloads.listActive(),
@@ -98,45 +98,43 @@ export class Downloads {
     const statusByHash = new Map(statuses.map((s) => [s.hash, s]))
     const now = new Date().toISOString()
 
-    const updates = await Promise.all(
-      active.map(async (d) => {
-        const s = statusByHash.get(d.info_hash)
-        const status = s ? (s.progress >= 1 ? 'completed' : s.status) : 'error'
+    const updates = active.map((d) => {
+      const s = statusByHash.get(d.info_hash)
+      const status = s ? (s.progress >= 1 ? 'completed' : s.status) : 'error'
 
-        if (status === 'error' && !d.error_at) {
-          await Log.warn(
-            `download entered error status info_hash=${d.info_hash}`
-          )
-        } else if (status !== 'error' && d.error_at) {
-          await Log.info(
-            `download exited error status info_hash=${d.info_hash}`
-          )
-        }
+      if (status === 'error' && !d.error_at) {
+        Log.warn(
+          `download entered error status info_hash=${d.info_hash}`
+        )
+      } else if (status !== 'error' && d.error_at) {
+        Log.info(
+          `download exited error status info_hash=${d.info_hash}`
+        )
+      }
 
-        return {
-          id: d.id,
-          media_id: d.media_id,
-          info_hash: d.info_hash,
-          download_url: d.download_url,
-          progress: s?.progress ?? d.progress,
-          speed: s?.speed ?? 0,
-          eta: s?.eta ?? 0,
-          status,
-          content_path: s?.content_path ?? d.content_path,
-          error_at: status === 'error' ? (d.error_at ?? now) : null,
-        }
-      })
-    )
+      return {
+        id: d.id,
+        media_id: d.media_id,
+        info_hash: d.info_hash,
+        download_url: d.download_url,
+        progress: s?.progress ?? d.progress,
+        speed: s?.speed ?? 0,
+        eta: s?.eta ?? 0,
+        status,
+        content_path: s?.content_path ?? d.content_path,
+        error_at: status === 'error' ? (d.error_at ?? now) : null,
+      }
+    })
 
     const updatedCount = await DbDownloads.batchUpdate(updates)
 
     const deleted = await DbDownloads.deleteStaleErrors()
 
     if (deleted > 0) {
-      await Log.info(`stale errors deleted count=${deleted}`)
+      Log.info(`stale errors deleted count=${deleted}`)
     }
 
-    await Log.info(
+    Log.info(
       `sync complete active=${active.length} updated=${updatedCount}`
     )
   }

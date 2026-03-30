@@ -140,7 +140,7 @@ export class InitWizard {
       ),
     ])
 
-    await Log.info(`config saved path="${configPath}"`)
+    Log.info(`config saved path="${configPath}"`)
 
     console.log(`Config saved to ${configPath}`)
   }

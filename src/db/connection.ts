@@ -1,4 +1,4 @@
-import { mkdir } from 'fs/promises'
+import { mkdirSync } from 'fs'
 import { dirname } from 'path'
 
 import { Database, type, generated } from '@lobomfz/db'
@@ -6,7 +6,7 @@ import { Database, type, generated } from '@lobomfz/db'
 import { envVariables } from '@/env'
 import { Log } from '@/log'
 
-await mkdir(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
+mkdirSync(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
 
 const media_type = type.enumerated('movie', 'tv')
 const stream_type = type.enumerated('video', 'audio', 'subtitle')
@@ -174,7 +174,7 @@ export const database = new Database({
   },
 })
 
-await Log.info(`database initialized path=${envVariables.OMNARR_DB_PATH}`)
+Log.info(`database initialized path=${envVariables.OMNARR_DB_PATH}`)
 
 export type DB = typeof database.infer
 export const db = database.kysely

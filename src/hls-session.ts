@@ -76,7 +76,7 @@ export class HlsSession {
     await this.ensureProcessFor(index)
     await this.waitForSegment(index)
 
-    await Log.info(`segment ${index} ready size=${Bun.file(segPath).size}`)
+    Log.info(`segment ${index} ready size=${Bun.file(segPath).size}`)
 
     return segPath
   }
@@ -199,7 +199,7 @@ export class HlsSession {
 
     const builder = this.buildCommand(fromIndex)
 
-    await Log.info(
+    Log.info(
       `starting FFmpeg from segment ${fromIndex} pts=${this.segments[fromIndex].pts} args=${builder.toArgs().join(' ')}`
     )
 
