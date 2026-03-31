@@ -73,7 +73,11 @@ export async function seedDownloadWithTracks(
   infoHash: string,
   filePath: string,
   tracks: Omit<Insertable<DB['media_tracks']>, 'media_file_id'>[],
-  opts?: { duration?: number; keyframes?: number[]; episode_id?: number }
+  opts?: {
+    duration?: number
+    keyframes?: number[]
+    episode_id?: number
+  }
 ) {
   const download = await DbDownloads.create({
     media_id: mediaId,
@@ -97,11 +101,14 @@ export async function seedDownloadWithTracks(
   )
 
   if (opts?.keyframes && opts.keyframes.length > 0) {
+    const fileDuration = opts.duration ?? 0
+
     await DbMediaKeyframes.createBatch(
-      opts.keyframes.map((pts_time) => ({
+      opts.keyframes.map((pts_time, i) => ({
         media_file_id: file.id,
         stream_index: 0,
         pts_time,
+        duration: (opts.keyframes![i + 1] ?? fileDuration) - pts_time,
       }))
     )
   }

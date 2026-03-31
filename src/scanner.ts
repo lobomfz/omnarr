@@ -208,11 +208,14 @@ export class Scanner {
         .input(fullPath)
         .probeKeyframes()
 
+      const fileDuration = probe.format.duration
+
       await DbMediaKeyframes.createBatch(
-        keyframeTimes.map((pts_time) => ({
+        keyframeTimes.map((pts_time, i) => ({
           media_file_id: file.id,
           stream_index: videoStream.index,
           pts_time,
+          duration: (keyframeTimes[i + 1] ?? fileDuration) - pts_time,
         }))
       )
 

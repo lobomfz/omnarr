@@ -139,6 +139,7 @@ export const database = new Database({
         }),
         stream_index: 'number.integer',
         pts_time: 'number',
+        duration: 'number',
       }),
 
       media_tracks: type({

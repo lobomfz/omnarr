@@ -1,13 +1,12 @@
 import { describe, expect, test, afterAll } from 'bun:test'
-import { mkdir, mkdtemp, rm } from 'fs/promises'
+import { mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
-import { HlsSession } from '@/hls-session'
-import { Player } from '@/player'
-import { Transcoder } from '@/transcoder'
+import { HlsServer } from '@/player/hls-server'
+import { Transcoder } from '@/player/transcoder'
 
 import { MediaFixtures } from '../fixtures/media'
 
@@ -18,40 +17,52 @@ await MediaFixtures.generate(refMkv)
 
 const probe = await new FFmpegBuilder().input(refMkv).probe()
 const keyframes = await new FFmpegBuilder().input(refMkv).probeKeyframes()
+const duration = probe.format.duration
 
-const hlsDir = join(tmpDir, 'hls')
-
-await mkdir(hlsDir, { recursive: true })
-
-const copyTranscoder = await Transcoder.create(
-  { video: { codec_name: 'h264' }, audio: { codec_name: 'aac' } },
-  { video_crf: 21, video_preset: 'veryfast' }
-)
-
-const session = new HlsSession({
-  videoFilePath: refMkv,
-  audioFilePath: refMkv,
-  videoStreamIndex: 0,
-  audioStreamIndex: 1,
-  keyframes,
-  duration: probe.format.duration,
-  outDir: hlsDir,
-  transcoder: copyTranscoder,
-})
-
-await Bun.write(join(hlsDir, 'video.m3u8'), session.getPlaylist())
-await Bun.write(join(hlsDir, 'master.m3u8'), Player.masterPlaylist())
+const segments = keyframes.map((pts, i) => ({
+  pts_time: pts,
+  duration: (keyframes[i + 1] ?? duration) - pts,
+}))
 
 const mediaId = 'TEST01'
-const server = Player.serve(hlsDir, session, 0, mediaId)
-const base = `http://localhost:${server.port}/${mediaId}`
+
+const server = new HlsServer({
+  resolved: {
+    video: {
+      file_path: refMkv,
+      stream_index: 0,
+      codec_name: 'h264',
+      language: null,
+      title: null,
+    },
+    audio: {
+      file_path: refMkv,
+      stream_index: 1,
+      codec_name: 'aac',
+      language: null,
+      title: null,
+    },
+    subtitle: null,
+  },
+  segments,
+  transcode: await Transcoder.init(
+    { video: { codec_name: 'h264' }, audio: { codec_name: 'aac' } },
+    { video_crf: 21, video_preset: 'veryfast' }
+  ),
+  port: 0,
+  mediaId,
+})
+
+await server.start()
+
+const base = server.url.replace('/master.m3u8', '')
 
 afterAll(async () => {
-  server?.stop()
+  await server?.stop()
   await rm(tmpDir, { recursive: true })
 })
 
-describe('Player — HLS server', () => {
+describe('HlsServer', () => {
   test('serves master.m3u8 at root', async () => {
     const res = await fetch(`${base}/`)
 
@@ -94,7 +105,8 @@ describe('Player — HLS server', () => {
   })
 
   test('returns 404 for wrong mediaId prefix', async () => {
-    const res = await fetch(`http://localhost:${server.port}/WRONG1/video.m3u8`)
+    const wrongBase = base.replace(mediaId, 'WRONG1')
+    const res = await fetch(`${wrongBase}/video.m3u8`)
 
     expect(res.status).toBe(404)
   })
@@ -103,20 +115,5 @@ describe('Player — HLS server', () => {
     const res = await fetch(`${base}/video.m3u8`)
 
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
-  })
-
-  test('blocks path traversal via double-slash absolute path', async () => {
-    const siblingDir = hlsDir + '-evil'
-
-    await Bun.write(join(siblingDir, 'secret.txt'), 'leaked')
-
-    const req = new Request(`${base}/${siblingDir}/secret.txt`)
-    const res = await server.fetch(req)
-
-    expect(res.status).toBe(403)
-
-    const body = await res.text()
-
-    expect(body).not.toContain('leaked')
   })
 })

@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
 import { database } from '@/db/connection'
-import { Player } from '@/player'
+import { Player } from '@/player/player'
 
 import { seedMedia, seedTvMedia, seedDownloadWithTracks } from './seed'
 

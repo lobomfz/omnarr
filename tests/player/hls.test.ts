@@ -10,8 +10,11 @@ import { mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
+import { FFmpegBuilder } from '@lobomfz/ffmpeg'
+
 import { database } from '@/db/connection'
-import { Player } from '@/player'
+import { HlsServer } from '@/player/hls-server'
+import { Transcoder } from '@/player/transcoder'
 
 import { MediaFixtures } from '../fixtures/media'
 import { seedMedia, seedDownloadWithTracks } from './seed'
@@ -31,49 +34,65 @@ afterAll(async () => {
   await rm(tmpDir, { recursive: true })
 })
 
-describe('Player — subtitle conversion', () => {
+describe('HlsServer — subtitle conversion', () => {
   test('converts subtitle to WebVTT', async () => {
-    const media = await seedMedia()
     const filePath = join(tmpDir, 'subs/movie.mkv')
 
     await MediaFixtures.copy(refSubsMkv, filePath)
 
-    await seedDownloadWithTracks(media.id, 'sub_hash', filePath, [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 320,
-        height: 240,
+    const probe = await new FFmpegBuilder().input(filePath).probe()
+    const keyframes = await new FFmpegBuilder().input(filePath).probeKeyframes()
+    const duration = probe.format.duration
+
+    const segments = keyframes.map((pts, i) => ({
+      pts_time: pts,
+      duration: (keyframes[i + 1] ?? duration) - pts,
+    }))
+
+    const server = new HlsServer({
+      resolved: {
+        video: {
+          file_path: filePath,
+          stream_index: 0,
+          codec_name: 'h264',
+          language: null,
+          title: null,
+        },
+        audio: {
+          file_path: filePath,
+          stream_index: 1,
+          codec_name: 'aac',
+          language: 'eng',
+          title: 'English Stereo',
+        },
+        subtitle: {
+          file_path: filePath,
+          stream_index: 2,
+          codec_name: 'subrip',
+          language: 'por',
+          title: null,
+        },
       },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-      {
-        stream_index: 2,
-        stream_type: 'subtitle',
-        codec_name: 'subrip',
-        is_default: false,
-        language: 'por',
-      },
-    ])
+      segments,
+      transcode: await Transcoder.init(
+        { video: { codec_name: 'h264' }, audio: { codec_name: 'aac' } },
+        { video_crf: 21, video_preset: 'veryfast' }
+      ),
+      port: 0,
+      mediaId: 'SUBSTEST',
+    })
 
-    const player = new Player({ id: media.id })
-    const resolved = await player.resolveTracks({ sub: 0 })
-    const hlsDir = join(tmpDir, 'hls-subs')
+    await server.start()
 
-    await Player.convertSubtitle(resolved.subtitle!, hlsDir)
+    const vttUrl = server.url.replace('master.m3u8', 'subs.vtt')
+    const vttRes = await fetch(vttUrl)
 
-    const vttFile = Bun.file(join(hlsDir, 'subs.vtt'))
+    expect(vttRes.status).toBe(200)
 
-    expect(await vttFile.exists()).toBe(true)
-
-    const content = await vttFile.text()
+    const content = await vttRes.text()
 
     expect(content).toContain('WEBVTT')
+
+    await server.stop()
   })
 })

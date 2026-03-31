@@ -387,10 +387,11 @@ describe('new Scanner().scan — keyframe probing', () => {
     await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
-    const keyframes = await DbMediaKeyframes.getByFileId(files[0].id)
+    const keyframes = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
 
     expect(keyframes.length).toBeGreaterThan(0)
-    expect(keyframes[0].stream_index).toBe(0)
+    expect(keyframes[0].pts_time).toBeGreaterThanOrEqual(0)
+    expect(keyframes[0].duration).toBeGreaterThan(0)
   })
 
   test('keyframes have valid pts_time positions', async () => {
@@ -398,7 +399,7 @@ describe('new Scanner().scan — keyframe probing', () => {
     await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
-    const keyframes = await DbMediaKeyframes.getByFileId(files[0].id)
+    const keyframes = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
 
     expect(keyframes.length).toBeGreaterThan(0)
     expect(keyframes[0].pts_time).toBeCloseTo(0.0, 1)
@@ -413,13 +414,13 @@ describe('new Scanner().scan — keyframe probing', () => {
     await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
-    const first = await DbMediaKeyframes.getByFileId(files[0].id)
+    const first = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
 
     expect(first.length).toBeGreaterThan(0)
 
     await new Scanner().scan(media.id)
 
-    const second = await DbMediaKeyframes.getByFileId(files[0].id)
+    const second = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
 
     expect(second).toHaveLength(first.length)
   })

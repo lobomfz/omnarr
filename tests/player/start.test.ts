@@ -13,7 +13,7 @@ import { join } from 'path'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
 import { database } from '@/db/connection'
-import { Player } from '@/player'
+import { Player } from '@/player/player'
 
 import { MediaFixtures } from '../fixtures/media'
 import { seedMedia, seedDownloadWithTracks } from './seed'
