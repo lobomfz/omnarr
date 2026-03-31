@@ -1,6 +1,7 @@
 import { type } from 'arktype'
 import axios from 'redaxios'
 
+import { media_type } from '@/db/connection'
 import { envVariables } from '@/env'
 
 import type { Indexer, IndexerRelease, SearchParams } from './types'
@@ -34,6 +35,8 @@ export class BeyondHdAdapter implements Indexer {
   })
 
   static name = 'Beyond-HD'
+
+  static types: media_type[] = ['movie', 'tv']
 
   constructor(private config: typeof BeyondHdAdapter.schema.infer) {}
 

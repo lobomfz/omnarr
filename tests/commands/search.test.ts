@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { testCommand } from '@bunli/test'
 
 import { SearchCommand } from '@/commands/search'
+
 import '../mocks/tmdb'
 
 describe('search command', () => {

@@ -10,7 +10,10 @@ export const ReleasesCommand = defineCommand({
     json: option(type('boolean | undefined'), {
       description: 'Output as JSON',
     }),
+    season: option(type('string.numeric.parse | undefined'), {
+      description: 'Filter by season number',
+    }),
   },
   handler: ({ positional, flags }) =>
-    new Handler(positional, flags.json).releases(),
+    new Handler(positional, flags.json).releases({ season: flags.season }),
 })

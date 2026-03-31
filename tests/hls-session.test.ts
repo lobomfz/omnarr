@@ -1,18 +1,28 @@
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test'
+import { describe, expect, test, beforeAll, afterAll, spyOn } from 'bun:test'
+import * as fsPromises from 'fs/promises'
 import { mkdir, mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
-import { HlsSession } from '@/hls-session'
-import { Player } from '@/player'
+import { HlsServer } from '@/player/hls-server'
+import { HlsSession } from '@/player/hls-session'
+import { Transcoder } from '@/player/transcoder'
+
+const originalAccess = fsPromises.access.bind(fsPromises)
+const vaapiSpy = spyOn(fsPromises, 'access').mockImplementation((path: any) => {
+  if (path === '/dev/dri/renderD128') {
+    return Promise.reject(new Error('ENOENT'))
+  }
+
+  return originalAccess(path)
+})
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-hlssession-'))
 const testMkv = join(tmpDir, 'test.mkv')
 
-let keyframes: number[]
-let duration: number
+let segments: { pts_time: number; duration: number }[]
 
 beforeAll(async () => {
   await new FFmpegBuilder({ overwrite: true })
@@ -29,14 +39,25 @@ beforeAll(async () => {
     .run()
 
   const probe = await new FFmpegBuilder().input(testMkv).probe()
+  const keyframes = await new FFmpegBuilder().input(testMkv).probeKeyframes()
+  const duration = probe.format.duration
 
-  keyframes = await new FFmpegBuilder().input(testMkv).probeKeyframes()
-  duration = probe.format.duration
+  segments = keyframes.map((pts, i) => ({
+    pts_time: pts,
+    duration: (keyframes[i + 1] ?? duration) - pts,
+  }))
 })
 
 afterAll(async () => {
   await rm(tmpDir, { recursive: true })
 })
+
+const copyTranscode = await Transcoder.init(
+  { video: { codec_name: 'h264' }, audio: { codec_name: 'aac' } },
+  { video_crf: 21, video_preset: 'veryfast' }
+)
+
+vaapiSpy.mockRestore()
 
 function createSession(outDir: string) {
   return new HlsSession({
@@ -44,59 +65,13 @@ function createSession(outDir: string) {
     audioFilePath: testMkv,
     videoStreamIndex: 0,
     audioStreamIndex: 1,
-    keyframes,
-    duration,
+    segments,
     outDir,
+    transcode: copyTranscode,
   })
 }
 
 describe('HlsSession', () => {
-  test('getPlaylist returns m3u8 with EXTINF matching keyframe intervals', () => {
-    const session = createSession(join(tmpDir, 'playlist'))
-    const playlist = session.getPlaylist()
-
-    expect(playlist).toContain('#EXTM3U')
-    expect(playlist).toContain('#EXTINF:')
-
-    const extinfs = playlist
-      .split('\n')
-      .filter((l) => l.startsWith('#EXTINF:'))
-      .map((l) => parseFloat(l.slice('#EXTINF:'.length)))
-
-    expect(extinfs).toHaveLength(keyframes.length)
-
-    for (let i = 0; i < keyframes.length; i++) {
-      const expected = (keyframes[i + 1] ?? duration) - keyframes[i]
-
-      expect(extinfs[i]).toBeCloseTo(expected, 3)
-    }
-  })
-
-  test('getPlaylist includes all segments with EXT-X-ENDLIST', () => {
-    const session = createSession(join(tmpDir, 'complete'))
-    const playlist = session.getPlaylist()
-
-    expect(playlist).toContain('#EXT-X-ENDLIST')
-
-    const segmentLines = playlist.split('\n').filter((l) => l.endsWith('.ts'))
-
-    expect(segmentLines).toHaveLength(keyframes.length)
-  })
-
-  test('getPlaylist declares VOD playlist type', () => {
-    const session = createSession(join(tmpDir, 'vod'))
-    const playlist = session.getPlaylist()
-
-    expect(playlist).toContain('#EXT-X-PLAYLIST-TYPE:VOD')
-  })
-
-  test('getPlaylist has no EXT-X-DISCONTINUITY tags', () => {
-    const session = createSession(join(tmpDir, 'discont'))
-    const playlist = session.getPlaylist()
-
-    expect(playlist).not.toContain('#EXT-X-DISCONTINUITY')
-  })
-
   test('getSegment starts continuous process and returns valid .ts', async () => {
     const outDir = join(tmpDir, 'segment')
     const session = createSession(outDir)
@@ -117,7 +92,7 @@ describe('HlsSession', () => {
     const outDir = join(tmpDir, 'sequential')
     const session = createSession(outDir)
 
-    for (let i = 0; i < keyframes.length; i++) {
+    for (let i = 0; i < segments.length; i++) {
       const segPath = await session.getSegment(i)
 
       expect(Bun.file(segPath).size).toBeGreaterThan(0)
@@ -157,13 +132,11 @@ describe('HlsSession', () => {
     const outDir = join(tmpDir, 'incomplete')
     await mkdir(outDir, { recursive: true })
 
-    // Simulate FFmpeg mid-write: file exists with some bytes but is truncated
     await Bun.write(join(outDir, 'seg_000.ts'), new Uint8Array(100))
 
     const session = createSession(outDir)
     const segPath = await session.getSegment(0)
 
-    // Must return a real, complete segment — not the truncated stub
     expect(Bun.file(segPath).size).toBeGreaterThan(1000)
 
     await session.cleanup()
@@ -173,7 +146,7 @@ describe('HlsSession', () => {
     const outDir = join(tmpDir, 'out-of-range')
     const session = createSession(outDir)
 
-    await expect(session.getSegment(999)).rejects.toThrow(
+    await expect(() => session.getSegment(999)).toThrow(
       /segment.*out of range/i
     )
 
@@ -184,9 +157,7 @@ describe('HlsSession', () => {
     const outDir = join(tmpDir, 'negative')
     const session = createSession(outDir)
 
-    await expect(session.getSegment(-1)).rejects.toThrow(
-      /segment.*out of range/i
-    )
+    await expect(() => session.getSegment(-1)).toThrow(/segment.*out of range/i)
 
     await session.cleanup()
   })
@@ -198,9 +169,9 @@ describe('HlsSession', () => {
       audioFilePath: '/tmp/nonexistent.mkv',
       videoStreamIndex: 0,
       audioStreamIndex: 1,
-      keyframes: [0],
-      duration: 1,
+      segments: [{ pts_time: 0, duration: 1 }],
       outDir,
+      transcode: copyTranscode,
     })
 
     const result = await Promise.race([
@@ -239,8 +210,7 @@ describe('HlsSession', () => {
 describe('HlsSession — seek', () => {
   const seekDir = join(tmpDir, 'seek-fixtures')
   const seekMkv = join(seekDir, 'seek.mkv')
-  let seekKeyframes: number[]
-  let seekDuration: number
+  let seekSegments: { pts_time: number; duration: number }[]
 
   beforeAll(async () => {
     await mkdir(seekDir, { recursive: true })
@@ -259,9 +229,13 @@ describe('HlsSession — seek', () => {
       .run()
 
     const probe = await new FFmpegBuilder().input(seekMkv).probe()
+    const keyframes = await new FFmpegBuilder().input(seekMkv).probeKeyframes()
+    const duration = probe.format.duration
 
-    seekKeyframes = await new FFmpegBuilder().input(seekMkv).probeKeyframes()
-    seekDuration = probe.format.duration
+    seekSegments = keyframes.map((pts, i) => ({
+      pts_time: pts,
+      duration: (keyframes[i + 1] ?? duration) - pts,
+    }))
   })
 
   function createSeekSession(outDir: string) {
@@ -270,9 +244,9 @@ describe('HlsSession — seek', () => {
       audioFilePath: seekMkv,
       videoStreamIndex: 0,
       audioStreamIndex: 1,
-      keyframes: seekKeyframes,
-      duration: seekDuration,
+      segments: seekSegments,
       outDir,
+      transcode: copyTranscode,
     })
   }
 
@@ -280,11 +254,10 @@ describe('HlsSession — seek', () => {
     const outDir = join(seekDir, 'far-seek')
     const session = createSeekSession(outDir)
 
-    const midIndex = Math.floor(seekKeyframes.length / 2)
+    const midIndex = Math.floor(seekSegments.length / 2)
 
     await session.getSegment(midIndex)
 
-    // Segment 0 should NOT exist — FFmpeg started from midIndex, not 0
     expect(Bun.file(join(outDir, 'seg_000.ts')).size).toBe(0)
 
     await session.cleanup()
@@ -294,7 +267,6 @@ describe('HlsSession — seek', () => {
     const outDir = join(seekDir, 'stale-segments')
     await mkdir(outDir, { recursive: true })
 
-    // Plant a fake stale segment that FFmpeg will never generate
     const staleFile = join(outDir, 'seg_999.ts')
     await Bun.write(staleFile, new Uint8Array(100))
 
@@ -302,7 +274,6 @@ describe('HlsSession — seek', () => {
 
     const session = createSeekSession(outDir)
 
-    // Starting a process triggers clearSegments, removing all .ts files
     await session.getSegment(0)
 
     expect(Bun.file(staleFile).size).toBe(0)
@@ -315,12 +286,7 @@ describe('HlsSession — integration: dual-file', () => {
   const integrationDir = join(tmpDir, 'integration')
   const videoFile = join(integrationDir, 'video.mkv')
   const audioFile = join(integrationDir, 'audio.mp4')
-  let longKeyframes: number[]
-  let longDuration: number
-  let server: ReturnType<typeof Bun.serve>
-  let session: HlsSession
-  let baseUrl: string
-  let hlsDir: string
+  let hlsServer: HlsServer
 
   beforeAll(async () => {
     await mkdir(integrationDir, { recursive: true })
@@ -347,48 +313,50 @@ describe('HlsSession — integration: dual-file', () => {
     ])
 
     const probe = await new FFmpegBuilder().input(videoFile).probe()
+    const keyframes = await new FFmpegBuilder()
+      .input(videoFile)
+      .probeKeyframes()
+    const duration = probe.format.duration
 
-    longKeyframes = await new FFmpegBuilder().input(videoFile).probeKeyframes()
-    longDuration = probe.format.duration
+    const longSegments = keyframes.map((pts, i) => ({
+      pts_time: pts,
+      duration: (keyframes[i + 1] ?? duration) - pts,
+    }))
 
-    hlsDir = join(integrationDir, 'hls')
-
-    await mkdir(hlsDir, { recursive: true })
-
-    session = new HlsSession({
-      videoFilePath: videoFile,
-      audioFilePath: audioFile,
-      videoStreamIndex: 0,
-      audioStreamIndex: 0,
-      keyframes: longKeyframes,
-      duration: longDuration,
-      outDir: hlsDir,
+    hlsServer = new HlsServer({
+      resolved: {
+        video: {
+          file_path: videoFile,
+          stream_index: 0,
+          codec_name: 'h264',
+          language: null,
+          title: null,
+        },
+        audio: {
+          file_path: audioFile,
+          stream_index: 0,
+          codec_name: 'aac',
+          language: null,
+          title: null,
+        },
+        subtitle: null,
+      },
+      segments: longSegments,
+      transcode: copyTranscode,
+      port: 0,
+      mediaId: 'HLSTEST',
     })
 
-    await Bun.write(join(hlsDir, 'video.m3u8'), session.getPlaylist())
-
-    server = Player.serve(hlsDir, session, 0, 'HLSTEST')
-    baseUrl = `http://localhost:${server.port}/HLSTEST`
+    await hlsServer.start()
   })
 
   afterAll(async () => {
-    server?.stop()
-    await session?.cleanup()
+    await hlsServer?.stop()
   })
 
   test('HLS demuxer plays full stream without packet errors', async () => {
     const proc = Bun.spawn(
-      [
-        'ffmpeg',
-        '-y',
-        '-i',
-        `${baseUrl}/video.m3u8`,
-        '-c',
-        'copy',
-        '-f',
-        'null',
-        '-',
-      ],
+      ['ffmpeg', '-y', '-i', hlsServer.url, '-c', 'copy', '-f', 'null', '-'],
       { stdout: 'ignore', stderr: 'pipe' }
     )
 

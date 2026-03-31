@@ -49,4 +49,23 @@ describe('TmdbClient', () => {
 
     expect(ids.imdb_id).toBe('tt0133093')
   })
+
+  test('getShowWithSeasons returns seasons for TV show', async () => {
+    const result = await tmdb.getShowWithSeasons(1399)
+
+    expect(result.title).toBe('Breaking Bad')
+    expect(result.year).toBe(2008)
+    expect(result.seasons).toHaveLength(2)
+    expect(result.seasons[0].season_number).toBe(1)
+    expect(result.seasons[0].name).toBe('Season 1')
+    expect(result.seasons[0].episode_count).toBe(7)
+  })
+
+  test('getSeasonEpisodes returns episodes for a season', async () => {
+    const episodes = await tmdb.getSeasonEpisodes(1399, 1)
+
+    expect(episodes).toHaveLength(3)
+    expect(episodes[0].episode_number).toBe(1)
+    expect(episodes[0].name).toBe('Pilot')
+  })
 })

@@ -50,58 +50,88 @@ describe('schema - media_keyframes', () => {
     const { file } = await seedMediaFile()
 
     await DbMediaKeyframes.createBatch([
-      { media_file_id: file.id, stream_index: 0, pts_time: 0.0 },
-      { media_file_id: file.id, stream_index: 0, pts_time: 6.006 },
-      { media_file_id: file.id, stream_index: 0, pts_time: 12.012 },
+      {
+        media_file_id: file.id,
+        stream_index: 0,
+        pts_time: 0.0,
+        duration: 6.006,
+      },
+      {
+        media_file_id: file.id,
+        stream_index: 0,
+        pts_time: 6.006,
+        duration: 6.006,
+      },
+      {
+        media_file_id: file.id,
+        stream_index: 0,
+        pts_time: 12.012,
+        duration: 3.0,
+      },
     ])
 
-    const keyframes = await DbMediaKeyframes.getByFileId(file.id)
+    const segments = await DbMediaKeyframes.getSegmentsByFileId(file.id)
 
-    expect(keyframes).toHaveLength(3)
+    expect(segments).toHaveLength(3)
   })
 
   test('createBatch with empty array does nothing', async () => {
     await DbMediaKeyframes.createBatch([])
   })
 
-  test('getByFileId returns keyframes ordered by pts_time', async () => {
+  test('getSegmentsByFileId returns segments ordered by pts_time', async () => {
     const { file } = await seedMediaFile()
 
     await DbMediaKeyframes.createBatch([
-      { media_file_id: file.id, stream_index: 0, pts_time: 12.012 },
-      { media_file_id: file.id, stream_index: 0, pts_time: 0.0 },
-      { media_file_id: file.id, stream_index: 0, pts_time: 6.006 },
+      {
+        media_file_id: file.id,
+        stream_index: 0,
+        pts_time: 12.012,
+        duration: 3.0,
+      },
+      {
+        media_file_id: file.id,
+        stream_index: 0,
+        pts_time: 0.0,
+        duration: 6.006,
+      },
+      {
+        media_file_id: file.id,
+        stream_index: 0,
+        pts_time: 6.006,
+        duration: 6.006,
+      },
     ])
 
-    const keyframes = await DbMediaKeyframes.getByFileId(file.id)
+    const segments = await DbMediaKeyframes.getSegmentsByFileId(file.id)
 
-    expect(keyframes).toHaveLength(3)
-    expect(keyframes[0].pts_time).toBe(0.0)
-    expect(keyframes[1].pts_time).toBe(6.006)
-    expect(keyframes[2].pts_time).toBe(12.012)
+    expect(segments).toHaveLength(3)
+    expect(segments[0].pts_time).toBe(0.0)
+    expect(segments[1].pts_time).toBe(6.006)
+    expect(segments[2].pts_time).toBe(12.012)
   })
 
-  test('getByFileId returns empty for non-existent file', async () => {
-    const keyframes = await DbMediaKeyframes.getByFileId(999)
+  test('getSegmentsByFileId returns empty for non-existent file', async () => {
+    const segments = await DbMediaKeyframes.getSegmentsByFileId(999)
 
-    expect(keyframes).toHaveLength(0)
+    expect(segments).toHaveLength(0)
   })
 
   test('cascade delete: removing media_file removes its keyframes', async () => {
     const { media, file } = await seedMediaFile()
 
     await DbMediaKeyframes.createBatch([
-      { media_file_id: file.id, stream_index: 0, pts_time: 0.0 },
-      { media_file_id: file.id, stream_index: 0, pts_time: 6.0 },
+      { media_file_id: file.id, stream_index: 0, pts_time: 0.0, duration: 6.0 },
+      { media_file_id: file.id, stream_index: 0, pts_time: 6.0, duration: 4.0 },
     ])
 
-    const before = await DbMediaKeyframes.getByFileId(file.id)
+    const before = await DbMediaKeyframes.getSegmentsByFileId(file.id)
 
     expect(before).toHaveLength(2)
 
     await DbMediaFiles.deleteByMediaId(media.id)
 
-    const after = await DbMediaKeyframes.getByFileId(file.id)
+    const after = await DbMediaKeyframes.getSegmentsByFileId(file.id)
 
     expect(after).toHaveLength(0)
   })
@@ -110,10 +140,10 @@ describe('schema - media_keyframes', () => {
     const { media, file } = await seedMediaFile()
 
     await DbMediaKeyframes.createBatch([
-      { media_file_id: file.id, stream_index: 0, pts_time: 0.0 },
+      { media_file_id: file.id, stream_index: 0, pts_time: 0.0, duration: 1.0 },
     ])
 
-    const before = await DbMediaKeyframes.getByFileId(file.id)
+    const before = await DbMediaKeyframes.getSegmentsByFileId(file.id)
 
     expect(before).toHaveLength(1)
 

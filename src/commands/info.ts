@@ -10,7 +10,13 @@ export const InfoCommand = defineCommand({
     json: option(type('boolean | undefined'), {
       description: 'Output as JSON',
     }),
+    season: option(type('string.numeric.parse | undefined'), {
+      description: 'Filter by season number',
+    }),
+    episode: option(type('string.numeric.parse | undefined'), {
+      description: 'Filter by episode number',
+    }),
   },
   handler: ({ positional, flags }) =>
-    new Handler(positional, flags.json).info(),
+    new Handler(positional, flags.json).info(flags),
 })

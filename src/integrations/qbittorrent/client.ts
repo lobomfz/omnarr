@@ -45,7 +45,7 @@ export class QBittorrentClient implements DownloadClient {
   ) {}
 
   private async login() {
-    await Log.info(`qbittorrent login attempt url=${this.config.url}`)
+    Log.info(`qbittorrent login attempt url=${this.config.url}`)
 
     const response = await fetch(`${this.config.url}/api/v2/auth/login`, {
       method: 'POST',
@@ -59,12 +59,12 @@ export class QBittorrentClient implements DownloadClient {
       ?.match(/SID=([^;]+)/)?.[1]
 
     if (!sid) {
-      await Log.error(`qbittorrent login failed url=${this.config.url}`)
+      Log.error(`qbittorrent login failed url=${this.config.url}`)
       throw new Error('qBittorrent login failed')
     }
 
     this.cookie = sid
-    await Log.info('qbittorrent login success')
+    Log.info('qbittorrent login success')
   }
 
   private async request<T>(options: {
@@ -77,14 +77,14 @@ export class QBittorrentClient implements DownloadClient {
       await this.login()
     }
 
-    await Log.info(`qbittorrent request ${options.method} ${options.url}`)
+    Log.info(`qbittorrent request ${options.method} ${options.url}`)
 
     const { data } = await axios<T>({
       ...options,
       baseURL: this.config.url,
       headers: { Cookie: `SID=${this.cookie}` },
-    }).catch(async (e) => {
-      await Log.error(
+    }).catch((e) => {
+      Log.error(
         `qbittorrent request failed ${options.method} ${options.url} status=${e.status} statusText="${e.statusText}"`
       )
 
@@ -92,7 +92,7 @@ export class QBittorrentClient implements DownloadClient {
     })
 
     if (data === 'Fails.') {
-      await Log.error(
+      Log.error(
         `qbittorrent request rejected ${options.method} ${options.url}`
       )
 
@@ -129,8 +129,8 @@ export class QBittorrentClient implements DownloadClient {
       method: 'POST',
       url: '/api/v2/torrents/add',
       data: form,
-    }).catch(async (e) => {
-      await Log.error(
+    }).catch((e) => {
+      Log.error(
         `qbittorrent addTorrent failed url=${params.url} reason="${e.message}"`
       )
 

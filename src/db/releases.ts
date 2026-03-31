@@ -4,6 +4,8 @@ import { deriveId } from '@/utils'
 
 interface SourcedRelease extends IndexerRelease {
   indexer_source: string
+  season_number: number | null
+  episode_number: number | null
 }
 
 export const DbReleases = {
@@ -12,7 +14,9 @@ export const DbReleases = {
     media_type: media_type,
     releases: SourcedRelease[]
   ) {
-    if (releases.length === 0) return []
+    if (releases.length === 0) {
+      return []
+    }
 
     return await db
       .insertInto('releases')
@@ -31,6 +35,8 @@ export const DbReleases = {
           codec: r.codec,
           hdr: r.hdr.join('/'),
           download_url: r.download_url,
+          season_number: r.season_number,
+          episode_number: r.episode_number,
         }))
       )
       .onConflict((oc) =>
@@ -44,6 +50,8 @@ export const DbReleases = {
           codec: (eb) => eb.ref('excluded.codec'),
           hdr: (eb) => eb.ref('excluded.hdr'),
           download_url: (eb) => eb.ref('excluded.download_url'),
+          season_number: (eb) => eb.ref('excluded.season_number'),
+          episode_number: (eb) => eb.ref('excluded.episode_number'),
         })
       )
       .returning([
@@ -55,6 +63,8 @@ export const DbReleases = {
         'resolution',
         'codec',
         'hdr',
+        'season_number',
+        'episode_number',
       ])
       .execute()
   },

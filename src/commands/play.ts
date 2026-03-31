@@ -22,6 +22,12 @@ export const PlayCommand = defineCommand({
     sub: option(type('string.numeric.parse | undefined'), {
       description: 'Subtitle track index',
     }),
+    season: option(type('string.numeric.parse | undefined'), {
+      description: 'Season number (required for TV)',
+    }),
+    episode: option(type('string.numeric.parse | undefined'), {
+      description: 'Episode number (required for TV)',
+    }),
   },
   handler: ({ positional, flags }) =>
     new Handler(positional, flags.json).play({
@@ -29,5 +35,7 @@ export const PlayCommand = defineCommand({
       video: flags.video,
       audio: flags.audio,
       sub: flags.sub,
+      season: flags.season,
+      episode: flags.episode,
     }),
 })

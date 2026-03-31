@@ -144,21 +144,7 @@ describe('schema - media', () => {
     expect(media.tmdb_media_id).toBe(tmdb.id)
     expect(media.media_type).toBe('movie')
     expect(media.root_folder).toBe('/movies')
-    expect(media.has_file).toBe(false)
     expect(media.added_at).toBeInstanceOf(Date)
-  })
-
-  test('has_file defaults to false', async () => {
-    const tmdb = await seedTmdbMedia()
-
-    const media = await DbMedia.create({
-      id: deriveId('603:movie'),
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: '/movies',
-    })
-
-    expect(media.has_file).toBe(false)
   })
 
   test('create with same id upserts and returns existing media', async () => {

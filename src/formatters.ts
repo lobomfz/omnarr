@@ -31,12 +31,40 @@ const DOWNLOAD_STATUS_MAP: Record<download_status, string> = {
 }
 
 export const Formatters = {
+  seasonEpisodeTag(
+    seasonNumber: number | null | undefined,
+    episodeNumber: number | null | undefined
+  ) {
+    if (seasonNumber == null) {
+      return ''
+    }
+
+    const s = `S${String(seasonNumber).padStart(2, '0')}`
+
+    if (episodeNumber == null) {
+      return s
+    }
+
+    return `${s}E${String(episodeNumber).padStart(2, '0')}`
+  },
+
   mediaTitle(media: {
     title: string
     year: number | null
     indexer_source?: string | null
+    season_number?: number | null
+    episode_number?: number | null
   }) {
-    const base = media.year ? `${media.title} (${media.year})` : media.title
+    let base = media.year ? `${media.title} (${media.year})` : media.title
+
+    const seTag = Formatters.seasonEpisodeTag(
+      media.season_number,
+      media.episode_number
+    )
+
+    if (seTag) {
+      base = `${base} - ${seTag}`
+    }
 
     if (media.indexer_source) {
       return `${base} [${media.indexer_source}]`
@@ -120,7 +148,13 @@ export const Formatters = {
     file_count: number
     track_count: number
     download_status: download_status | null
+    total_episodes: number | null
+    episodes_with_files: number | null
   }) {
+    if (media.total_episodes) {
+      return `${media.episodes_with_files ?? 0}/${media.total_episodes} episodes`
+    }
+
     if (media.file_count > 0 && media.track_count > 0) {
       return 'scanned'
     }
@@ -137,9 +171,17 @@ export const Formatters = {
       `[${info.media_type}] ${Formatters.mediaTitle(info)}`,
     ]
 
-    const typeCounters: Record<string, number> = {}
+    Formatters.appendDownloads(lines, info.downloads)
 
-    for (const d of info.downloads) {
+    if (info.media_type === 'tv') {
+      Formatters.appendSeasons(lines, info.seasons)
+    }
+
+    return lines.join('\n')
+  },
+
+  appendDownloads(lines: string[], downloads: MediaInfo['downloads']) {
+    for (const d of downloads) {
       lines.push('')
 
       const header: string[] = [d.status]
@@ -159,6 +201,8 @@ export const Formatters = {
       for (const f of d.files) {
         lines.push(`  ${f.path} (${Formatters.fileStats(f)})`)
 
+        const typeCounters: Record<string, number> = {}
+
         for (const t of f.tracks) {
           const idx = typeCounters[t.stream_type] ?? 0
           typeCounters[t.stream_type] = idx + 1
@@ -166,8 +210,46 @@ export const Formatters = {
         }
       }
     }
+  },
 
-    return lines.join('\n')
+  appendSeasons(lines: string[], seasons: MediaInfo['seasons']) {
+    for (const s of seasons) {
+      const downloaded = s.episodes.filter((e) => e.files.length > 0)
+
+      if (downloaded.length === 0) {
+        continue
+      }
+
+      lines.push('')
+
+      const seasonLabel =
+        s.season_number === 0
+          ? 'Specials'
+          : (s.title ?? `Season ${s.season_number}`)
+
+      lines.push(seasonLabel)
+
+      for (const e of downloaded) {
+        const epNum = `E${String(e.episode_number).padStart(2, '0')}`
+        const epTitle = e.title ? `  ${e.title}` : ''
+
+        lines.push(`  ${epNum}${epTitle}`)
+
+        for (const f of e.files) {
+          lines.push(
+            `    ${f.path.split('/').at(-1)} (${Formatters.fileStats(f)})`
+          )
+
+          const typeCounters: Record<string, number> = {}
+
+          for (const t of f.tracks) {
+            const idx = typeCounters[t.stream_type] ?? 0
+            typeCounters[t.stream_type] = idx + 1
+            lines.push(Formatters.trackParts(t, '      ', idx).join(' '))
+          }
+        }
+      }
+    }
   },
 
   trackSummary(

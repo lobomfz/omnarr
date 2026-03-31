@@ -1,4 +1,4 @@
-import type { Insertable, Updateable } from '@lobomfz/db'
+import type { Insertable } from '@lobomfz/db'
 
 import { db, type DB } from '@/db/connection'
 
@@ -21,9 +21,9 @@ export const DbMediaTracks = {
 
   async getByMediaFileId(mediaFileId: number) {
     return await db
-      .selectFrom('media_tracks')
-      .where('media_file_id', '=', mediaFileId)
-      .selectAll()
+      .selectFrom('media_tracks as mt')
+      .where('mt.media_file_id', '=', mediaFileId)
+      .selectAll('mt')
       .execute()
   },
 
@@ -36,11 +36,11 @@ export const DbMediaTracks = {
       .execute()
   },
 
-  async getWithFileByMediaId(mediaId: string) {
-    return await db
+  async getWithFile(filter: { media_id: string; episode_id?: number }) {
+    let query = db
       .selectFrom('media_tracks as t')
       .innerJoin('media_files as f', 'f.id', 't.media_file_id')
-      .where('f.media_id', '=', mediaId)
+      .where('f.media_id', '=', filter.media_id)
       .select([
         't.stream_index',
         't.stream_type',
@@ -50,6 +50,7 @@ export const DbMediaTracks = {
         't.is_default',
         't.width',
         't.height',
+        't.channels',
         't.channel_layout',
         'f.path as file_path',
         'f.id as file_id',
@@ -58,15 +59,15 @@ export const DbMediaTracks = {
       ])
       .orderBy('f.download_id', 'desc')
       .orderBy('t.stream_index', 'asc')
-      .execute()
-  },
 
-  async update(id: number, data: Updateable<DB['media_tracks']>) {
-    return await db
-      .updateTable('media_tracks')
-      .set(data)
-      .where('id', '=', id)
-      .returningAll()
-      .executeTakeFirst()
+    if (filter.episode_id !== undefined) {
+      query = query.where('f.episode_id', '=', filter.episode_id)
+    }
+
+    return await query.execute()
   },
 }
+
+export type TracksWithFile = Awaited<
+  ReturnType<typeof DbMediaTracks.getWithFile>
+>

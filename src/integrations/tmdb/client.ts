@@ -9,17 +9,17 @@ import type { TmdbTypes } from './types'
 
 export class TmdbClient {
   private async request<T>(url: string, params?: Record<string, unknown>) {
-    await Log.info(`tmdb request url=${url} params=${JSON.stringify(params)}`)
+    Log.info(`tmdb request url=${url} params=${JSON.stringify(params)}`)
 
     const { data } = await axios<T>({
       method: 'GET',
       baseURL: envVariables.TMDB_API_URL,
       url,
       params: { api_key: envVariables.TMDB_API_KEY, ...params },
-    }).catch(async (e) => {
+    }).catch((e) => {
       const message = e.data?.status_message ?? e.statusText
 
-      await Log.error(
+      Log.error(
         `tmdb request failed url=${url} status=${e.status} message="${message}"`
       )
 
@@ -29,10 +29,7 @@ export class TmdbClient {
     return data
   }
 
-  private parse(
-    raw: TmdbTypes['raw_media'],
-    defaultType: media_type
-  ): TmdbTypes['media'] {
+  private parse(raw: TmdbTypes['raw_media'], defaultType: media_type) {
     const date = raw.release_date ?? raw.first_air_date
 
     return {
@@ -64,9 +61,30 @@ export class TmdbClient {
     return this.parse(data, mediaType)
   }
 
-  getExternalIds(tmdbId: number, mediaType: media_type) {
-    return this.request<TmdbTypes['external_ids']>(
+  async getExternalIds(tmdbId: number, mediaType: media_type) {
+    return await this.request<TmdbTypes['external_ids']>(
       `/${mediaType}/${tmdbId}/external_ids`
     )
+  }
+
+  async getShowWithSeasons(tmdbId: number) {
+    const data = await this.request<TmdbTypes['raw_media']>(`/tv/${tmdbId}`)
+
+    if (!data.seasons) {
+      throw new Error('TMDB /tv endpoint did not return seasons')
+    }
+
+    return {
+      ...this.parse(data, 'tv'),
+      seasons: data.seasons,
+    }
+  }
+
+  async getSeasonEpisodes(tmdbId: number, seasonNumber: number) {
+    const data = await this.request<TmdbTypes['season_response']>(
+      `/tv/${tmdbId}/season/${seasonNumber}`
+    )
+
+    return data.episodes
   }
 }

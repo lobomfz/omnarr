@@ -26,4 +26,9 @@ describe('config', () => {
   test('applies default category', () => {
     expect(config.download_client?.category).toBe('omnarr')
   })
+
+  test('applies default transcoding config when not specified', () => {
+    expect(config.transcoding.video_crf).toBe(21)
+    expect(config.transcoding.video_preset).toBe('veryfast')
+  })
 })

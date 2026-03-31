@@ -1,14 +1,16 @@
 import { stat } from 'fs/promises'
-import { extname, join } from 'path'
+import { basename, extname, join } from 'path'
 
 import { FFmpegBuilder, type Stream } from '@lobomfz/ffmpeg'
 
 import { DbDownloads } from '@/db/downloads'
+import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { Log } from '@/log'
+import { Parsers } from '@/parsers'
 
 const VALID_EXTENSIONS = new Set(['mkv', 'mp4', 'avi', 'ts'])
 
@@ -22,17 +24,17 @@ export class Scanner {
       throw new Error(`Media ${mediaId} not found`)
     }
 
-    await Log.info(`scan started media_id=${mediaId}`)
+    Log.info(`scan started media_id=${mediaId}`)
 
     if (opts?.force) {
       const deleted = await DbMediaFiles.deleteByMediaId(mediaId)
-      await Log.info(`scan force mode: deleted ${deleted} files for ${mediaId}`)
+      Log.info(`scan force mode: deleted ${deleted} files for ${mediaId}`)
     }
 
     const downloads = await DbDownloads.getCompletedDownloads(mediaId)
 
     if (downloads.length === 0) {
-      await Log.info('scan: no completed downloads with content_path')
+      Log.info('scan: no completed downloads with content_path')
 
       return await DbMediaFiles.getByMediaId(mediaId)
     }
@@ -40,15 +42,19 @@ export class Scanner {
     const { files: diskFiles, resolvedIds } =
       await this.discoverFiles(downloads)
 
-    return await this.reconcile(mediaId, diskFiles, resolvedIds)
+    return await this.reconcile(
+      { id: mediaId, tmdb_media_id: media.tmdb_media_id },
+      diskFiles,
+      resolvedIds
+    )
   }
 
   private async reconcile(
-    mediaId: string,
+    media: { id: string; tmdb_media_id: number },
     diskFiles: Map<string, number>,
     resolvedIds: Set<number>
   ) {
-    const existingFiles = await DbMediaFiles.getByMediaId(mediaId)
+    const existingFiles = await DbMediaFiles.getByMediaId(media.id)
 
     const existingPaths = new Set(existingFiles.map((f) => f.path))
 
@@ -59,7 +65,7 @@ export class Scanner {
     if (staleIds.length > 0) {
       await DbMediaFiles.deleteByIds(staleIds)
 
-      await Log.info(
+      Log.info(
         `scan stale files removed: ${staleIds.length} ids=${staleIds.join(',')}`
       )
     }
@@ -69,25 +75,23 @@ export class Scanner {
     let probed = 0
 
     for (const [path, downloadId] of newFiles) {
-      const success = await this.probeAndPersist(
-        mediaId,
-        downloadId,
-        path
-      ).catch(async (err) => {
-        await Log.warn(
-          `probe failed file="${path}" error="${err instanceof Error ? err.message : String(err)}"`
-        )
-        return false
-      })
+      const success = await this.probeAndPersist(media, downloadId, path).catch(
+        (err) => {
+          Log.warn(
+            `probe failed file="${path}" error="${err instanceof Error ? err.message : String(err)}"`
+          )
+          return false
+        }
+      )
 
       if (success) {
         probed++
       }
     }
 
-    const finalFiles = await DbMediaFiles.getByMediaId(mediaId)
+    const finalFiles = await DbMediaFiles.getByMediaId(media.id)
 
-    await Log.info(
+    Log.info(
       `scan complete total=${finalFiles.length} new=${probed} deleted=${staleIds.length}`
     )
 
@@ -102,10 +106,8 @@ export class Scanner {
 
     for (const dl of downloads) {
       const resolved = await this.resolveContentPath(dl.content_path).catch(
-        async () => {
-          await Log.warn(
-            `scan content_path not accessible: "${dl.content_path}"`
-          )
+        () => {
+          Log.warn(`scan content_path not accessible: "${dl.content_path}"`)
           return null
         }
       )
@@ -121,7 +123,7 @@ export class Scanner {
       }
     }
 
-    await Log.info(
+    Log.info(
       `scan discovered ${files.size} files from ${downloads.length} content_paths`
     )
 
@@ -148,22 +150,42 @@ export class Scanner {
     return paths
   }
 
+  private async resolveEpisodeId(tmdbMediaId: number, fullPath: string) {
+    const filename = basename(fullPath)
+    const parsed = Parsers.seasonEpisode(filename)
+
+    if (parsed.season_number === null || parsed.episode_number === null) {
+      return
+    }
+
+    const episode = await DbEpisodes.getBySeasonEpisode(
+      tmdbMediaId,
+      parsed.season_number,
+      parsed.episode_number
+    )
+
+    return episode?.id
+  }
+
   private async probeAndPersist(
-    mediaId: string,
+    media: { id: string; tmdb_media_id: number },
     downloadId: number,
     fullPath: string
   ) {
-    await Log.info(`probing file="${fullPath}"`)
+    Log.info(`probing file="${fullPath}"`)
 
     const probe = await new FFmpegBuilder().input(fullPath).probe()
 
+    const episodeId = await this.resolveEpisodeId(media.tmdb_media_id, fullPath)
+
     const file = await DbMediaFiles.create({
-      media_id: mediaId,
+      media_id: media.id,
       download_id: downloadId,
       path: fullPath,
       size: probe.format.size,
       format_name: probe.format.format_name,
       duration: probe.format.duration,
+      episode_id: episodeId,
     })
 
     await DbMediaTracks.createMany(
@@ -186,20 +208,23 @@ export class Scanner {
         .input(fullPath)
         .probeKeyframes()
 
+      const fileDuration = probe.format.duration
+
       await DbMediaKeyframes.createBatch(
-        keyframeTimes.map((pts_time) => ({
+        keyframeTimes.map((pts_time, i) => ({
           media_file_id: file.id,
           stream_index: videoStream.index,
           pts_time,
+          duration: (keyframeTimes[i + 1] ?? fileDuration) - pts_time,
         }))
       )
 
-      await Log.info(
+      Log.info(
         `keyframe probe complete file="${fullPath}" keyframes=${keyframeTimes.length}`
       )
     }
 
-    await Log.info(
+    Log.info(
       `probe complete file="${fullPath}" streams=${probe.streams.length} duration=${probe.format.duration} format=${probe.format.format_name}`
     )
 

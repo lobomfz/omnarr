@@ -8,6 +8,11 @@ export interface TmdbTypes {
     release_date?: string
     first_air_date?: string
     media_type?: 'movie' | 'tv'
+    seasons?: {
+      season_number: number
+      name: string
+      episode_count: number
+    }[]
   }
   search_response: {
     page: number
@@ -25,5 +30,11 @@ export interface TmdbTypes {
   }
   external_ids: {
     imdb_id: string | null
+  }
+  season_response: {
+    episodes: {
+      episode_number: number
+      name: string
+    }[]
   }
 }

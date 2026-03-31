@@ -17,7 +17,7 @@ import { QBittorrentMock } from '../mocks/qbittorrent'
 
 describe('download command', async () => {
   const results = await new TmdbClient().search('Matrix')
-  const releases = await Releases.search(
+  const releases = await new Releases().search(
     results[0].tmdb_id,
     results[0].media_type
   )

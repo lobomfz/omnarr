@@ -1,26 +1,26 @@
-import { appendFile, mkdir } from 'fs/promises'
+import { appendFileSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
 
 import { envVariables } from '@/env'
 
-await mkdir(dirname(envVariables.OMNARR_LOG_PATH), { recursive: true })
+mkdirSync(dirname(envVariables.OMNARR_LOG_PATH), { recursive: true })
 
-async function write(level: string, message: string) {
+function write(level: string, message: string) {
   const line = `${new Date().toISOString()} [${level}] ${message}\n`
 
-  await appendFile(envVariables.OMNARR_LOG_PATH, line)
+  appendFileSync(envVariables.OMNARR_LOG_PATH, line)
 }
 
 export const Log = {
-  async info(message: string) {
-    await write('INFO', message)
+  info(message: string) {
+    write('INFO', message)
   },
 
-  async warn(message: string) {
-    await write('WARN', message)
+  warn(message: string) {
+    write('WARN', message)
   },
 
-  async error(message: string) {
-    await write('ERROR', message)
+  error(message: string) {
+    write('ERROR', message)
   },
 }

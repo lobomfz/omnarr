@@ -5,14 +5,19 @@ import { deriveId } from '@/utils'
 
 export const DbSearchResults = {
   async upsert(results: Omit<Insertable<DB['search_results']>, 'id'>[]) {
-    if (results.length === 0) return []
+    if (results.length === 0) {
+      return []
+    }
 
     return await db
       .insertInto('search_results')
       .values(
         results.map((r) => ({
-          ...r,
           id: deriveId(`${r.tmdb_id}:${r.media_type}`),
+          tmdb_id: r.tmdb_id,
+          media_type: r.media_type,
+          title: r.title,
+          year: r.year,
         }))
       )
       .onConflict((oc) =>
