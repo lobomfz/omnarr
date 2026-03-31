@@ -171,10 +171,10 @@ export const Formatters = {
       `[${info.media_type}] ${Formatters.mediaTitle(info)}`,
     ]
 
+    Formatters.appendDownloads(lines, info.downloads)
+
     if (info.media_type === 'tv') {
       Formatters.appendSeasons(lines, info.seasons)
-    } else {
-      Formatters.appendDownloads(lines, info.downloads)
     }
 
     return lines.join('\n')
