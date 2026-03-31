@@ -1,4 +1,4 @@
-import type { Insertable, Updateable } from '@lobomfz/db'
+import type { Insertable } from '@lobomfz/db'
 
 import { db, type DB } from '@/db/connection'
 
@@ -65,15 +65,6 @@ export const DbMediaTracks = {
     }
 
     return await query.execute()
-  },
-
-  async update(id: number, data: Updateable<DB['media_tracks']>) {
-    return await db
-      .updateTable('media_tracks')
-      .set(data)
-      .where('id', '=', id)
-      .returningAll()
-      .executeTakeFirst()
   },
 }
 

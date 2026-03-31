@@ -1,4 +1,5 @@
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test'
+import { describe, expect, test, beforeAll, afterAll, spyOn } from 'bun:test'
+import * as fsPromises from 'fs/promises'
 import { mkdir, mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -8,6 +9,15 @@ import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 import { HlsServer } from '@/player/hls-server'
 import { HlsSession } from '@/player/hls-session'
 import { Transcoder } from '@/player/transcoder'
+
+const originalAccess = fsPromises.access.bind(fsPromises)
+const vaapiSpy = spyOn(fsPromises, 'access').mockImplementation((path: any) => {
+  if (path === '/dev/dri/renderD128') {
+    return Promise.reject(new Error('ENOENT'))
+  }
+
+  return originalAccess(path)
+})
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-hlssession-'))
 const testMkv = join(tmpDir, 'test.mkv')
@@ -46,6 +56,8 @@ const copyTranscode = await Transcoder.init(
   { video: { codec_name: 'h264' }, audio: { codec_name: 'aac' } },
   { video_crf: 21, video_preset: 'veryfast' }
 )
+
+vaapiSpy.mockRestore()
 
 function createSession(outDir: string) {
   return new HlsSession({

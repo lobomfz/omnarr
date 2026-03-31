@@ -25,20 +25,20 @@
     "prepublishOnly": "bun run build"
   },
   "devDependencies": {
-    "@bunli/core": "^0.8.2",
-    "@bunli/test": "^0.5.2",
-    "@lobomfz/db": "^0.3.2",
-    "@lobomfz/ffmpeg": "^0.1.1",
+    "@bunli/core": "^0.9.0",
+    "@bunli/test": "^0.6.0",
+    "@lobomfz/db": "^0.3.4",
+    "@lobomfz/ffmpeg": "^0.1.2",
     "@lobomfz/ghostapi": "^0.3.1",
     "@types/bun": "^1.3.11",
-    "@typescript/native-preview": "^7.0.0-dev.20260325.1",
+    "@typescript/native-preview": "^7.0.0-dev.20260331.1",
     "arktype": "^2.2.0",
     "dayjs": "^1.11.20",
     "jscpd": "^4.0.8",
-    "knip": "^6.0.5",
-    "kysely": "^0.28.14",
-    "oxfmt": "^0.42.0",
-    "oxlint": "^1.57.0",
+    "knip": "^6.1.1",
+    "kysely": "^0.28.15",
+    "oxfmt": "^0.43.0",
+    "oxlint": "^1.58.0",
     "redaxios": "^0.5.1"
   }
 }

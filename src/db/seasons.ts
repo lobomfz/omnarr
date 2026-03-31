@@ -15,6 +15,7 @@ export const DbSeasons = {
         oc.columns(['tmdb_media_id', 'season_number']).doUpdateSet({
           title: (eb) => eb.ref('excluded.title'),
           episode_count: (eb) => eb.ref('excluded.episode_count'),
+          updated_at: new Date(),
         })
       )
       .returning([

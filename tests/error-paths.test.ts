@@ -16,7 +16,12 @@ describe('TmdbClient', () => {
 })
 
 describe('Releases', () => {
-  test.todo('throws when media has no IMDB ID', async () => {
+  test('throws when media has no IMDB ID', async () => {
+    await TmdbMock.db
+      .deleteFrom('external_ids')
+      .where('tmdb_id', '=', 1399)
+      .execute()
+
     await TmdbMock.db
       .insertInto('external_ids')
       .values({ tmdb_id: 1399 })
@@ -25,5 +30,15 @@ describe('Releases', () => {
     await expect(() => new Releases().search(1399, 'tv')).toThrow(
       'No IMDB ID found for this media.'
     )
+
+    await TmdbMock.db
+      .deleteFrom('external_ids')
+      .where('tmdb_id', '=', 1399)
+      .execute()
+
+    await TmdbMock.db
+      .insertInto('external_ids')
+      .values({ tmdb_id: 1399, imdb_id: 'tt0903747' })
+      .execute()
   })
 })
