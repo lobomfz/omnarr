@@ -2,9 +2,14 @@ import type { Insertable } from '@lobomfz/db'
 
 import { db, media_type, type DB } from '@/db/connection'
 
+type InsertExecutor = Pick<typeof db, 'insertInto'>
+
 export const DbTmdbMedia = {
-  async upsert(data: Insertable<DB['tmdb_media']>) {
-    return await db
+  async upsert(
+    data: Insertable<DB['tmdb_media']>,
+    executor: InsertExecutor = db
+  ) {
+    return await executor
       .insertInto('tmdb_media')
       .values(data)
       .onConflict((oc) =>

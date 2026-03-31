@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
 
 import { config } from '@/config'
-import { media_type } from '@/db/connection'
+import { db, media_type } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbReleases } from '@/db/releases'
 import { DbSeasons } from '@/db/seasons'
@@ -29,40 +29,46 @@ export class Releases {
 
     const showData = await this.tmdb.getShowWithSeasons(tmdb_id)
 
-    const tmdbMedia = await DbTmdbMedia.upsert({
-      tmdb_id: showData.tmdb_id,
-      media_type: 'tv',
-      title: showData.title,
-      year: showData.year,
-      overview: showData.overview,
-      poster_path: showData.poster_path,
+    const allEpisodes = await Promise.all(
+      showData.seasons.map((s) =>
+        this.tmdb.getSeasonEpisodes(tmdb_id, s.season_number)
+      )
+    )
+
+    await db.transaction().execute(async (trx) => {
+      const tmdbMedia = await DbTmdbMedia.upsert(
+        {
+          tmdb_id: showData.tmdb_id,
+          media_type: 'tv',
+          title: showData.title,
+          year: showData.year,
+          overview: showData.overview,
+          poster_path: showData.poster_path,
+        },
+        trx
+      )
+
+      const seasonRows = await DbSeasons.upsert(
+        showData.seasons.map((s) => ({
+          tmdb_media_id: tmdbMedia.id,
+          season_number: s.season_number,
+          title: s.name,
+          episode_count: s.episode_count,
+        })),
+        trx
+      )
+
+      await DbEpisodes.upsert(
+        seasonRows.flatMap((row, i) =>
+          allEpisodes[i].map((e) => ({
+            season_id: row.id,
+            episode_number: e.episode_number,
+            title: e.name,
+          }))
+        ),
+        trx
+      )
     })
-
-    const seasonRows = await DbSeasons.upsert(
-      showData.seasons.map((s) => ({
-        tmdb_media_id: tmdbMedia.id,
-        season_number: s.season_number,
-        title: s.name,
-        episode_count: s.episode_count,
-      }))
-    )
-
-    const episodesBySeason = await Promise.all(
-      seasonRows.map(async (row) => {
-        const episodes = await this.tmdb.getSeasonEpisodes(
-          tmdb_id,
-          row.season_number
-        )
-
-        return episodes.map((e) => ({
-          season_id: row.id,
-          episode_number: e.episode_number,
-          title: e.name,
-        }))
-      })
-    )
-
-    await DbEpisodes.upsert(episodesBySeason.flat())
 
     Log.info(
       `seasons fetched tmdb_id=${tmdb_id} seasons=${showData.seasons.length}`

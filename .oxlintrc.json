@@ -1,7 +1,7 @@
 {
   "rules": {
     "no-unused-vars": "warn",
-    "no-accumulating-spread Perf": "error",
+    "no-accumulating-spread": "error",
     "no-await-in-loop": "off",
     "explicit-length-check": "off",
     "no-array-callback-reference": "off",

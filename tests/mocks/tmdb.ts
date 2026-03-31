@@ -31,6 +31,10 @@ export const TmdbMock = new Mock(
       episode_number: 'number',
       name: 'string',
     }),
+    tv_season_failures: type({
+      tmdb_id: 'number',
+      season_number: 'number',
+    }),
   },
   (app, { db }) => {
     app.get(
@@ -57,6 +61,17 @@ export const TmdbMock = new Mock(
     app.get(
       '/tv/:id/season/:number',
       async ({ params }) => {
+        const failure = await db
+          .selectFrom('tv_season_failures')
+          .select('tmdb_id')
+          .where('tmdb_id', '=', params.id)
+          .where('season_number', '=', params.number)
+          .executeTakeFirst()
+
+        if (failure) {
+          return new Response('Season fetch failed', { status: 500 })
+        }
+
         const episodes = await db
           .selectFrom('tv_episodes')
           .select(['episode_number', 'name'])

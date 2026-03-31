@@ -3,12 +3,12 @@ import type { Insertable } from '@lobomfz/db'
 import { db, type DB } from '@/db/connection'
 
 export const DbSeasons = {
-  async upsert(seasons: Insertable<DB['seasons']>[]) {
+  async upsert(seasons: Insertable<DB['seasons']>[], executor = db) {
     if (seasons.length === 0) {
       return []
     }
 
-    return await db
+    return await executor
       .insertInto('seasons')
       .values(seasons)
       .onConflict((oc) =>

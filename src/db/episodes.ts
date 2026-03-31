@@ -18,12 +18,12 @@ export const DbEpisodes = {
       .executeTakeFirst()
   },
 
-  async upsert(episodes: Insertable<DB['episodes']>[]) {
+  async upsert(episodes: Insertable<DB['episodes']>[], executor = db) {
     if (episodes.length === 0) {
       return []
     }
 
-    return await db
+    return await executor
       .insertInto('episodes')
       .values(episodes)
       .onConflict((oc) =>

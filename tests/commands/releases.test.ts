@@ -6,12 +6,13 @@ import { ReleasesCommand } from '@/commands/releases'
 import { database, db } from '@/db/connection'
 import { DbSearchResults } from '@/db/search-results'
 
-import '../mocks/tmdb'
+import { TmdbMock } from '../mocks/tmdb'
 import '../mocks/beyond-hd'
 import '../mocks/yts'
 
 beforeEach(() => {
   database.reset()
+  TmdbMock.reset('tv_season_failures')
 })
 
 async function setupMovieSearch() {
@@ -183,5 +184,54 @@ describe('TV releases', () => {
       .executeTakeFirstOrThrow()
 
     expect(after.updated_at).toEqual(before.updated_at)
+  })
+
+  test('does not persist partial TV cache when season sync fails', async () => {
+    const searchId = await setupTvSearch()
+
+    await TmdbMock.db
+      .insertInto('tv_season_failures')
+      .values({ tmdb_id: 1399, season_number: 2 })
+      .execute()
+
+    const failed = await testCommand(ReleasesCommand, {
+      args: [searchId],
+      flags: { json: true },
+    })
+
+    expect(failed.exitCode).not.toBe(0)
+
+    const seasonsAfterFailure = await db
+      .selectFrom('seasons')
+      .selectAll()
+      .execute()
+    const episodesAfterFailure = await db
+      .selectFrom('episodes')
+      .selectAll()
+      .execute()
+
+    expect(seasonsAfterFailure).toHaveLength(0)
+    expect(episodesAfterFailure).toHaveLength(0)
+
+    TmdbMock.reset('tv_season_failures')
+
+    const retried = await testCommand(ReleasesCommand, {
+      args: [searchId],
+      flags: { json: true },
+    })
+
+    expect(retried.exitCode).toBe(0)
+
+    const seasonsAfterRetry = await db
+      .selectFrom('seasons')
+      .selectAll()
+      .execute()
+    const episodesAfterRetry = await db
+      .selectFrom('episodes')
+      .selectAll()
+      .execute()
+
+    expect(seasonsAfterRetry).toHaveLength(2)
+    expect(episodesAfterRetry.length).toBeGreaterThan(0)
   })
 })
