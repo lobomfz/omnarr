@@ -32,6 +32,7 @@ type HlsServerOpts = {
   }
   segments: Segment[]
   transcode: TranscodeFn
+  audioOffset: number
   port: number
   mediaId: string
 }
@@ -47,6 +48,7 @@ export class HlsServer extends HlsSession {
       videoStreamIndex: opts.resolved.video.stream_index,
       audioStreamIndex: opts.resolved.audio.stream_index,
       segments: opts.segments,
+      audioOffset: opts.audioOffset,
       outDir: mkdtempSync(join(tmpdir(), 'omnarr-play-')),
       transcode: opts.transcode,
     })

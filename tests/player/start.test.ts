@@ -89,6 +89,7 @@ describe('Player — start', () => {
     expect(result.video.codec_name).toBe('h264')
     expect(result.audio.codec_name).toBe('aac')
     expect(result.subtitle).toBeNull()
+    expect(result.audioOffset).toBe(0)
 
     const masterRes = await fetch(result.url)
 

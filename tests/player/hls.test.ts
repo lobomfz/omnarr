@@ -77,6 +77,7 @@ describe('HlsServer — subtitle conversion', () => {
         { video: { codec_name: 'h264' }, audio: { codec_name: 'aac' } },
         { video_crf: 21, video_preset: 'veryfast' }
       ),
+      audioOffset: 0,
       port: 0,
       mediaId: 'SUBSTEST',
     })

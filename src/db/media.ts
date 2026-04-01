@@ -112,9 +112,9 @@ export const DbMedia = {
                 'd.content_path',
                 'd.error_at',
                 'd.started_at',
-                (eb2) =>
+                (eb) =>
                   jsonArrayFrom(
-                    eb2
+                    eb
                       .selectFrom('media_files as mf')
                       .whereRef('mf.download_id', '=', 'd.id')
                       .select([
@@ -123,9 +123,27 @@ export const DbMedia = {
                         'mf.size',
                         'mf.format_name',
                         'mf.duration',
-                        (eb3) =>
+                        (eb) =>
+                          eb
+                            .exists(
+                              eb
+                                .selectFrom('media_keyframes as mk')
+                                .whereRef('mk.media_file_id', '=', 'mf.id')
+                                .selectAll()
+                            )
+                            .as('has_keyframes'),
+                        (eb) =>
+                          eb
+                            .exists(
+                              eb
+                                .selectFrom('media_envelopes as me')
+                                .whereRef('me.media_file_id', '=', 'mf.id')
+                                .selectAll()
+                            )
+                            .as('has_envelope'),
+                        (eb) =>
                           jsonArrayFrom(
-                            eb3
+                            eb
                               .selectFrom('media_tracks as mt')
                               .whereRef('mt.media_file_id', '=', 'mf.id')
                               .select([
@@ -166,10 +184,10 @@ export const DbMedia = {
                 .select([
                   's.season_number',
                   's.title',
-                  (eb2) =>
+                  (eb) =>
                     jsonArrayFrom(
                       (() => {
-                        let episodesQuery = eb2
+                        let episodesQuery = eb
                           .selectFrom('episodes as e')
                           .whereRef('e.season_id', '=', 's.id')
 
@@ -185,9 +203,9 @@ export const DbMedia = {
                           .select([
                             'e.episode_number',
                             'e.title',
-                            (eb3) =>
+                            (eb) =>
                               jsonArrayFrom(
-                                eb3
+                                eb
                                   .selectFrom('media_files as mf')
                                   .whereRef('mf.episode_id', '=', 'e.id')
                                   .select([
@@ -195,9 +213,35 @@ export const DbMedia = {
                                     'mf.size',
                                     'mf.format_name',
                                     'mf.duration',
-                                    (eb4) =>
+                                    (eb) =>
+                                      eb
+                                        .exists(
+                                          eb
+                                            .selectFrom('media_keyframes as mk')
+                                            .whereRef(
+                                              'mk.media_file_id',
+                                              '=',
+                                              'mf.id'
+                                            )
+                                            .selectAll()
+                                        )
+                                        .as('has_keyframes'),
+                                    (eb) =>
+                                      eb
+                                        .exists(
+                                          eb
+                                            .selectFrom('media_envelopes as me')
+                                            .whereRef(
+                                              'me.media_file_id',
+                                              '=',
+                                              'mf.id'
+                                            )
+                                            .selectAll()
+                                        )
+                                        .as('has_envelope'),
+                                    (eb) =>
                                       jsonArrayFrom(
-                                        eb4
+                                        eb
                                           .selectFrom('media_tracks as mt')
                                           .whereRef(
                                             'mt.media_file_id',

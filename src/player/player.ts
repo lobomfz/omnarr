@@ -1,4 +1,6 @@
+import { AudioCorrelator, MIN_SYNC_CONFIDENCE } from '@/audio-correlator'
 import { config } from '@/config'
+import { DbMediaEnvelopes } from '@/db/media-envelopes'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks, type TracksWithFile } from '@/db/media-tracks'
 import { Log } from '@/log'
@@ -19,6 +21,8 @@ export class Player {
   async start(selection: TrackSelection, opts: { port?: number }) {
     const resolved = await this.resolveTracks(selection)
 
+    const audioOffset = await this.resolveAudioOffset(resolved)
+
     const [transcode, segments] = await Promise.all([
       Transcoder.init(resolved, config.transcoding),
       DbMediaKeyframes.getSegmentsByFileId(resolved.video.file_id),
@@ -36,13 +40,14 @@ export class Player {
       resolved,
       segments,
       transcode,
+      audioOffset,
       port: opts.port ?? 8787,
       mediaId: this.media.id,
     })
 
     await this.server.start()
 
-    return { url: this.server.url, ...resolved }
+    return { url: this.server.url, audioOffset, ...resolved }
   }
 
   async stop() {
@@ -85,6 +90,58 @@ export class Player {
     )
 
     return { video, audio, subtitle }
+  }
+
+  async resolveAudioOffset(resolved: {
+    video: { download_id: number; file_id: number }
+    audio: { download_id: number; file_id: number }
+  }) {
+    if (resolved.video.download_id === resolved.audio.download_id) {
+      return 0
+    }
+
+    const [videoEnv, audioEnv] = await Promise.all([
+      DbMediaEnvelopes.getByMediaFileId(resolved.video.file_id),
+      DbMediaEnvelopes.getByMediaFileId(resolved.audio.file_id),
+    ])
+
+    if (!videoEnv || !audioEnv) {
+      Log.warn(
+        `audio sync skipped: missing envelope video=${!!videoEnv} audio=${!!audioEnv}`
+      )
+      return 0
+    }
+
+    const videoData = new Int8Array(
+      videoEnv.data.buffer,
+      videoEnv.data.byteOffset,
+      videoEnv.data.byteLength
+    )
+    const audioData = new Int8Array(
+      audioEnv.data.buffer,
+      audioEnv.data.byteOffset,
+      audioEnv.data.byteLength
+    )
+
+    const result = AudioCorrelator.correlate(
+      videoData,
+      audioData,
+      videoEnv.sample_rate,
+      videoEnv.window_size
+    )
+
+    if (result.confidence < MIN_SYNC_CONFIDENCE) {
+      Log.warn(
+        `audio sync skipped: low confidence=${result.confidence.toFixed(1)} offset=${result.offsetSeconds.toFixed(3)}s`
+      )
+      return 0
+    }
+
+    Log.info(
+      `audio sync applied: offset=${result.offsetSeconds.toFixed(3)}s confidence=${result.confidence.toFixed(1)}`
+    )
+
+    return result.offsetSeconds
   }
 
   private pickTrack(

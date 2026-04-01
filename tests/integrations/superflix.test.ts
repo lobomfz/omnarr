@@ -84,7 +84,7 @@ describe('SuperflixAdapter', () => {
       const streams = await superflix.getStreams('tt0133093')
       const outputPath = join(tmpDir, 'audio_pt.ts')
 
-      await superflix.downloadStream(streams.audio[0], outputPath)
+      await superflix.downloadStream(streams.audio[0], outputPath, () => {})
 
       const file = Bun.file(outputPath)
 

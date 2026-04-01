@@ -75,7 +75,7 @@ describe('info command', () => {
       content_path: join(tmpDir, 'media/The Matrix (1999)'),
     })
 
-    await new Scanner().scan(media.id)
+    await new Scanner().scan(media.id, () => {})
 
     const result = await testCommand(InfoCommand, {
       args: [media.id],
@@ -91,6 +91,30 @@ describe('info command', () => {
     expect(data.downloads[0].status).toBe('completed')
     expect(data.downloads[0].files).toHaveLength(1)
     expect(data.downloads[0].files[0].tracks.length).toBeGreaterThanOrEqual(3)
+    expect(data.downloads[0].files[0].has_keyframes).toBeTruthy()
+    expect(data.downloads[0].files[0].has_envelope).toBeTruthy()
+  })
+
+  test('shows keyframe and envelope status in formatted output', async () => {
+    const media = await seedMedia()
+
+    await DbDownloads.create({
+      media_id: media.id,
+      source_id: 'test_hash',
+      download_url: 'magnet:test',
+      status: 'completed',
+      content_path: join(tmpDir, 'media/The Matrix (1999)'),
+    })
+
+    await new Scanner().scan(media.id, () => {})
+
+    const result = await testCommand(InfoCommand, {
+      args: [media.id],
+      flags: {},
+    })
+
+    expect(result.stdout).toContain('keyframes:')
+    expect(result.stdout).toContain('envelope:')
   })
 
   test('outputs formatted text without --json', async () => {
@@ -104,7 +128,7 @@ describe('info command', () => {
       content_path: join(tmpDir, 'media/The Matrix (1999)'),
     })
 
-    await new Scanner().scan(media.id)
+    await new Scanner().scan(media.id, () => {})
 
     const result = await testCommand(InfoCommand, {
       args: [media.id],

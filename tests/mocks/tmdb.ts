@@ -165,6 +165,13 @@ await TmdbMock.db
       release_date: '2020-01-01',
       media_type: 'movie',
     },
+    {
+      id: 10001,
+      title: 'Ripper Fail Test',
+      overview: 'test',
+      release_date: '2020-01-01',
+      media_type: 'movie',
+    },
   ])
   .execute()
 
@@ -174,6 +181,7 @@ await TmdbMock.db
     { tmdb_id: 603, imdb_id: 'tt0133093' },
     { tmdb_id: 1399, imdb_id: 'tt0903747' },
     { tmdb_id: 9998, imdb_id: 'tt0000003' },
+    { tmdb_id: 10001, imdb_id: 'tt0000001' },
   ])
   .execute()
 

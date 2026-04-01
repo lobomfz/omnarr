@@ -6,9 +6,15 @@ import { FFmpegBuilder, type Stream } from '@lobomfz/ffmpeg'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
+import { DbMediaEnvelopes } from '@/db/media-envelopes'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
+import {
+  EnvelopeExtractor,
+  ENVELOPE_SAMPLE_RATE,
+  ENVELOPE_WINDOW_SIZE,
+} from '@/envelope-extractor'
 import { Log } from '@/log'
 import { Parsers } from '@/parsers'
 
@@ -17,7 +23,16 @@ const VALID_EXTENSIONS = new Set(['mkv', 'mp4', 'avi', 'ts', 'mka'])
 const MEDIA_GLOB = new Bun.Glob(`**/*.{${[...VALID_EXTENSIONS].join(',')}}`)
 
 export class Scanner {
-  async scan(mediaId: string, opts?: { force?: boolean }) {
+  async scan(
+    mediaId: string,
+    onProgress: (
+      current: number,
+      total: number,
+      path: string,
+      ratio: number
+    ) => void,
+    opts?: { force?: boolean }
+  ) {
     const media = await DbMedia.getById(mediaId)
 
     if (!media) {
@@ -45,14 +60,21 @@ export class Scanner {
     return await this.reconcile(
       { id: mediaId, tmdb_media_id: media.tmdb_media_id },
       diskFiles,
-      resolvedIds
+      resolvedIds,
+      onProgress
     )
   }
 
   private async reconcile(
     media: { id: string; tmdb_media_id: number },
     diskFiles: Map<string, number>,
-    resolvedIds: Set<number>
+    resolvedIds: Set<number>,
+    onProgress: (
+      current: number,
+      total: number,
+      path: string,
+      ratio: number
+    ) => void
   ) {
     const existingFiles = await DbMediaFiles.getByMediaId(media.id)
 
@@ -74,15 +96,22 @@ export class Scanner {
 
     let probed = 0
 
-    for (const [path, downloadId] of newFiles) {
-      const success = await this.probeAndPersist(media, downloadId, path).catch(
-        (err) => {
-          Log.warn(
-            `probe failed file="${path}" error="${err instanceof Error ? err.message : String(err)}"`
-          )
-          return false
-        }
-      )
+    for (let i = 0; i < newFiles.length; i++) {
+      const [path, downloadId] = newFiles[i]
+
+      onProgress(i + 1, newFiles.length, path, 0)
+
+      const success = await this.probeAndPersist(
+        media,
+        downloadId,
+        path,
+        (ratio) => onProgress(i + 1, newFiles.length, path, ratio)
+      ).catch((err) => {
+        Log.warn(
+          `probe failed file="${path}" error="${err instanceof Error ? err.message : String(err)}"`
+        )
+        return false
+      })
 
       if (success) {
         probed++
@@ -170,7 +199,8 @@ export class Scanner {
   private async probeAndPersist(
     media: { id: string; tmdb_media_id: number },
     downloadId: number,
-    fullPath: string
+    fullPath: string,
+    onProgress: (ratio: number) => void
   ) {
     Log.info(`probing file="${fullPath}"`)
 
@@ -201,12 +231,20 @@ export class Scanner {
       }))
     )
 
-    const videoStream = probe.streams.find((s) => s.codec_type === 'video')
+    const hasVideo = probe.streams.some((s) => s.codec_type === 'video')
+    const hasAudio = probe.streams.some((s) => s.codec_type === 'audio')
+    const keyframeWeight = hasVideo && hasAudio ? 0.5 : hasVideo ? 1 : 0
+    const envelopeWeight = 1 - keyframeWeight
 
-    if (videoStream) {
+    if (hasVideo) {
+      const videoStream = probe.streams.find((s) => s.codec_type === 'video')!
+
       const keyframeTimes = await new FFmpegBuilder()
         .input(fullPath)
-        .probeKeyframes()
+        .probeKeyframes({
+          duration: probe.format.duration,
+          onProgress: (r) => onProgress(r * keyframeWeight),
+        })
 
       const fileDuration = probe.format.duration
 
@@ -223,6 +261,27 @@ export class Scanner {
         `keyframe probe complete file="${fullPath}" keyframes=${keyframeTimes.length}`
       )
     }
+
+    if (hasAudio) {
+      const envelope = await EnvelopeExtractor.extract(
+        fullPath,
+        (r) => onProgress(keyframeWeight + r * envelopeWeight),
+        { size: probe.format.size }
+      )
+
+      await DbMediaEnvelopes.create({
+        media_file_id: file.id,
+        sample_rate: ENVELOPE_SAMPLE_RATE,
+        window_size: ENVELOPE_WINDOW_SIZE,
+        data: new Uint8Array(envelope.buffer),
+      })
+
+      Log.info(
+        `envelope extracted file="${fullPath}" windows=${envelope.length}`
+      )
+    }
+
+    onProgress(1)
 
     Log.info(
       `probe complete file="${fullPath}" streams=${probe.streams.length} duration=${probe.format.duration} format=${probe.format.format_name}`

@@ -6,11 +6,10 @@ import { testCommand } from '@bunli/test'
 
 import { DownloadCommand } from '@/commands/download'
 import { config } from '@/config'
-import { database } from '@/db/connection'
+import { database, type indexer_source } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbReleases } from '@/db/releases'
 import { Downloads } from '@/downloads'
-import type { IndexerName } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/releases'
 
@@ -20,6 +19,8 @@ import '../mocks/superflix'
 import '../mocks/yts'
 import '../mocks/qbittorrent'
 import { QBittorrentMock } from '../mocks/qbittorrent'
+
+const noop = () => {}
 
 describe('download command', async () => {
   const results = await new TmdbClient().search('Matrix')
@@ -87,13 +88,16 @@ describe('download command', async () => {
       flags: {},
     })
 
-    await new Downloads().add({
-      tmdb_id: results[0].tmdb_id,
-      source_id: 'second_hash',
-      download_url: 'magnet:?xt=urn:btih:second_hash&dn=Matrix2',
-      type: results[0].media_type,
-      indexer_source: 'beyond-hd',
-    })
+    await new Downloads().add(
+      {
+        tmdb_id: results[0].tmdb_id,
+        source_id: 'second_hash',
+        download_url: 'magnet:?xt=urn:btih:second_hash&dn=Matrix2',
+        type: results[0].media_type,
+        indexer_source: 'beyond-hd',
+      },
+      noop
+    )
 
     const media = await database.kysely
       .selectFrom('media')
@@ -130,22 +134,28 @@ describe('download command', async () => {
   test('rejects download when same source_id is already active', async () => {
     const release = (await DbReleases.getById(releaseId))!
 
-    await new Downloads().add({
-      tmdb_id: release.tmdb_id,
-      source_id: release.source_id,
-      download_url: release.download_url,
-      type: release.media_type,
-      indexer_source: release.indexer_source as IndexerName,
-    })
-
-    await expect(() =>
-      new Downloads().add({
+    await new Downloads().add(
+      {
         tmdb_id: release.tmdb_id,
         source_id: release.source_id,
         download_url: release.download_url,
         type: release.media_type,
-        indexer_source: release.indexer_source as IndexerName,
-      })
+        indexer_source: release.indexer_source as indexer_source,
+      },
+      noop
+    )
+
+    await expect(() =>
+      new Downloads().add(
+        {
+          tmdb_id: release.tmdb_id,
+          source_id: release.source_id,
+          download_url: release.download_url,
+          type: release.media_type,
+          indexer_source: release.indexer_source as indexer_source,
+        },
+        noop
+      )
     ).toThrow()
 
     const downloads = await database.kysely
@@ -175,13 +185,16 @@ describe('download command', async () => {
       .execute()
 
     await expect(() =>
-      new Downloads().add({
-        tmdb_id: release.tmdb_id,
-        source_id: release.source_id,
-        download_url: release.download_url,
-        type: release.media_type,
-        indexer_source: release.indexer_source as IndexerName,
-      })
+      new Downloads().add(
+        {
+          tmdb_id: release.tmdb_id,
+          source_id: release.source_id,
+          download_url: release.download_url,
+          type: release.media_type,
+          indexer_source: release.indexer_source as indexer_source,
+        },
+        noop
+      )
     ).toThrow()
 
     const downloads = await database.kysely
@@ -275,6 +288,73 @@ describe('superflix download', async () => {
 
     expect(downloads[1].source_id).toBe('SUPERFLIX:TT0133093:PT')
     expect(downloads[2].source_id).toBe('SUPERFLIX:TT0133093:EN')
+  })
+
+  test('completed ripper downloads have progress 1', async () => {
+    await testCommand(DownloadCommand, {
+      args: [superflixReleaseId],
+      flags: {},
+    })
+
+    const downloads = await database.kysely
+      .selectFrom('downloads')
+      .selectAll()
+      .execute()
+
+    for (const d of downloads) {
+      expect(d.progress).toBe(1)
+    }
+  })
+})
+
+describe('superflix error handling', () => {
+  const movieDir = config.root_folders!.movie!
+  const tracksDir = config.root_folders!.tracks!
+
+  beforeEach(async () => {
+    database.reset('media_keyframes')
+    database.reset('media_tracks')
+    database.reset('media_files')
+    database.reset('downloads')
+    database.reset('media')
+    database.reset('tmdb_media')
+    await rm(movieDir, { recursive: true }).catch(() => {})
+    await rm(tracksDir, { recursive: true }).catch(() => {})
+  })
+
+  afterAll(async () => {
+    await rm(movieDir, { recursive: true }).catch(() => {})
+    await rm(tracksDir, { recursive: true }).catch(() => {})
+  })
+
+  test('failed stream gets error status, others complete', async () => {
+    await new Downloads().add(
+      {
+        tmdb_id: 10001,
+        source_id: 'SUPERFLIX:TT0000001',
+        download_url: 'imdb:tt0000001',
+        type: 'movie',
+        indexer_source: 'superflix',
+      },
+      noop
+    )
+
+    const downloads = await database.kysely
+      .selectFrom('downloads')
+      .selectAll()
+      .orderBy('id')
+      .execute()
+
+    const video = downloads.find((d) => d.source_id.includes('VIDEO'))!
+    const audio = downloads.find((d) => d.source_id.includes('ES'))!
+
+    expect(video).toBeDefined()
+    expect(video.status).toBe('error')
+    expect(video.error_at).not.toBeNull()
+
+    expect(audio).toBeDefined()
+    expect(audio.status).toBe('completed')
+    expect(audio.progress).toBe(1)
   })
 })
 

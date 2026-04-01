@@ -287,7 +287,8 @@ export class SuperflixAdapter implements Indexer {
 
   async downloadStream(
     stream: { url: string; referer: string },
-    outputPath: string
+    outputPath: string,
+    onProgress: (downloaded: number, total: number) => void | Promise<void>
   ) {
     const { data: playlist } = await axios<string>({
       url: stream.url,
@@ -301,6 +302,8 @@ export class SuperflixAdapter implements Indexer {
     const writer = Bun.file(outputPath).writer()
 
     const concurrency = 20
+
+    let downloaded = 0
 
     for (let i = 0; i < chunks.length; i += concurrency) {
       const batch = chunks.slice(i, i + concurrency)
@@ -320,6 +323,10 @@ export class SuperflixAdapter implements Indexer {
       for (const buf of buffers) {
         writer.write(buf)
       }
+
+      downloaded += batch.length
+
+      await onProgress(downloaded, chunks.length)
     }
 
     await writer.end()

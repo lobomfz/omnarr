@@ -2,7 +2,7 @@ import { type, type Type } from 'arktype'
 
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
-import { DbMediaTracks } from '@/db/media-tracks'
+import { DbMediaFiles } from '@/db/media-files'
 import { DbReleases } from '@/db/releases'
 import { DbSearchResults } from '@/db/search-results'
 import { Downloads } from '@/downloads'
@@ -157,14 +157,29 @@ export class Handler {
       )
     }
 
-    const result = await new Downloads().add({
-      tmdb_id: release.tmdb_id,
-      source_id: release.source_id,
-      download_url: release.download_url,
-      type: release.media_type,
-      indexer_source: release.indexer_source,
-      audio_only: opts?.audio_only,
-    })
+    const result = await new Downloads().add(
+      {
+        tmdb_id: release.tmdb_id,
+        source_id: release.source_id,
+        download_url: release.download_url,
+        type: release.media_type,
+        indexer_source: release.indexer_source,
+        audio_only: opts?.audio_only,
+      },
+      (tag, status, progress) => {
+        if (this.json) {
+          return
+        }
+
+        const pct = Formatters.progress(progress)
+
+        process.stdout.write(`\r${tag}: ${status} ${pct}`)
+
+        if (status === 'completed' || status === 'processing') {
+          process.stdout.write('\n')
+        }
+      }
+    )
 
     this.output(result, `Added: ${Formatters.mediaTitle(result)}`)
   }
@@ -253,21 +268,47 @@ export class Handler {
 
     Log.info(`command=scan media_id=${media_id} force=${!!opts.force}`)
 
-    const files = await new Scanner().scan(media_id, opts)
+    let lastWrite = 0
+    let doneFile = -1
+
+    const files = await new Scanner().scan(
+      media_id,
+      (current, total, path, ratio) => {
+        if (this.json) {
+          return
+        }
+
+        if (ratio >= 1 && current === doneFile) {
+          return
+        }
+
+        const now = Date.now()
+
+        if (ratio < 1 && now - lastWrite < 100) {
+          return
+        }
+
+        lastWrite = now
+
+        const pct = Formatters.progress(ratio)
+        process.stdout.write(
+          `\rScanning ${current}/${total} (${pct}): ${path.split('/').at(-1)}`
+        )
+
+        if (ratio >= 1) {
+          doneFile = current
+          process.stdout.write('\n')
+        }
+      },
+      opts
+    )
 
     if (files.length === 0) {
       console.log('No media files found.')
       return
     }
 
-    const allTracks = await DbMediaTracks.getByMediaId(media_id)
-
-    const tracksByFile = Map.groupBy(allTracks, (t) => t.media_file_id)
-
-    const result = files.map((f) => ({
-      ...f,
-      tracks: tracksByFile.get(f.id) ?? [],
-    }))
+    const result = await DbMediaFiles.getWithScanData(media_id)
 
     this.output(result, Formatters.scanResult(result))
   }
@@ -308,6 +349,10 @@ export class Handler {
 
     if (result.subtitle) {
       displayLines.push(Formatters.trackSummary('subtitle', result.subtitle))
+    }
+
+    if (result.audioOffset !== 0) {
+      displayLines.push(`audio offset: ${result.audioOffset.toFixed(3)}s`)
     }
 
     displayLines.push('', result.url)

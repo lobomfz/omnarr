@@ -3,14 +3,15 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { testCommand } from '@bunli/test'
 
 import { LibraryCommand } from '@/commands/library'
-import { database } from '@/db/connection'
+import { database, type indexer_source } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbReleases } from '@/db/releases'
 import { DbSeasons } from '@/db/seasons'
 import { Downloads } from '@/downloads'
-import type { IndexerName } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/releases'
+
+const noop = () => {}
 
 import '../mocks/tmdb'
 import '../mocks/beyond-hd'
@@ -31,7 +32,7 @@ describe('library command', async () => {
     source_id: release.source_id,
     download_url: release.download_url,
     type: release.media_type,
-    indexer_source: release.indexer_source as IndexerName,
+    indexer_source: release.indexer_source as indexer_source,
   }
 
   beforeEach(() => {
@@ -40,7 +41,7 @@ describe('library command', async () => {
   })
 
   test('shows downloading status when torrent is active', async () => {
-    await new Downloads().add(addParams)
+    await new Downloads().add(addParams, noop)
 
     const result = await testCommand(LibraryCommand, {
       args: [],
@@ -54,7 +55,7 @@ describe('library command', async () => {
   })
 
   test('shows downloaded status when torrent is completed but not scanned', async () => {
-    await new Downloads().add(addParams)
+    await new Downloads().add(addParams, noop)
 
     await database.kysely
       .updateTable('downloads')
@@ -73,13 +74,16 @@ describe('library command', async () => {
   })
 
   test('shows episode progress for TV shows', async () => {
-    await new Downloads().add({
-      tmdb_id: 1399,
-      source_id: 'bb_hash_s01e01',
-      download_url: 'https://beyond-hd.me/dl/bb_hash_s01e01',
-      type: 'tv',
-      indexer_source: 'beyond-hd',
-    })
+    await new Downloads().add(
+      {
+        tmdb_id: 1399,
+        source_id: 'bb_hash_s01e01',
+        download_url: 'https://beyond-hd.me/dl/bb_hash_s01e01',
+        type: 'tv',
+        indexer_source: 'beyond-hd',
+      },
+      noop
+    )
 
     const media = await database.kysely
       .selectFrom('media')
@@ -143,7 +147,7 @@ describe('library command', async () => {
   })
 
   test('shows zero total_episodes for movies', async () => {
-    await new Downloads().add(addParams)
+    await new Downloads().add(addParams, noop)
 
     const result = await testCommand(LibraryCommand, {
       args: [],

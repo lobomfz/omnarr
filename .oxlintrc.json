@@ -19,7 +19,8 @@
     "complexity": ["warn", { "max": 40 }],
     "max-depth": ["warn", { "max": 4 }],
     "max-nested-callbacks": ["warn", { "max": 4 }],
-    "no-map-spread": "off"
+    "no-map-spread": "off",
+    "no-shadow": "off"
   },
   "categories": {
     "correctness": "error",

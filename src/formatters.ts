@@ -2,6 +2,7 @@ import type { Selectable } from '@lobomfz/db'
 
 import type { DB, download_status } from '@/db/connection'
 import type { MediaInfo } from '@/db/media'
+import type { ScanFile } from '@/db/media-files'
 
 type MediaTrack = Selectable<DB['media_tracks']>
 
@@ -18,12 +19,10 @@ type TrackDisplay = Pick<
   | 'is_default'
 >
 
-interface ScanFile extends Selectable<DB['media_files']> {
-  tracks: MediaTrack[]
-}
-
 const DOWNLOAD_STATUS_MAP: Record<download_status, string> = {
+  pending: 'pending',
   downloading: 'downloading',
+  processing: 'processing',
   seeding: 'downloading',
   paused: 'downloading',
   completed: 'downloaded',
@@ -116,6 +115,16 @@ export const Formatters = {
       for (const t of f.tracks) {
         lines.push(Formatters.trackParts(t, '  ').join(' '))
       }
+
+      const status: string[] = []
+
+      if (f.keyframes > 0) {
+        status.push(`keyframes: ${f.keyframes}`)
+      }
+
+      status.push(`envelope: ${f.has_envelope ? 'yes' : 'no'}`)
+
+      lines.push(`  ${status.join('  ')}`)
     }
 
     return lines.join('\n')
@@ -220,6 +229,15 @@ export const Formatters = {
           typeCounters[t.stream_type] = idx + 1
           lines.push(Formatters.trackParts(t, '    ', idx).join(' '))
         }
+
+        const status: string[] = []
+
+        if (f.has_keyframes) {
+          status.push('keyframes: yes')
+        }
+
+        status.push(`envelope: ${f.has_envelope ? 'yes' : 'no'}`)
+        lines.push(`    ${status.join('  ')}`)
       }
     }
   },
