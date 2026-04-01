@@ -14,6 +14,7 @@ async function seedTmdbMedia() {
     tmdb_id: 1399,
     media_type: 'tv',
     title: 'Breaking Bad',
+    imdb_id: 'tt0903747',
     year: 2008,
   })
 }

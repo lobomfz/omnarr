@@ -11,11 +11,12 @@ export const DbDownloads = {
       .returning([
         'id',
         'media_id',
-        'info_hash',
+        'source_id',
         'download_url',
         'progress',
         'speed',
         'eta',
+        'source',
         'status',
         'error_at',
         'started_at',
@@ -27,16 +28,16 @@ export const DbDownloads = {
     return await db
       .selectFrom('downloads as d')
       .where('d.media_id', '=', mediaId)
-      .select(['d.info_hash'])
+      .select(['d.source_id'])
       .executeTakeFirst()
   },
 
-  async getByInfoHash(infoHash: string) {
+  async getBySourceId(sourceId: string) {
     return await db
       .selectFrom('downloads as d')
       .innerJoin('media as m', 'm.id', 'd.media_id')
       .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
-      .where('d.info_hash', '=', infoHash)
+      .where('d.source_id', '=', sourceId)
       .select(['d.status', 't.title', 't.year'])
       .executeTakeFirst()
   },
@@ -55,7 +56,7 @@ export const DbDownloads = {
       .select([
         'd.id',
         'd.media_id',
-        'd.info_hash',
+        'd.source_id',
         'd.download_url',
         'd.progress',
         'd.content_path',
@@ -69,7 +70,7 @@ export const DbDownloads = {
       .selectFrom('downloads as d')
       .innerJoin('media as m', 'm.id', 'd.media_id')
       .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
-      .leftJoin('releases as r', 'r.info_hash', 'd.info_hash')
+      .leftJoin('releases as r', 'r.source_id', 'd.source_id')
       .select([
         'd.progress',
         'd.speed',

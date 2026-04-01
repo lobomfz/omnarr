@@ -1,9 +1,11 @@
 import { db, media_type } from '@/db/connection'
+import type { IndexerName } from '@/integrations/indexers/registry'
 import type { IndexerRelease } from '@/integrations/indexers/types'
 import { deriveId } from '@/utils'
 
 interface SourcedRelease extends IndexerRelease {
-  indexer_source: string
+  name: string
+  indexer_source: IndexerName
   season_number: number | null
   episode_number: number | null
 }
@@ -22,10 +24,10 @@ export const DbReleases = {
       .insertInto('releases')
       .values(
         releases.map((r) => ({
-          id: deriveId(r.info_hash),
+          id: deriveId(r.source_id),
           tmdb_id,
           media_type,
-          info_hash: r.info_hash,
+          source_id: r.source_id,
           indexer_source: r.indexer_source,
           name: r.name,
           size: r.size,
@@ -40,7 +42,7 @@ export const DbReleases = {
         }))
       )
       .onConflict((oc) =>
-        oc.column('info_hash').doUpdateSet({
+        oc.column('source_id').doUpdateSet({
           indexer_source: (eb) => eb.ref('excluded.indexer_source'),
           name: (eb) => eb.ref('excluded.name'),
           size: (eb) => eb.ref('excluded.size'),
@@ -77,7 +79,8 @@ export const DbReleases = {
         'r.id',
         'r.tmdb_id',
         'r.media_type',
-        'r.info_hash',
+        'r.source_id',
+        'r.indexer_source',
         'r.download_url',
       ])
       .executeTakeFirst()

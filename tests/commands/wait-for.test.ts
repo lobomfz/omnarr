@@ -14,6 +14,7 @@ import { WaitForCommand } from '@/commands/wait-for'
 import { database } from '@/db/connection'
 import { DbReleases } from '@/db/releases'
 import { Downloads } from '@/downloads'
+import type { IndexerName } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
 
 import '../mocks/tmdb'
@@ -38,9 +39,10 @@ describe('wait-for', async () => {
 
   const addParams = {
     tmdb_id: release.tmdb_id,
-    info_hash: release.info_hash,
+    source_id: release.source_id,
     download_url: release.download_url,
     type: release.media_type,
+    indexer_source: release.indexer_source as IndexerName,
   }
 
   beforeEach(() => {

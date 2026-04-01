@@ -4,7 +4,7 @@ import { config } from '@/config'
 
 describe('config', () => {
   test('reads and validates config from fixture', () => {
-    expect(config.root_folders?.movie).toBe('/movies')
+    expect(config.root_folders?.movie).toBe('/tmp/omnarr-test-movies')
     expect(config.root_folders?.tv).toBe('/tv')
   })
 
@@ -13,9 +13,10 @@ describe('config', () => {
   })
 
   test('parses indexers with discriminated union', () => {
-    expect(config.indexers).toHaveLength(2)
+    expect(config.indexers).toHaveLength(3)
     expect(config.indexers![0].type).toBe('beyond-hd')
     expect(config.indexers![1].type).toBe('yts')
+    expect(config.indexers![2].type).toBe('superflix')
   })
 
   test('parses download client', () => {

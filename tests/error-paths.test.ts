@@ -5,6 +5,7 @@ import { Releases } from '@/releases'
 
 import { TmdbMock } from './mocks/tmdb'
 import './mocks/beyond-hd'
+import './mocks/superflix'
 import './mocks/yts'
 
 describe('TmdbClient', () => {
@@ -15,30 +16,34 @@ describe('TmdbClient', () => {
   })
 })
 
+await TmdbMock.db
+  .insertInto('media')
+  .values({
+    id: 9999,
+    name: 'No IMDB Show',
+    overview: 'test',
+    media_type: 'tv',
+  })
+  .execute()
+
+await TmdbMock.db.insertInto('external_ids').values({ tmdb_id: 9999 }).execute()
+
+describe('TmdbClient - no IMDB ID', () => {
+  test('throws when TMDB entry has no IMDB ID', async () => {
+    await expect(() => new TmdbClient().getDetails(9999, 'tv')).toThrow(
+      /no IMDB ID/
+    )
+  })
+})
+
 describe('Releases', () => {
   test('throws when media has no IMDB ID', async () => {
-    await TmdbMock.db
-      .deleteFrom('external_ids')
-      .where('tmdb_id', '=', 1399)
-      .execute()
+    await expect(() => new Releases().search(9999, 'tv')).toThrow(/no IMDB ID/i)
+  })
 
-    await TmdbMock.db
-      .insertInto('external_ids')
-      .values({ tmdb_id: 1399 })
-      .execute()
+  test('continues when one indexer fails', async () => {
+    const releases = await new Releases().search(9998, 'movie')
 
-    await expect(() => new Releases().search(1399, 'tv')).toThrow(
-      'No IMDB ID found for this media.'
-    )
-
-    await TmdbMock.db
-      .deleteFrom('external_ids')
-      .where('tmdb_id', '=', 1399)
-      .execute()
-
-    await TmdbMock.db
-      .insertInto('external_ids')
-      .values({ tmdb_id: 1399, imdb_id: 'tt0903747' })
-      .execute()
+    expect(releases).toHaveLength(0)
   })
 })

@@ -51,6 +51,7 @@ async function seedMedia(contentPath: string) {
     tmdb_id: 603,
     media_type: 'movie',
     title: 'The Matrix',
+    imdb_id: 'tt0133093',
     year: 1999,
   })
 
@@ -63,7 +64,7 @@ async function seedMedia(contentPath: string) {
 
   await DbDownloads.create({
     media_id: media.id,
-    info_hash: 'test_hash',
+    source_id: 'test_hash',
     download_url: 'magnet:test',
     status: 'completed',
     content_path: contentPath,

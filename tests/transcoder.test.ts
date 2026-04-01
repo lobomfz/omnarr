@@ -31,7 +31,7 @@ function argAfter(args: string[], flag: string) {
   const idx = args.indexOf(flag)
 
   if (idx < 0) {
-    return undefined
+    return
   }
 
   return args[idx + 1]

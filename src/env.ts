@@ -20,6 +20,7 @@ const envSchema = type({
     'https://beyond-hd.me/api/torrents'
   ),
   YTS_API_URL: type('string').default('https://movies-api.accel.li/api/v2/'),
+  SUPERFLIX_API_URL: type('string').default('https://superflixapi.rest'),
 })
 
 export const envVariables = envSchema.assert({ ...process.env })

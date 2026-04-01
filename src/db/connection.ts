@@ -17,6 +17,8 @@ const download_status = type.enumerated(
   'completed',
   'error'
 )
+const download_source = type.enumerated('torrent', 'ripper')
+const indexer_source = type.enumerated('beyond-hd', 'yts', 'superflix')
 
 export const database = new Database({
   path: envVariables.OMNARR_DB_PATH,
@@ -30,6 +32,7 @@ export const database = new Database({
         'year?': 'number.integer',
         'overview?': 'string',
         'poster_path?': 'string',
+        imdb_id: 'string',
         fetched_at: generated('now'),
       }),
 
@@ -78,11 +81,11 @@ export const database = new Database({
         id: 'string',
         tmdb_id: 'number',
         media_type,
-        info_hash: 'string',
-        indexer_source: 'string',
+        source_id: 'string',
+        indexer_source,
         name: 'string',
         size: 'number',
-        seeders: 'number',
+        seeders: type('number').default(0),
         'imdb_id?': 'string',
         'resolution?': 'string',
         'codec?': 'string',
@@ -99,11 +102,12 @@ export const database = new Database({
           references: 'media.id',
           onDelete: 'cascade',
         }),
-        info_hash: 'string',
+        source_id: 'string',
         download_url: 'string',
         progress: type('number').default(0),
         speed: type('number').default(0),
         eta: type('number.integer').default(0),
+        source: download_source.default('torrent'),
         status: download_status.default('downloading'),
         content_path: 'string | null',
         error_at: 'string | null',
@@ -196,13 +200,13 @@ export const database = new Database({
       ],
       releases: [
         {
-          columns: ['info_hash'],
+          columns: ['source_id'],
           unique: true,
         },
       ],
       downloads: [
         {
-          columns: ['info_hash'],
+          columns: ['source_id'],
           unique: true,
         },
       ],
@@ -220,3 +224,5 @@ export type DB = typeof database.infer
 export const db = database.kysely
 export type media_type = typeof media_type.infer
 export type download_status = typeof download_status.infer
+export type download_source = typeof download_source.infer
+export type indexer_source = typeof indexer_source.infer

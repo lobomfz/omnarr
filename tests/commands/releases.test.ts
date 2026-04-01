@@ -8,6 +8,7 @@ import { DbSearchResults } from '@/db/search-results'
 
 import { TmdbMock } from '../mocks/tmdb'
 import '../mocks/beyond-hd'
+import '../mocks/superflix'
 import '../mocks/yts'
 
 beforeEach(() => {
@@ -49,7 +50,7 @@ describe('releases command', () => {
 
     const data = JSON.parse(result.stdout)
 
-    expect(data).toHaveLength(4)
+    expect(data).toHaveLength(5)
     expect(data[0].id).toHaveLength(6)
   })
 

@@ -34,6 +34,8 @@ export class YtsAdapter implements Indexer {
 
   static types: ('movie' | 'tv')[] = ['movie']
 
+  static source = 'torrent' as const
+
   async search(params: SearchParams) {
     const { data } = await axios<YtsResponse>({
       method: 'GET',
@@ -52,8 +54,7 @@ export class YtsAdapter implements Indexer {
     return data.data.movies.flatMap((movie) =>
       movie.torrents.map(
         (t): IndexerRelease => ({
-          torrent_id: t.hash,
-          info_hash: t.hash.toLowerCase(),
+          source_id: t.hash,
           name: `${movie.title} (${movie.year}) [${t.quality}] [${t.type}] [${t.video_codec}]`,
           size: t.size_bytes,
           seeders: t.seeds,

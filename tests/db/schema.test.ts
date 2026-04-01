@@ -18,6 +18,7 @@ describe('schema - tmdb_media', () => {
       tmdb_id: 603,
       media_type: 'movie',
       title: 'The Matrix',
+      imdb_id: 'tt0133093',
       year: 1999,
       overview: 'A computer hacker learns about the true nature of reality.',
       poster_path: '/poster.jpg',
@@ -40,6 +41,7 @@ describe('schema - tmdb_media', () => {
       tmdb_id: 603,
       media_type: 'movie',
       title: 'The Matrix',
+      imdb_id: 'tt0133093',
       year: 1999,
     })
 
@@ -47,6 +49,7 @@ describe('schema - tmdb_media', () => {
       tmdb_id: 603,
       media_type: 'movie',
       title: 'The Matrix (Updated)',
+      imdb_id: 'tt0133093',
       year: 1999,
       overview: 'Updated overview',
     })
@@ -64,12 +67,14 @@ describe('schema - tmdb_media', () => {
       tmdb_id: 100,
       media_type: 'movie',
       title: 'Movie Version',
+      imdb_id: 'tt0000001',
     })
 
     await DbTmdbMedia.upsert({
       tmdb_id: 100,
       media_type: 'tv',
       title: 'TV Version',
+      imdb_id: 'tt0000001',
     })
 
     const all = await db.selectFrom('tmdb_media').selectAll().execute()
@@ -82,6 +87,7 @@ describe('schema - tmdb_media', () => {
       tmdb_id: 603,
       media_type: 'movie',
       title: 'The Matrix',
+      imdb_id: 'tt0133093',
     })
 
     const found = await DbTmdbMedia.getByTmdbId(603, 'movie')
@@ -100,6 +106,7 @@ describe('schema - tmdb_media', () => {
       tmdb_id: 603,
       media_type: 'movie',
       title: 'The Matrix',
+      imdb_id: 'tt0133093',
     })
 
     const found = await DbTmdbMedia.getById(inserted.id)
@@ -112,11 +119,41 @@ describe('schema - tmdb_media', () => {
       tmdb_id: 603,
       media_type: 'movie',
       title: 'The Matrix',
+      imdb_id: 'tt0133093',
     })
 
     expect(result.year).toBeNull()
     expect(result.overview).toBeNull()
     expect(result.poster_path).toBeNull()
+  })
+
+  test('upsert accepts and returns imdb_id', async () => {
+    const result = await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      imdb_id: 'tt0133093',
+    })
+
+    expect(result.imdb_id).toBe('tt0133093')
+  })
+
+  test('upsert updates imdb_id on conflict', async () => {
+    await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      imdb_id: 'tt0000001',
+    })
+
+    const updated = await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      imdb_id: 'tt0133093',
+    })
+
+    expect(updated.imdb_id).toBe('tt0133093')
   })
 })
 
@@ -126,6 +163,7 @@ describe('schema - media', () => {
       tmdb_id: 603,
       media_type: 'movie',
       title: 'The Matrix',
+      imdb_id: 'tt0133093',
       year: 1999,
     })
   }
@@ -194,6 +232,7 @@ describe('schema - media', () => {
       tmdb_id: 603,
       media_type: 'movie',
       title: 'The Matrix',
+      imdb_id: 'tt0133093',
       year: 1999,
     })
 
@@ -201,6 +240,7 @@ describe('schema - media', () => {
       tmdb_id: 1399,
       media_type: 'tv',
       title: 'Breaking Bad',
+      imdb_id: 'tt0903747',
       year: 2008,
     })
 
@@ -230,6 +270,7 @@ describe('schema - media', () => {
       tmdb_id: 603,
       media_type: 'movie',
       title: 'The Matrix',
+      imdb_id: 'tt0133093',
       year: 1999,
     })
 
@@ -237,6 +278,7 @@ describe('schema - media', () => {
       tmdb_id: 1399,
       media_type: 'tv',
       title: 'Breaking Bad',
+      imdb_id: 'tt0903747',
       year: 2008,
     })
 
@@ -304,6 +346,7 @@ describe('schema - downloads', () => {
       tmdb_id: 603,
       media_type: 'movie',
       title: 'The Matrix',
+      imdb_id: 'tt0133093',
       year: 1999,
     })
 
@@ -322,19 +365,36 @@ describe('schema - downloads', () => {
 
     const download = await DbDownloads.create({
       media_id: media.id,
-      info_hash: 'abc123',
+      source_id: 'abc123',
       download_url: 'http://example.com/torrent',
     })
 
     expect(download.id).toBeGreaterThan(0)
     expect(download.media_id).toBe(media.id)
-    expect(download.info_hash).toBe('abc123')
+    expect(download.source_id).toBe('abc123')
     expect(download.download_url).toBe('http://example.com/torrent')
     expect(download.progress).toBe(0)
     expect(download.speed).toBe(0)
     expect(download.eta).toBe(0)
     expect(download.status).toBe('downloading')
+    expect(download.source).toBe('torrent')
     expect(download.started_at).toBeInstanceOf(Date)
+  })
+
+  test('create accepts source ripper', async () => {
+    const { media } = await seedMediaWithTmdb()
+
+    const download = await DbDownloads.create({
+      media_id: media.id,
+      source_id: 'superflix:tt0133093:pt',
+      download_url: '',
+      source: 'ripper',
+      status: 'completed',
+      content_path: '/tracks/ABC123/audio_pt.mka',
+    })
+
+    expect(download.source).toBe('ripper')
+    expect(download.status).toBe('completed')
   })
 
   test('getByMediaId returns download for media', async () => {
@@ -342,7 +402,7 @@ describe('schema - downloads', () => {
 
     await DbDownloads.create({
       media_id: media.id,
-      info_hash: 'abc123',
+      source_id: 'abc123',
       download_url: 'http://example.com/torrent',
     })
 
@@ -350,7 +410,7 @@ describe('schema - downloads', () => {
 
     expect(found).toBeDefined()
 
-    expect(found!.info_hash).toBe('abc123')
+    expect(found!.source_id).toBe('abc123')
   })
 
   test('getByMediaId returns undefined when no download', async () => {
@@ -364,7 +424,7 @@ describe('schema - downloads', () => {
 
     await DbDownloads.create({
       media_id: media.id,
-      info_hash: 'active1',
+      source_id: 'active1',
       download_url: 'http://example.com/1',
     })
 
@@ -372,6 +432,7 @@ describe('schema - downloads', () => {
       tmdb_id: 1399,
       media_type: 'tv',
       title: 'Breaking Bad',
+      imdb_id: 'tt0903747',
       year: 2008,
     })
 
@@ -384,7 +445,7 @@ describe('schema - downloads', () => {
 
     const completed = await DbDownloads.create({
       media_id: media2.id,
-      info_hash: 'completed1',
+      source_id: 'completed1',
       download_url: 'http://example.com/2',
     })
 
@@ -396,7 +457,7 @@ describe('schema - downloads', () => {
     const active = await DbDownloads.listActive()
 
     expect(active).toHaveLength(1)
-    expect(active[0].info_hash).toBe('active1')
+    expect(active[0].source_id).toBe('active1')
   })
 
   test('listActive includes seeding and paused', async () => {
@@ -404,7 +465,7 @@ describe('schema - downloads', () => {
 
     const dl1 = await DbDownloads.create({
       media_id: media.id,
-      info_hash: 'seeding1',
+      source_id: 'seeding1',
       download_url: 'http://example.com/1',
     })
 
@@ -414,6 +475,7 @@ describe('schema - downloads', () => {
       tmdb_id: 1399,
       media_type: 'tv',
       title: 'Breaking Bad',
+      imdb_id: 'tt0903747',
     })
 
     const media2 = await DbMedia.create({
@@ -425,7 +487,7 @@ describe('schema - downloads', () => {
 
     const dl2 = await DbDownloads.create({
       media_id: media2.id,
-      info_hash: 'paused1',
+      source_id: 'paused1',
       download_url: 'http://example.com/2',
     })
 
@@ -441,7 +503,7 @@ describe('schema - downloads', () => {
 
     const download = await DbDownloads.create({
       media_id: media.id,
-      info_hash: 'error1',
+      source_id: 'error1',
       download_url: 'http://example.com/1',
     })
 
@@ -450,7 +512,7 @@ describe('schema - downloads', () => {
     const active = await DbDownloads.listActive()
 
     expect(active).toHaveLength(1)
-    expect(active[0].info_hash).toBe('error1')
+    expect(active[0].source_id).toBe('error1')
   })
 
   test('update modifies download fields', async () => {
@@ -458,7 +520,7 @@ describe('schema - downloads', () => {
 
     const download = await DbDownloads.create({
       media_id: media.id,
-      info_hash: 'abc123',
+      source_id: 'abc123',
       download_url: 'http://example.com/torrent',
     })
 
@@ -486,7 +548,7 @@ describe('schema - downloads', () => {
 
     await DbDownloads.create({
       media_id: media.id,
-      info_hash: 'abc123',
+      source_id: 'abc123',
       download_url: 'http://example.com/torrent',
     })
 
@@ -502,7 +564,7 @@ describe('schema - downloads', () => {
 
     await DbDownloads.create({
       media_id: media.id,
-      info_hash: 'abc123',
+      source_id: 'abc123',
       download_url: 'http://example.com/torrent',
     })
 
@@ -520,6 +582,7 @@ describe('schema - downloads', () => {
       tmdb_id: 1399,
       media_type: 'tv',
       title: 'Breaking Bad',
+      imdb_id: 'tt0903747',
     })
 
     const media2 = await DbMedia.create({
@@ -531,13 +594,13 @@ describe('schema - downloads', () => {
 
     await DbDownloads.create({
       media_id: media.id,
-      info_hash: 'hash1',
+      source_id: 'hash1',
       download_url: 'http://example.com/1',
     })
 
     await DbDownloads.create({
       media_id: media2.id,
-      info_hash: 'hash2',
+      source_id: 'hash2',
       download_url: 'http://example.com/2',
     })
 
@@ -546,6 +609,6 @@ describe('schema - downloads', () => {
     const remaining = await db.selectFrom('downloads').selectAll().execute()
 
     expect(remaining).toHaveLength(1)
-    expect(remaining[0].info_hash).toBe('hash2')
+    expect(remaining[0].source_id).toBe('hash2')
   })
 })

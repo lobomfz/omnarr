@@ -132,7 +132,7 @@ export class Handler {
         return {
           ID: r.id,
           Source: r.indexer_source,
-          Seeds: `${r.seeders}S`,
+          Seeds: Formatters.seeders(r.seeders),
           Size: Formatters.size(r.size),
           Quality: meta,
           Name: r.name,
@@ -141,7 +141,7 @@ export class Handler {
     )
   }
 
-  async download() {
+  async download(opts?: { audio_only?: boolean }) {
     const { release_id } = this.parseArgs(
       'download',
       type({ release_id: 'string' })
@@ -159,9 +159,11 @@ export class Handler {
 
     const result = await new Downloads().add({
       tmdb_id: release.tmdb_id,
-      info_hash: release.info_hash,
+      source_id: release.source_id,
       download_url: release.download_url,
       type: release.media_type,
+      indexer_source: release.indexer_source,
+      audio_only: opts?.audio_only,
     })
 
     this.output(result, `Added: ${Formatters.mediaTitle(result)}`)
@@ -225,7 +227,7 @@ export class Handler {
     process.on('SIGINT', () => process.exit(0))
 
     while (true) {
-      const download = await new Downloads().getByInfoHash(release.info_hash)
+      const download = await new Downloads().getBySourceId(release.source_id)
 
       if (!download) {
         throw new Error(`No download found for release '${release_id}'`)

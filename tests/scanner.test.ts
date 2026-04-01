@@ -159,6 +159,7 @@ async function seedMedia(contentPath: string) {
     tmdb_id: 603,
     media_type: 'movie',
     title: 'The Matrix',
+    imdb_id: 'tt0133093',
     year: 1999,
   })
 
@@ -171,7 +172,7 @@ async function seedMedia(contentPath: string) {
 
   await DbDownloads.create({
     media_id: media.id,
-    info_hash: 'test_hash',
+    source_id: 'test_hash',
     download_url: 'magnet:test',
     status: 'completed',
     content_path: contentPath,
@@ -185,6 +186,7 @@ async function seedTvMedia(contentPath: string) {
     tmdb_id: 1396,
     media_type: 'tv',
     title: 'Breaking Bad',
+    imdb_id: 'tt0903747',
     year: 2008,
   })
 
@@ -220,7 +222,7 @@ async function seedTvMedia(contentPath: string) {
 
   await DbDownloads.create({
     media_id: media.id,
-    info_hash: 'tv_test_hash',
+    source_id: 'tv_test_hash',
     download_url: 'magnet:test',
     status: 'completed',
     content_path: contentPath,
@@ -301,7 +303,7 @@ describe('new Scanner().scan — file discovery', () => {
 
     await DbDownloads.create({
       media_id: media.id,
-      info_hash: 'second_hash',
+      source_id: 'second_hash',
       download_url: 'magnet:test2',
       status: 'completed',
       content_path: join(tmpDir, 'multi/dl2'),

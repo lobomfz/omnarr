@@ -158,6 +158,13 @@ await TmdbMock.db
       first_air_date: '2008-01-20',
       media_type: 'tv',
     },
+    {
+      id: 9998,
+      title: 'Indexer Fail Test',
+      overview: 'test',
+      release_date: '2020-01-01',
+      media_type: 'movie',
+    },
   ])
   .execute()
 
@@ -166,6 +173,7 @@ await TmdbMock.db
   .values([
     { tmdb_id: 603, imdb_id: 'tt0133093' },
     { tmdb_id: 1399, imdb_id: 'tt0903747' },
+    { tmdb_id: 9998, imdb_id: 'tt0000003' },
   ])
   .execute()
 

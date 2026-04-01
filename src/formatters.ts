@@ -144,6 +144,18 @@ export const Formatters = {
     return `${h}h`
   },
 
+  releaseName(label: string, indexerSource: string) {
+    return `${label} [${indexerSource}]`
+  },
+
+  seeders(count: number | null) {
+    if (count == null) {
+      return '—'
+    }
+
+    return String(count)
+  },
+
   mediaStatus(media: {
     file_count: number
     track_count: number
@@ -181,6 +193,8 @@ export const Formatters = {
   },
 
   appendDownloads(lines: string[], downloads: MediaInfo['downloads']) {
+    const typeCounters: Record<string, number> = {}
+
     for (const d of downloads) {
       lines.push('')
 
@@ -200,8 +214,6 @@ export const Formatters = {
 
       for (const f of d.files) {
         lines.push(`  ${f.path} (${Formatters.fileStats(f)})`)
-
-        const typeCounters: Record<string, number> = {}
 
         for (const t of f.tracks) {
           const idx = typeCounters[t.stream_type] ?? 0

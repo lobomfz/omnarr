@@ -10,7 +10,12 @@ export const DownloadCommand = defineCommand({
     json: option(type('boolean | undefined'), {
       description: 'Output as JSON',
     }),
+    'audio-only': option(type('boolean | undefined'), {
+      description: 'Download only audio tracks as separate .mka files',
+    }),
   },
   handler: ({ positional, flags }) =>
-    new Handler(positional, flags.json).download(),
+    new Handler(positional, flags.json).download({
+      audio_only: flags['audio-only'],
+    }),
 })

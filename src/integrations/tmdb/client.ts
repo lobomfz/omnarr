@@ -54,11 +54,18 @@ export class TmdbClient {
   }
 
   async getDetails(tmdbId: number, mediaType: 'movie' | 'tv') {
-    const data = await this.request<TmdbTypes['raw_media']>(
-      `/${mediaType}/${tmdbId}`
-    )
+    const [data, externalIds] = await Promise.all([
+      this.request<TmdbTypes['raw_media']>(`/${mediaType}/${tmdbId}`),
+      this.request<TmdbTypes['external_ids']>(
+        `/${mediaType}/${tmdbId}/external_ids`
+      ),
+    ])
 
-    return this.parse(data, mediaType)
+    if (!externalIds.imdb_id) {
+      throw new Error(`TMDB entry ${tmdbId} has no IMDB ID`)
+    }
+
+    return { ...this.parse(data, mediaType), imdb_id: externalIds.imdb_id }
   }
 
   async getExternalIds(tmdbId: number, mediaType: media_type) {

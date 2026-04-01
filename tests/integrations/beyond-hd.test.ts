@@ -38,10 +38,10 @@ describe('BeyondHdAdapter', () => {
     expect(results[1].hdr).toEqual([])
   })
 
-  test('maps torrent_id and download_url', async () => {
+  test('maps source_id and download_url', async () => {
     const results = await bhd.search({ imdb_id: 'tt0133093' })
 
-    expect(results[0].torrent_id).toBe('1001')
+    expect(results[0].source_id).toBe('abc123')
     expect(results[0].download_url).toBe('https://beyond-hd.me/dl/abc123')
   })
 })

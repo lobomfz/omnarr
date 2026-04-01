@@ -1,8 +1,18 @@
+import { mkdir, rm } from 'fs/promises'
+import { tmpdir } from 'os'
+import { dirname, join } from 'path'
+
+import { FFmpegBuilder } from '@lobomfz/ffmpeg'
+
 import { config } from '@/config'
+import { media_type } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbTmdbMedia } from '@/db/tmdb-media'
+import { Formatters } from '@/formatters'
 import type { DownloadClient } from '@/integrations/download-client'
+import { type IndexerName, indexerMap } from '@/integrations/indexers/registry'
+import { SuperflixAdapter } from '@/integrations/indexers/superflix'
 import { QBittorrentClient } from '@/integrations/qbittorrent/client'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Log } from '@/log'
@@ -19,14 +29,12 @@ export class Downloads {
 
   async add(params: {
     tmdb_id: number
-    info_hash: string
+    source_id: string
     download_url: string
-    type: 'movie' | 'tv'
+    type: media_type
+    indexer_source: IndexerName
+    audio_only?: boolean
   }) {
-    if (!this.client) {
-      throw new Error('No download client configured.')
-    }
-
     const details = await new TmdbClient().getDetails(
       params.tmdb_id,
       params.type
@@ -39,6 +47,7 @@ export class Downloads {
       year: details.year,
       overview: details.overview,
       poster_path: details.poster_path,
+      imdb_id: details.imdb_id,
     })
 
     const rootFolder = config.root_folders?.[details.media_type]
@@ -54,29 +63,163 @@ export class Downloads {
       root_folder: rootFolder,
     })
 
+    const source = indexerMap[params.indexer_source].source
+
+    if (source === 'ripper') {
+      return await this.addRipper({
+        download_url: params.download_url,
+        imdb_id: details.imdb_id,
+        source_id: params.source_id,
+        audio_only: params.audio_only,
+        title: details.title,
+        year: details.year,
+        media,
+      })
+    }
+
+    if (!this.client) {
+      throw new Error('No download client configured.')
+    }
+
     Log.info(
-      `adding torrent info_hash=${params.info_hash} title="${details.title}"`
+      `adding torrent source_id=${params.source_id} title="${details.title}"`
     )
 
     await this.client.addTorrent({ url: params.download_url })
 
     const download = await DbDownloads.create({
       media_id: media.id,
-      info_hash: params.info_hash,
+      source_id: params.source_id,
       download_url: params.download_url,
     })
 
-    Log.info(`torrent sent to client info_hash=${params.info_hash}`)
+    Log.info(`torrent sent to client source_id=${params.source_id}`)
 
     return { media, download, title: details.title, year: details.year }
   }
 
-  async getByInfoHash(infoHash: string) {
+  private async addRipper(data: {
+    source_id: string
+    imdb_id: string
+    download_url: string
+    audio_only?: boolean
+    title: string
+    year: number | null
+    media: {
+      added_at: Date
+      id: string
+      media_type: media_type
+      root_folder: string
+      tmdb_media_id: number
+    }
+  }) {
+    Log.info(
+      `ripper start imdb=${data.imdb_id} title="${data.title}" audio_only=${!!data.audio_only}`
+    )
+
+    const client = new SuperflixAdapter()
+    const streams = await client.getStreams(data.imdb_id)
+
+    const tracksRoot = config.root_folders?.tracks
+
+    if (!tracksRoot) {
+      throw new Error('No tracks root folder configured')
+    }
+
+    const tracksDir = join(tracksRoot, data.media.id)
+
+    const entries: {
+      tag: string
+      stream: { url: string; referer: string }
+      outputPath: string
+      codec: 'v' | 'a'
+    }[] = []
+
+    if (!data.audio_only && streams.video) {
+      entries.push({
+        tag: 'VIDEO',
+        stream: streams.video,
+        outputPath: join(
+          data.media.root_folder,
+          `${Formatters.mediaTitle(data)}.mkv`
+        ),
+        codec: 'v',
+      })
+    }
+
+    for (let i = 0; i < streams.audio.length; i++) {
+      const s = streams.audio[i]
+      const label = s.lang ?? String(i)
+
+      entries.push({
+        tag: label.toUpperCase(),
+        stream: s,
+        outputPath: join(tracksDir, `audio_${label}.mka`),
+        codec: 'a',
+      })
+    }
+
+    const tmpPath = join(tmpdir(), `omnarr-dl-${data.media.id}`)
+
+    await mkdir(tmpPath, { recursive: true })
+
+    await using _ = {
+      [Symbol.asyncDispose]: async () => {
+        await rm(tmpPath, { recursive: true }).catch(() => {})
+      },
+    }
+
+    let ripped = 0
+
+    for (const entry of entries) {
+      const sourceId = `${data.source_id}:${entry.tag}`
+      const existing = await DbDownloads.getBySourceId(sourceId)
+
+      if (existing) {
+        continue
+      }
+
+      const tmpFile = join(tmpPath, `${entry.tag}.ts`)
+
+      await client.downloadStream(entry.stream, tmpFile)
+
+      await mkdir(dirname(entry.outputPath), { recursive: true })
+
+      await new FFmpegBuilder({ overwrite: true })
+        .input(tmpFile)
+        .codec(entry.codec, 'copy')
+        .output(entry.outputPath)
+        .run()
+
+      await DbDownloads.create({
+        media_id: data.media.id,
+        source_id: sourceId,
+        download_url: data.download_url,
+        source: 'ripper',
+        status: 'completed',
+        content_path: entry.outputPath,
+      })
+
+      ripped++
+    }
+
+    Log.info(`ripper complete ripped=${ripped} total=${entries.length}`)
+
+    return {
+      media: data.media,
+      ripped,
+      total: entries.length,
+      title: data.title,
+      year: data.year,
+    }
+  }
+
+  async getBySourceId(sourceId: string) {
     if (this.client) {
       await this.syncDownloads(this.client)
     }
 
-    return await DbDownloads.getByInfoHash(infoHash)
+    return await DbDownloads.getBySourceId(sourceId)
   }
 
   async list(limit: number) {
@@ -95,27 +238,23 @@ export class Downloads {
       client.getTorrentStatuses(),
     ])
 
-    const statusByHash = new Map(statuses.map((s) => [s.hash, s]))
+    const statusByHash = new Map(statuses.map((s) => [s.hash.toUpperCase(), s]))
     const now = new Date().toISOString()
 
     const updates = active.map((d) => {
-      const s = statusByHash.get(d.info_hash)
+      const s = statusByHash.get(d.source_id)
       const status = s ? (s.progress >= 1 ? 'completed' : s.status) : 'error'
 
       if (status === 'error' && !d.error_at) {
-        Log.warn(
-          `download entered error status info_hash=${d.info_hash}`
-        )
+        Log.warn(`download entered error status source_id=${d.source_id}`)
       } else if (status !== 'error' && d.error_at) {
-        Log.info(
-          `download exited error status info_hash=${d.info_hash}`
-        )
+        Log.info(`download exited error status source_id=${d.source_id}`)
       }
 
       return {
         id: d.id,
         media_id: d.media_id,
-        info_hash: d.info_hash,
+        source_id: d.source_id,
         download_url: d.download_url,
         progress: s?.progress ?? d.progress,
         speed: s?.speed ?? 0,
@@ -134,8 +273,6 @@ export class Downloads {
       Log.info(`stale errors deleted count=${deleted}`)
     }
 
-    Log.info(
-      `sync complete active=${active.length} updated=${updatedCount}`
-    )
+    Log.info(`sync complete active=${active.length} updated=${updatedCount}`)
   }
 }
