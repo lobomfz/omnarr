@@ -21,8 +21,13 @@ interface SchemaProp {
 export class InitWizard {
   constructor(private prompt: PromptApi) {}
 
-  async run(empty?: boolean) {
-    if (empty) {
+  async run(opts?: { empty?: boolean; update?: boolean }) {
+    if (opts?.update) {
+      await this.updateSchema()
+      return
+    }
+
+    if (opts?.empty) {
       await this.save({ indexers: [] })
       return
     }
@@ -123,6 +128,16 @@ export class InitWizard {
       password,
       category: 'omnarr',
     }
+  }
+
+  private async updateSchema() {
+    const configPath = envVariables.OMNARR_CONFIG_PATH
+    const schemaPath = join(dirname(configPath), 'schema.json')
+
+    await mkdir(dirname(configPath), { recursive: true })
+    await Bun.write(schemaPath, JSON.stringify(configJsonSchema, null, 2))
+
+    console.log(`Schema updated: ${schemaPath}`)
   }
 
   private async save(config: ConfigInput) {

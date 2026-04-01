@@ -396,6 +396,7 @@ describe('HlsSession — integration: dual-file', () => {
       segments: longSegments,
       transcode: copyTranscode,
       audioOffset: 0,
+      subtitleOffset: 0,
       port: 0,
       mediaId: 'HLSTEST',
     })

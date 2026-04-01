@@ -6,6 +6,25 @@ const patterns = {
 }
 
 export const Parsers = {
+  srtTimestamps(content: string) {
+    const pattern =
+      /(\d{2}):(\d{2}):(\d{2}),(\d{3}) --> (\d{2}):(\d{2}):(\d{2}),(\d{3})/g
+
+    const pairs: number[] = []
+    let match
+
+    while ((match = pattern.exec(content)) !== null) {
+      const start =
+        +match[1]! * 3600 + +match[2]! * 60 + +match[3]! + +match[4]! / 1000
+      const end =
+        +match[5]! * 3600 + +match[6]! * 60 + +match[7]! + +match[8]! / 1000
+
+      pairs.push(start, end)
+    }
+
+    return new Float32Array(pairs)
+  },
+
   seasonEpisode(name: string) {
     for (const pattern of Object.values(patterns)) {
       const match = pattern.exec(name)

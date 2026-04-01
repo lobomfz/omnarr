@@ -10,6 +10,10 @@ export const InitCommand = defineCommand({
     empty: option(type('boolean | undefined'), {
       description: 'Create empty config with schema only',
     }),
+    update: option(type('boolean | undefined'), {
+      description: 'Update config schema only',
+    }),
   },
-  handler: ({ prompt, flags }) => new InitWizard(prompt).run(flags.empty),
+  handler: ({ prompt, flags }) =>
+    new InitWizard(prompt).run({ empty: flags.empty, update: flags.update }),
 })

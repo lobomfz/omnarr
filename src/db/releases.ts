@@ -5,8 +5,8 @@ import { deriveId } from '@/utils'
 interface SourcedRelease extends IndexerRelease {
   name: string
   indexer_source: indexer_source
-  season_number: number | null
-  episode_number: number | null
+  season_number?: number | null
+  episode_number?: number | null
 }
 
 export const DbReleases = {
@@ -36,6 +36,7 @@ export const DbReleases = {
           codec: r.codec,
           hdr: r.hdr.join('/'),
           download_url: r.download_url,
+          language: r.language,
           season_number: r.season_number,
           episode_number: r.episode_number,
         }))
@@ -51,6 +52,7 @@ export const DbReleases = {
           codec: (eb) => eb.ref('excluded.codec'),
           hdr: (eb) => eb.ref('excluded.hdr'),
           download_url: (eb) => eb.ref('excluded.download_url'),
+          language: (eb) => eb.ref('excluded.language'),
           season_number: (eb) => eb.ref('excluded.season_number'),
           episode_number: (eb) => eb.ref('excluded.episode_number'),
         })
@@ -64,6 +66,7 @@ export const DbReleases = {
         'resolution',
         'codec',
         'hdr',
+        'language',
         'season_number',
         'episode_number',
       ])
@@ -81,6 +84,8 @@ export const DbReleases = {
         'r.source_id',
         'r.indexer_source',
         'r.download_url',
+        'r.name',
+        'r.language',
       ])
       .executeTakeFirst()
   },

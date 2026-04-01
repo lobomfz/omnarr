@@ -6,19 +6,18 @@ import { FFmpegBuilder, type Stream } from '@lobomfz/ffmpeg'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
-import { DbMediaEnvelopes } from '@/db/media-envelopes'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
-import {
-  EnvelopeExtractor,
-  ENVELOPE_SAMPLE_RATE,
-  ENVELOPE_WINDOW_SIZE,
-} from '@/envelope-extractor'
+import { DbMediaVad } from '@/db/media-vad'
 import { Log } from '@/log'
 import { Parsers } from '@/parsers'
+import { VadExtractor } from '@/vad-extractor'
 
-const VALID_EXTENSIONS = new Set(['mkv', 'mp4', 'avi', 'ts', 'mka'])
+const VALID_EXTENSIONS = new Set(['mkv', 'mp4', 'avi', 'ts', 'mka', 'srt'])
+
+const SUBTITLE_EXTENSIONS = new Set(['srt'])
+const SUBTITLE_CODEC: Record<string, string> = { srt: 'subrip' }
 
 const MEDIA_GLOB = new Bun.Glob(`**/*.{${[...VALID_EXTENSIONS].join(',')}}`)
 
@@ -204,6 +203,47 @@ export class Scanner {
   ) {
     Log.info(`probing file="${fullPath}"`)
 
+    const ext = extname(fullPath).slice(1).toLowerCase()
+
+    if (SUBTITLE_EXTENSIONS.has(ext)) {
+      const fileSize = (await stat(fullPath)).size
+      const episodeId = await this.resolveEpisodeId(
+        media.tmdb_media_id,
+        fullPath
+      )
+
+      const name = basename(fullPath, extname(fullPath))
+      const langMatch = /^sub_([a-z]+)/i.exec(name)
+      const language = langMatch?.[1].toLowerCase()
+
+      const file = await DbMediaFiles.create({
+        media_id: media.id,
+        download_id: downloadId,
+        path: fullPath,
+        size: fileSize,
+        episode_id: episodeId,
+      })
+
+      await DbMediaTracks.createMany([
+        {
+          media_file_id: file.id,
+          stream_index: 0,
+          stream_type: 'subtitle',
+          codec_name: SUBTITLE_CODEC[ext],
+          language,
+          is_default: false,
+        },
+      ])
+
+      onProgress(1)
+
+      Log.info(
+        `subtitle registered file="${fullPath}" lang=${language ?? 'unknown'}`
+      )
+
+      return true
+    }
+
     const probe = await new FFmpegBuilder().input(fullPath).probe()
 
     const episodeId = await this.resolveEpisodeId(media.tmdb_media_id, fullPath)
@@ -234,7 +274,7 @@ export class Scanner {
     const hasVideo = probe.streams.some((s) => s.codec_type === 'video')
     const hasAudio = probe.streams.some((s) => s.codec_type === 'audio')
     const keyframeWeight = hasVideo && hasAudio ? 0.5 : hasVideo ? 1 : 0
-    const envelopeWeight = 1 - keyframeWeight
+    const vadWeight = 1 - keyframeWeight
 
     if (hasVideo) {
       const videoStream = probe.streams.find((s) => s.codec_type === 'video')!
@@ -263,21 +303,19 @@ export class Scanner {
     }
 
     if (hasAudio) {
-      const envelope = await EnvelopeExtractor.extract(
+      const timestamps = await new VadExtractor().extract(
         fullPath,
-        (r) => onProgress(keyframeWeight + r * envelopeWeight),
-        { size: probe.format.size }
+        (r) => onProgress(keyframeWeight + r * vadWeight),
+        { duration: probe.format.duration }
       )
 
-      await DbMediaEnvelopes.create({
+      await DbMediaVad.create({
         media_file_id: file.id,
-        sample_rate: ENVELOPE_SAMPLE_RATE,
-        window_size: ENVELOPE_WINDOW_SIZE,
-        data: new Uint8Array(envelope.buffer),
+        data: new Uint8Array(timestamps.buffer),
       })
 
       Log.info(
-        `envelope extracted file="${fullPath}" windows=${envelope.length}`
+        `vad extracted file="${fullPath}" segments=${timestamps.length / 2}`
       )
     }
 

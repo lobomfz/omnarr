@@ -7,7 +7,6 @@ import { testCommand } from '@bunli/test'
 import { DownloadCommand } from '@/commands/download'
 import { config } from '@/config'
 import { database, type indexer_source } from '@/db/connection'
-import { DbDownloads } from '@/db/downloads'
 import { DbReleases } from '@/db/releases'
 import { Downloads } from '@/downloads'
 import { TmdbClient } from '@/integrations/tmdb/client'
@@ -217,7 +216,6 @@ describe('download command', async () => {
 })
 
 describe('superflix download', async () => {
-  const movieDir = config.root_folders!.movie!
   const tracksDir = config.root_folders!.tracks!
   const results = await new TmdbClient().search('Matrix')
   const releases = await new Releases().search(
@@ -235,16 +233,14 @@ describe('superflix download', async () => {
     database.reset('downloads')
     database.reset('media')
     database.reset('tmdb_media')
-    await rm(movieDir, { recursive: true }).catch(() => {})
     await rm(tracksDir, { recursive: true }).catch(() => {})
   })
 
   afterAll(async () => {
-    await rm(movieDir, { recursive: true }).catch(() => {})
     await rm(tracksDir, { recursive: true }).catch(() => {})
   })
 
-  test('produces individual files per stream', async () => {
+  test('produces all files in tracks dir', async () => {
     const result = await testCommand(DownloadCommand, {
       args: [superflixReleaseId],
       flags: { json: true },
@@ -258,9 +254,9 @@ describe('superflix download', async () => {
     expect(data.ripped).toBe(3)
     expect(data.total).toBe(3)
 
-    expect(
-      await Bun.file(join(movieDir, 'The Matrix (1999).mkv')).exists()
-    ).toBe(true)
+    expect(await Bun.file(join(tracksDir, mediaId, 'video.mkv')).exists()).toBe(
+      true
+    )
     expect(
       await Bun.file(join(tracksDir, mediaId, 'audio_pt.mka')).exists()
     ).toBe(true)
@@ -269,7 +265,7 @@ describe('superflix download', async () => {
     ).toBe(true)
   })
 
-  test('creates download entries per stream with source ripper', async () => {
+  test('creates single download with source ripper', async () => {
     await testCommand(DownloadCommand, {
       args: [superflixReleaseId],
       flags: {},
@@ -280,35 +276,16 @@ describe('superflix download', async () => {
       .selectAll()
       .execute()
 
-    expect(downloads).toHaveLength(3)
+    expect(downloads).toHaveLength(1)
 
     expect(downloads[0].source).toBe('ripper')
     expect(downloads[0].status).toBe('completed')
-    expect(downloads[0].source_id).toBe('SUPERFLIX:TT0133093:VIDEO')
-
-    expect(downloads[1].source_id).toBe('SUPERFLIX:TT0133093:PT')
-    expect(downloads[2].source_id).toBe('SUPERFLIX:TT0133093:EN')
-  })
-
-  test('completed ripper downloads have progress 1', async () => {
-    await testCommand(DownloadCommand, {
-      args: [superflixReleaseId],
-      flags: {},
-    })
-
-    const downloads = await database.kysely
-      .selectFrom('downloads')
-      .selectAll()
-      .execute()
-
-    for (const d of downloads) {
-      expect(d.progress).toBe(1)
-    }
+    expect(downloads[0].progress).toBe(1)
+    expect(downloads[0].source_id).toBe('SUPERFLIX:TT0133093')
   })
 })
 
 describe('superflix error handling', () => {
-  const movieDir = config.root_folders!.movie!
   const tracksDir = config.root_folders!.tracks!
 
   beforeEach(async () => {
@@ -318,17 +295,15 @@ describe('superflix error handling', () => {
     database.reset('downloads')
     database.reset('media')
     database.reset('tmdb_media')
-    await rm(movieDir, { recursive: true }).catch(() => {})
     await rm(tracksDir, { recursive: true }).catch(() => {})
   })
 
   afterAll(async () => {
-    await rm(movieDir, { recursive: true }).catch(() => {})
     await rm(tracksDir, { recursive: true }).catch(() => {})
   })
 
-  test('failed stream gets error status, others complete', async () => {
-    await new Downloads().add(
+  test('completes download when some streams fail', async () => {
+    const result = await new Downloads().add(
       {
         tmdb_id: 10001,
         source_id: 'SUPERFLIX:TT0000001',
@@ -339,22 +314,16 @@ describe('superflix error handling', () => {
       noop
     )
 
+    expect(result.ripped).toBe(1)
+    expect(result.total).toBe(2)
+
     const downloads = await database.kysely
       .selectFrom('downloads')
       .selectAll()
-      .orderBy('id')
       .execute()
 
-    const video = downloads.find((d) => d.source_id.includes('VIDEO'))!
-    const audio = downloads.find((d) => d.source_id.includes('ES'))!
-
-    expect(video).toBeDefined()
-    expect(video.status).toBe('error')
-    expect(video.error_at).not.toBeNull()
-
-    expect(audio).toBeDefined()
-    expect(audio.status).toBe('completed')
-    expect(audio.progress).toBe(1)
+    expect(downloads).toHaveLength(1)
+    expect(downloads[0].status).toBe('completed')
   })
 })
 
@@ -407,7 +376,7 @@ describe('superflix audio-only download', async () => {
     ).toBe(true)
   })
 
-  test('creates download entries per language', async () => {
+  test('creates single download for audio-only', async () => {
     await testCommand(DownloadCommand, {
       args: [superflixReleaseId],
       flags: { 'audio-only': true },
@@ -418,50 +387,31 @@ describe('superflix audio-only download', async () => {
       .selectAll()
       .execute()
 
-    expect(downloads).toHaveLength(2)
+    expect(downloads).toHaveLength(1)
 
     expect(downloads[0].source).toBe('ripper')
     expect(downloads[0].status).toBe('completed')
-    expect(downloads[0].source_id).toBe('SUPERFLIX:TT0133093:PT')
-
-    expect(downloads[1].source_id).toBe('SUPERFLIX:TT0133093:EN')
+    expect(downloads[0].source_id).toBe('SUPERFLIX:TT0133093')
   })
 
-  test('skips already downloaded streams', async () => {
+  test('rejects duplicate source_id', async () => {
     await testCommand(DownloadCommand, {
       args: [superflixReleaseId],
       flags: { 'audio-only': true },
     })
 
-    const mediaId = (
-      await database.kysely
-        .selectFrom('media')
-        .select('id')
-        .executeTakeFirstOrThrow()
-    ).id
-
-    database.reset('media_keyframes')
-    database.reset('media_tracks')
-    database.reset('media_files')
-    database.reset('downloads')
-
-    await DbDownloads.create({
-      media_id: mediaId,
-      source_id: 'SUPERFLIX:TT0133093:PT',
-      download_url: '',
-      source: 'ripper',
-      status: 'completed',
-      content_path: '/fake/path.mka',
-    })
-
     const result = await testCommand(DownloadCommand, {
       args: [superflixReleaseId],
-      flags: { json: true, 'audio-only': true },
+      flags: { 'audio-only': true },
     })
 
-    const data = JSON.parse(result.stdout)
+    expect(result.exitCode).not.toBe(0)
 
-    expect(data.ripped).toBe(1)
-    expect(data.total).toBe(2)
+    const downloads = await database.kysely
+      .selectFrom('downloads')
+      .selectAll()
+      .execute()
+
+    expect(downloads).toHaveLength(1)
   })
 })

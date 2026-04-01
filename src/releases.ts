@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { config } from '@/config'
 import { db, media_type } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
+import { DbMedia } from '@/db/media'
 import { DbReleases } from '@/db/releases'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
@@ -149,6 +150,87 @@ export class Releases {
     if (filters?.season !== undefined) {
       return persisted.filter((r) => r.season_number === filters.season)
     }
+
+    return persisted
+  }
+
+  async searchSubtitles(
+    media_id: string,
+    opts?: { season?: number; episode?: number; lang?: string }
+  ) {
+    const media = await DbMedia.getById(media_id)
+
+    if (!media) {
+      throw new Error(`Media '${media_id}' not found.`)
+    }
+
+    if (
+      media.media_type === 'tv' &&
+      (opts?.season === undefined || opts?.episode === undefined)
+    ) {
+      throw new Error(
+        'TV shows require --season and --episode. Use info to see available episodes.'
+      )
+    }
+
+    if (!media.imdb_id) {
+      throw new Error(`No IMDB ID found for media '${media_id}'.`)
+    }
+
+    const indexers = config.indexers.filter(
+      (c) => indexerMap[c.type].source === 'subtitle'
+    )
+
+    if (indexers.length === 0) {
+      throw new Error('No subtitle indexer configured.')
+    }
+
+    Log.info(
+      `fetching subtitles media_id=${media_id} indexers=${indexers.length}`
+    )
+
+    const results = (
+      await Promise.all(
+        indexers.map(async (c) => {
+          const indexer = new indexerMap[c.type](c)
+
+          return await indexer
+            .search({
+              imdb_id: media.imdb_id!,
+              languages: opts?.lang ? [opts.lang] : undefined,
+              season_number: opts?.season,
+              episode_number: opts?.episode,
+            })
+            .then((r) =>
+              r.map((release) => ({ ...release, indexer_source: c.type }))
+            )
+            .catch((err) => {
+              Log.warn(`indexer=${c.type} failed error="${err.message}"`)
+              return []
+            })
+        })
+      )
+    ).flat()
+
+    if (results.length === 0) {
+      return []
+    }
+
+    const sourced = results.map((r) => ({
+      ...r,
+      source_id: r.source_id.toUpperCase(),
+      name: r.name ?? Formatters.releaseName(media.title, r.indexer_source),
+      season_number: opts?.season,
+      episode_number: opts?.episode,
+    }))
+
+    const persisted = await DbReleases.upsert(
+      media.tmdb_id,
+      media.media_type,
+      sourced
+    )
+
+    Log.info(`subtitles persisted count=${persisted.length}`)
 
     return persisted
   }

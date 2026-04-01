@@ -20,6 +20,7 @@ const configSchema = type({
   }),
   indexers: indexerSchema.array().default(() => []),
   'download_client?': qbittorrentClient.or('null'),
+  subtitle_delay: 'number = 1',
   transcoding: type({
     video_crf: 'number.integer = 21',
     video_preset: type

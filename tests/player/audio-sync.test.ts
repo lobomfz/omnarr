@@ -3,7 +3,7 @@ import { describe, expect, test, beforeEach } from 'bun:test'
 import { database } from '@/db/connection'
 import { Player } from '@/player/player'
 
-import { seedMedia, seedDownloadWithTracks, seedEnvelope } from './seed'
+import { seedMedia, seedDownloadWithTracks, seedVad } from './seed'
 
 beforeEach(() => {
   database.reset()
@@ -35,7 +35,7 @@ describe('Player.resolveAudioOffset', () => {
       ]
     )
 
-    await seedEnvelope(file.id, 42)
+    await seedVad(file.id, 42)
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -44,7 +44,7 @@ describe('Player.resolveAudioOffset', () => {
     expect(offset).toBe(0)
   })
 
-  test('different download_id with envelopes → offset applied', async () => {
+  test('different download_id with vad data → offset applied', async () => {
     const media = await seedMedia()
 
     const { file: videoFile } = await seedDownloadWithTracks(
@@ -85,8 +85,8 @@ describe('Player.resolveAudioOffset', () => {
       ]
     )
 
-    await seedEnvelope(videoFile.id, 42)
-    await seedEnvelope(audioFile.id, 42)
+    await seedVad(videoFile.id, 42)
+    await seedVad(audioFile.id, 42)
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -98,7 +98,7 @@ describe('Player.resolveAudioOffset', () => {
     expect(offset).toBe(0)
   })
 
-  test('different download_id with missing envelope → offset is 0', async () => {
+  test('different download_id with missing vad → offset is 0', async () => {
     const media = await seedMedia()
 
     const { file: videoFile } = await seedDownloadWithTracks(
@@ -138,7 +138,7 @@ describe('Player.resolveAudioOffset', () => {
       ]
     )
 
-    await seedEnvelope(videoFile.id, 42)
+    await seedVad(videoFile.id, 42)
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -187,8 +187,8 @@ describe('Player.resolveAudioOffset', () => {
       ]
     )
 
-    await seedEnvelope(videoFile.id, 111)
-    await seedEnvelope(audioFile.id, 222)
+    await seedVad(videoFile.id, 111)
+    await seedVad(audioFile.id, 222)
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})

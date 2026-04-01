@@ -50,6 +50,7 @@ const server = new HlsServer({
     { video_crf: 21, video_preset: 'veryfast' }
   ),
   audioOffset: 0,
+  subtitleOffset: 0,
   port: 0,
   mediaId,
 })

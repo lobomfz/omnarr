@@ -19,8 +19,8 @@ const download_status = type.enumerated(
   'completed',
   'error'
 )
-const download_source = type.enumerated('torrent', 'ripper')
-const indexer_source = type.enumerated('beyond-hd', 'yts', 'superflix')
+const download_source = type.enumerated('torrent', 'ripper', 'subtitle')
+const indexer_source = type.enumerated('beyond-hd', 'yts', 'superflix', 'subdl')
 
 export const database = new Database({
   path: envVariables.OMNARR_DB_PATH,
@@ -93,6 +93,7 @@ export const database = new Database({
         'codec?': 'string',
         hdr: 'string',
         download_url: 'string',
+        'language?': 'string',
         'season_number?': 'number.integer',
         'episode_number?': 'number.integer',
         searched_at: generated('now'),
@@ -137,15 +138,13 @@ export const database = new Database({
         scanned_at: generated('now'),
       }),
 
-      media_envelopes: type({
+      media_vad: type({
         id: generated('autoincrement'),
         media_file_id: type('number.integer').configure({
           references: 'media_files.id',
           onDelete: 'cascade',
           unique: true,
         }),
-        sample_rate: 'number.integer',
-        window_size: 'number.integer',
         data: type.instanceOf(Uint8Array),
       }),
 

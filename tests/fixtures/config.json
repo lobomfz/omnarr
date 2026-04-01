@@ -16,6 +16,11 @@
     },
     {
       "type": "superflix"
+    },
+    {
+      "type": "subdl",
+      "api_key": "test-subdl-key",
+      "languages": ["EN"]
     }
   ],
   "download_client": {

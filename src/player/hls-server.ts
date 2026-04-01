@@ -33,6 +33,7 @@ type HlsServerOpts = {
   segments: Segment[]
   transcode: TranscodeFn
   audioOffset: number
+  subtitleOffset: number
   port: number
   mediaId: string
 }
@@ -63,7 +64,14 @@ export class HlsServer extends HlsSession {
     await Bun.write(join(this.opts.outDir, 'video.m3u8'), this.buildPlaylist())
 
     if (this.serverOpts.resolved.subtitle) {
-      await this.convertSubtitle(this.serverOpts.resolved.subtitle)
+      await this.convertSubtitle(
+        this.serverOpts.resolved.subtitle,
+        this.serverOpts.subtitleOffset
+      )
+      await Bun.write(
+        join(this.opts.outDir, 'subs.m3u8'),
+        this.buildSubtitlePlaylist()
+      )
     }
 
     await Bun.write(
@@ -110,7 +118,7 @@ export class HlsServer extends HlsSession {
       const name = this.serverOpts.resolved.subtitle.title ?? 'Subtitle'
 
       lines.push(
-        `#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",LANGUAGE="${lang}",NAME="${name}",DEFAULT=NO,AUTOSELECT=YES,URI="subs.vtt"`
+        `#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",LANGUAGE="${lang}",NAME="${name}",DEFAULT=NO,AUTOSELECT=YES,URI="subs.m3u8"`
       )
       lines.push('#EXT-X-STREAM-INF:BANDWIDTH=0,SUBTITLES="subs"')
     } else {
@@ -122,7 +130,26 @@ export class HlsServer extends HlsSession {
     return lines.join('\n')
   }
 
-  private async convertSubtitle(subtitle: ResolvedTrack) {
+  private buildSubtitlePlaylist() {
+    const totalDuration = this.opts.segments.reduce(
+      (sum, s) => sum + s.duration,
+      0
+    )
+
+    return [
+      '#EXTM3U',
+      `#EXT-X-TARGETDURATION:${Math.ceil(totalDuration)}`,
+      '#EXT-X-PLAYLIST-TYPE:VOD',
+      `#EXTINF:${totalDuration.toFixed(6)},`,
+      'subs.vtt',
+      '#EXT-X-ENDLIST',
+    ].join('\n')
+  }
+
+  private async convertSubtitle(
+    subtitle: ResolvedTrack,
+    subtitleOffset: number
+  ) {
     if (!HLS_SUBTITLE_CODECS.has(subtitle.codec_name)) {
       throw new Error(
         `Incompatible subtitle codec '${subtitle.codec_name}'. Supported: ${[...HLS_SUBTITLE_CODECS].join(', ')}.`
@@ -131,7 +158,13 @@ export class HlsServer extends HlsSession {
 
     await mkdir(this.opts.outDir, { recursive: true })
 
-    await new FFmpegBuilder({ overwrite: true })
+    let builder = new FFmpegBuilder({ overwrite: true })
+
+    if (subtitleOffset !== 0) {
+      builder = builder.rawInput('-itsoffset', String(subtitleOffset))
+    }
+
+    await builder
       .input(subtitle.file_path)
       .map(`0:${subtitle.stream_index}`)
       .output(join(this.opts.outDir, 'subs.vtt'))

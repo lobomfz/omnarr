@@ -122,7 +122,7 @@ export const Formatters = {
         status.push(`keyframes: ${f.keyframes}`)
       }
 
-      status.push(`envelope: ${f.has_envelope ? 'yes' : 'no'}`)
+      status.push(`vad: ${f.has_vad ? 'yes' : 'no'}`)
 
       lines.push(`  ${status.join('  ')}`)
     }
@@ -236,7 +236,7 @@ export const Formatters = {
           status.push('keyframes: yes')
         }
 
-        status.push(`envelope: ${f.has_envelope ? 'yes' : 'no'}`)
+        status.push(`vad: ${f.has_vad ? 'yes' : 'no'}`)
         lines.push(`    ${status.join('  ')}`)
       }
     }
