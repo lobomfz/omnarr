@@ -138,15 +138,13 @@ export const database = new Database({
         scanned_at: generated('now'),
       }),
 
-      media_envelopes: type({
+      media_vad: type({
         id: generated('autoincrement'),
         media_file_id: type('number.integer').configure({
           references: 'media_files.id',
           onDelete: 'cascade',
           unique: true,
         }),
-        sample_rate: 'number.integer',
-        window_size: 'number.integer',
         data: type.instanceOf(Uint8Array),
       }),
 

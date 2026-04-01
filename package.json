@@ -45,6 +45,10 @@
     "@opentui/core": "0.1.92"
   },
   "dependencies": {
-    "fflate": "^0.8.2"
-  }
+    "fflate": "^0.8.2",
+    "onnxruntime-node": "^1.24.3"
+  },
+  "trustedDependencies": [
+    "onnxruntime-node"
+  ]
 }

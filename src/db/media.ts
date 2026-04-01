@@ -138,11 +138,11 @@ export const DbMedia = {
                           eb
                             .exists(
                               eb
-                                .selectFrom('media_envelopes as me')
-                                .whereRef('me.media_file_id', '=', 'mf.id')
+                                .selectFrom('media_vad as mv')
+                                .whereRef('mv.media_file_id', '=', 'mf.id')
                                 .selectAll()
                             )
-                            .as('has_envelope'),
+                            .as('has_vad'),
                         (eb) =>
                           jsonArrayFrom(
                             eb
@@ -232,15 +232,15 @@ export const DbMedia = {
                                       eb
                                         .exists(
                                           eb
-                                            .selectFrom('media_envelopes as me')
+                                            .selectFrom('media_vad as mv')
                                             .whereRef(
-                                              'me.media_file_id',
+                                              'mv.media_file_id',
                                               '=',
                                               'mf.id'
                                             )
                                             .selectAll()
                                         )
-                                        .as('has_envelope'),
+                                        .as('has_vad'),
                                     (eb) =>
                                       jsonArrayFrom(
                                         eb

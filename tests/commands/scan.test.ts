@@ -97,10 +97,10 @@ describe('scan command', () => {
     expect(types).toContain('subtitle')
 
     expect(data[0].keyframes).toBeGreaterThan(0)
-    expect(data[0].has_envelope).toBeTruthy()
+    expect(data[0].has_vad).toBeTruthy()
   })
 
-  test('shows keyframe and envelope status in formatted output', async () => {
+  test('shows keyframe and vad status in formatted output', async () => {
     const media = await seedMedia(join(tmpDir, 'movies/The Matrix (1999)'))
 
     const result = await testCommand(ScanCommand, {
@@ -109,7 +109,7 @@ describe('scan command', () => {
     })
 
     expect(result.stdout).toContain('keyframes:')
-    expect(result.stdout).toContain('envelope:')
+    expect(result.stdout).toContain('vad:')
   })
 
   test('outputs formatted text without --json', async () => {

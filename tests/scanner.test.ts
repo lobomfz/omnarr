@@ -14,10 +14,10 @@ import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
-import { DbMediaEnvelopes } from '@/db/media-envelopes'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
+import { DbMediaVad } from '@/db/media-vad'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { Scanner } from '@/scanner'
@@ -705,48 +705,46 @@ describe('new Scanner().scan — external subtitle files', () => {
     expect(subFile!.duration).toBeNull()
   })
 
-  test('does not create keyframes or envelopes for subtitle files', async () => {
+  test('does not create keyframes or vad data for subtitle files', async () => {
     const media = await seedMedia(join(tmpDir, 'sub-discover'))
     await new Scanner().scan(media.id, noop)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
     const keyframes = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
-    const envelope = await DbMediaEnvelopes.getByMediaFileId(files[0].id)
+    const vad = await DbMediaVad.getByMediaFileId(files[0].id)
 
     expect(keyframes).toHaveLength(0)
-    expect(envelope).toBeUndefined()
+    expect(vad).toBeUndefined()
   })
 })
 
-describe('new Scanner().scan — envelope extraction', () => {
-  test('scanning a media file produces an envelope in media_envelopes', async () => {
+describe('new Scanner().scan — VAD extraction', () => {
+  test('scanning a media file produces vad data in media_vad', async () => {
     const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
     await new Scanner().scan(media.id, noop)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
-    const envelope = await DbMediaEnvelopes.getByMediaFileId(files[0].id)
+    const vad = await DbMediaVad.getByMediaFileId(files[0].id)
 
-    expect(envelope).toBeDefined()
-    expect(envelope!.sample_rate).toBe(8000)
-    expect(envelope!.window_size).toBe(400)
-    expect(envelope!.data).toBeInstanceOf(Uint8Array)
+    expect(vad).toBeDefined()
+    expect(vad!.data).toBeInstanceOf(Uint8Array)
   })
 
-  test('force-rescan recomputes the envelope', async () => {
+  test('force-rescan recomputes vad data', async () => {
     const media = await seedMedia(join(tmpDir, 'force/The Matrix (1999)'))
     await new Scanner().scan(media.id, noop)
 
     const filesBefore = await DbMediaFiles.getByMediaId(media.id)
-    const envBefore = await DbMediaEnvelopes.getByMediaFileId(filesBefore[0].id)
+    const vadBefore = await DbMediaVad.getByMediaFileId(filesBefore[0].id)
 
-    expect(envBefore).toBeDefined()
+    expect(vadBefore).toBeDefined()
 
     await new Scanner().scan(media.id, noop, { force: true })
 
     const filesAfter = await DbMediaFiles.getByMediaId(media.id)
-    const envAfter = await DbMediaEnvelopes.getByMediaFileId(filesAfter[0].id)
+    const vadAfter = await DbMediaVad.getByMediaFileId(filesAfter[0].id)
 
-    expect(envAfter).toBeDefined()
+    expect(vadAfter).toBeDefined()
     expect(filesAfter[0].id).not.toBe(filesBefore[0].id)
   })
 })

@@ -356,6 +356,10 @@ export class Handler {
       displayLines.push(`audio offset: ${result.audioOffset.toFixed(3)}s`)
     }
 
+    if (result.subtitleOffset !== 0) {
+      displayLines.push(`subtitle offset: ${result.subtitleOffset.toFixed(3)}s`)
+    }
+
     displayLines.push('', result.url)
 
     this.output(result, displayLines.join('\n'))

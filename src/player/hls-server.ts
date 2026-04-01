@@ -33,6 +33,7 @@ type HlsServerOpts = {
   segments: Segment[]
   transcode: TranscodeFn
   audioOffset: number
+  subtitleOffset: number
   port: number
   mediaId: string
 }
@@ -63,7 +64,10 @@ export class HlsServer extends HlsSession {
     await Bun.write(join(this.opts.outDir, 'video.m3u8'), this.buildPlaylist())
 
     if (this.serverOpts.resolved.subtitle) {
-      await this.convertSubtitle(this.serverOpts.resolved.subtitle)
+      await this.convertSubtitle(
+        this.serverOpts.resolved.subtitle,
+        this.serverOpts.subtitleOffset
+      )
       await Bun.write(
         join(this.opts.outDir, 'subs.m3u8'),
         this.buildSubtitlePlaylist()
@@ -142,7 +146,10 @@ export class HlsServer extends HlsSession {
     ].join('\n')
   }
 
-  private async convertSubtitle(subtitle: ResolvedTrack) {
+  private async convertSubtitle(
+    subtitle: ResolvedTrack,
+    subtitleOffset: number
+  ) {
     if (!HLS_SUBTITLE_CODECS.has(subtitle.codec_name)) {
       throw new Error(
         `Incompatible subtitle codec '${subtitle.codec_name}'. Supported: ${[...HLS_SUBTITLE_CODECS].join(', ')}.`
@@ -151,7 +158,13 @@ export class HlsServer extends HlsSession {
 
     await mkdir(this.opts.outDir, { recursive: true })
 
-    await new FFmpegBuilder({ overwrite: true })
+    let builder = new FFmpegBuilder({ overwrite: true })
+
+    if (subtitleOffset !== 0) {
+      builder = builder.rawInput('-itsoffset', String(subtitleOffset))
+    }
+
+    await builder
       .input(subtitle.file_path)
       .map(`0:${subtitle.stream_index}`)
       .output(join(this.opts.outDir, 'subs.vtt'))

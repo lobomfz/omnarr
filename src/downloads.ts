@@ -11,7 +11,6 @@ import { type indexer_source, media_type } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { Formatters } from '@/formatters'
 import type { DownloadClient } from '@/integrations/download-client'
 import { indexerMap } from '@/integrations/indexers/registry'
 import { SuperflixAdapter } from '@/integrations/indexers/superflix'
@@ -183,10 +182,7 @@ export class Downloads {
       entries.push({
         tag: 'VIDEO',
         stream: streams.video,
-        outputPath: join(
-          data.media.root_folder,
-          `${Formatters.mediaTitle(data)}.mkv`
-        ),
+        outputPath: join(tracksDir, 'video.mkv'),
         codec: 'v',
       })
     }
@@ -203,26 +199,13 @@ export class Downloads {
       })
     }
 
-    const pending: { id: number; sourceId: string }[] = []
-
-    for (const entry of entries) {
-      const sourceId = `${data.source_id}:${entry.tag}`
-      const existing = await DbDownloads.getBySourceId(sourceId)
-
-      if (existing) {
-        continue
-      }
-
-      const dl = await DbDownloads.create({
-        media_id: data.media.id,
-        source_id: sourceId,
-        download_url: data.download_url,
-        source: 'ripper',
-        status: 'pending',
-      })
-
-      pending.push({ id: dl.id, sourceId })
-    }
+    const download = await DbDownloads.create({
+      media_id: data.media.id,
+      source_id: data.source_id,
+      download_url: data.download_url,
+      source: 'ripper',
+      status: 'downloading',
+    })
 
     const tmpPath = join(tmpdir(), `omnarr-dl-${data.media.id}`)
 
@@ -237,16 +220,7 @@ export class Downloads {
     let ripped = 0
 
     for (const entry of entries) {
-      const sourceId = `${data.source_id}:${entry.tag}`
-      const record = pending.find((p) => p.sourceId === sourceId)
-
-      if (!record) {
-        continue
-      }
-
       try {
-        await DbDownloads.update(record.id, { status: 'downloading' })
-
         onProgress(entry.tag, 'downloading', 0)
 
         const tmpFile = join(tmpPath, `${entry.tag}.ts`)
@@ -255,13 +229,14 @@ export class Downloads {
           entry.stream,
           tmpFile,
           async (downloaded, total) => {
-            const progress = downloaded / total
-            await DbDownloads.update(record.id, { progress })
-            onProgress(entry.tag, 'downloading', progress)
+            const streamProgress = downloaded / total
+            const overall = (ripped + streamProgress) / entries.length
+
+            await DbDownloads.update(download.id, { progress: overall })
+            onProgress(entry.tag, 'downloading', streamProgress)
           }
         )
 
-        await DbDownloads.update(record.id, { status: 'processing' })
         onProgress(entry.tag, 'processing', 1)
 
         await mkdir(dirname(entry.outputPath), { recursive: true })
@@ -272,30 +247,33 @@ export class Downloads {
           .output(entry.outputPath)
           .run()
 
-        await DbDownloads.update(record.id, {
-          status: 'completed',
-          progress: 1,
-          content_path: entry.outputPath,
-        })
-
         onProgress(entry.tag, 'completed', 1)
         ripped++
       } catch (err) {
         Log.warn(
-          `ripper failed source_id=${sourceId} error="${err instanceof Error ? err.message : String(err)}"`
+          `ripper failed tag=${entry.tag} error="${err instanceof Error ? err.message : String(err)}"`
         )
-
-        await DbDownloads.update(record.id, {
-          status: 'error',
-          error_at: new Date().toISOString(),
-        }).catch(() => {})
       }
+    }
+
+    if (ripped > 0) {
+      await DbDownloads.update(download.id, {
+        status: 'completed',
+        progress: 1,
+        content_path: tracksDir,
+      })
+    } else {
+      await DbDownloads.update(download.id, {
+        status: 'error',
+        error_at: new Date().toISOString(),
+      })
     }
 
     Log.info(`ripper complete ripped=${ripped} total=${entries.length}`)
 
     return {
       media: data.media,
+      download,
       ripped,
       total: entries.length,
       title: data.title,

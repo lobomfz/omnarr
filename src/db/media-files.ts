@@ -59,11 +59,11 @@ export const DbMediaFiles = {
           eb
             .exists(
               eb
-                .selectFrom('media_envelopes as me')
-                .whereRef('me.media_file_id', '=', 'mf.id')
+                .selectFrom('media_vad as mv')
+                .whereRef('mv.media_file_id', '=', 'mf.id')
                 .selectAll()
             )
-            .as('has_envelope'),
+            .as('has_vad'),
         (eb) =>
           jsonArrayFrom(
             eb

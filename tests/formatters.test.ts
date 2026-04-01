@@ -266,7 +266,7 @@ describe('Formatters', () => {
               format_name: 'matroska',
               duration: 7200,
               has_keyframes: true,
-              has_envelope: true,
+              has_vad: true,
               tracks: [track(0, 'video', 'h264'), track(1, 'audio', 'aac')],
             },
             {
@@ -276,7 +276,7 @@ describe('Formatters', () => {
               format_name: 'matroska',
               duration: 5400,
               has_keyframes: true,
-              has_envelope: true,
+              has_vad: true,
               tracks: [track(0, 'video', 'hevc'), track(1, 'audio', 'opus')],
             },
           ],

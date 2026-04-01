@@ -1,9 +1,10 @@
 import { AudioCorrelator, MIN_SYNC_CONFIDENCE } from '@/audio-correlator'
 import { config } from '@/config'
-import { DbMediaEnvelopes } from '@/db/media-envelopes'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks, type TracksWithFile } from '@/db/media-tracks'
+import { DbMediaVad } from '@/db/media-vad'
 import { Log } from '@/log'
+import { Parsers } from '@/parsers'
 import { HlsServer } from '@/player/hls-server'
 import { Transcoder } from '@/player/transcoder'
 
@@ -22,6 +23,7 @@ export class Player {
     const resolved = await this.resolveTracks(selection)
 
     const audioOffset = await this.resolveAudioOffset(resolved)
+    const subtitleOffset = await this.resolveSubtitleOffset(resolved)
 
     const [transcode, segments] = await Promise.all([
       Transcoder.init(resolved, config.transcoding),
@@ -41,13 +43,14 @@ export class Player {
       segments,
       transcode,
       audioOffset,
+      subtitleOffset,
       port: opts.port ?? 8787,
       mediaId: this.media.id,
     })
 
     await this.server.start()
 
-    return { url: this.server.url, audioOffset, ...resolved }
+    return { url: this.server.url, audioOffset, subtitleOffset, ...resolved }
   }
 
   async stop() {
@@ -100,34 +103,32 @@ export class Player {
       return 0
     }
 
-    const [videoEnv, audioEnv] = await Promise.all([
-      DbMediaEnvelopes.getByMediaFileId(resolved.video.file_id),
-      DbMediaEnvelopes.getByMediaFileId(resolved.audio.file_id),
+    const [videoVad, audioVad] = await Promise.all([
+      DbMediaVad.getByMediaFileId(resolved.video.file_id),
+      DbMediaVad.getByMediaFileId(resolved.audio.file_id),
     ])
 
-    if (!videoEnv || !audioEnv) {
+    if (!videoVad || !audioVad) {
       Log.warn(
-        `audio sync skipped: missing envelope video=${!!videoEnv} audio=${!!audioEnv}`
+        `audio sync skipped: missing vad video=${!!videoVad} audio=${!!audioVad}`
       )
       return 0
     }
 
-    const videoData = new Int8Array(
-      videoEnv.data.buffer,
-      videoEnv.data.byteOffset,
-      videoEnv.data.byteLength
+    const videoTimestamps = new Float32Array(
+      videoVad.data.buffer,
+      videoVad.data.byteOffset,
+      videoVad.data.byteLength / Float32Array.BYTES_PER_ELEMENT
     )
-    const audioData = new Int8Array(
-      audioEnv.data.buffer,
-      audioEnv.data.byteOffset,
-      audioEnv.data.byteLength
+    const audioTimestamps = new Float32Array(
+      audioVad.data.buffer,
+      audioVad.data.byteOffset,
+      audioVad.data.byteLength / Float32Array.BYTES_PER_ELEMENT
     )
 
-    const result = AudioCorrelator.correlate(
-      videoData,
-      audioData,
-      videoEnv.sample_rate,
-      videoEnv.window_size
+    const result = AudioCorrelator.correlateTimestamps(
+      videoTimestamps,
+      audioTimestamps
     )
 
     if (result.confidence < MIN_SYNC_CONFIDENCE) {
@@ -142,6 +143,63 @@ export class Player {
     )
 
     return result.offsetSeconds
+  }
+
+  async resolveSubtitleOffset(resolved: {
+    video: { download_id: number; file_id: number }
+    audio: { download_id: number; file_id: number }
+    subtitle: { download_id: number; file_path: string } | null
+  }) {
+    if (!resolved.subtitle) {
+      return 0
+    }
+
+    if (resolved.subtitle.download_id === resolved.video.download_id) {
+      return 0
+    }
+
+    const audioFileId =
+      resolved.video.file_id !== resolved.audio.file_id
+        ? resolved.audio.file_id
+        : resolved.video.file_id
+
+    const vad = await DbMediaVad.getByMediaFileId(audioFileId)
+
+    if (!vad) {
+      Log.warn('subtitle sync skipped: missing vad for audio')
+      return 0
+    }
+
+    const vadTimestamps = new Float32Array(
+      vad.data.buffer,
+      vad.data.byteOffset,
+      vad.data.byteLength / Float32Array.BYTES_PER_ELEMENT
+    )
+
+    const srtContent = await Bun.file(resolved.subtitle.file_path).text()
+    const srtTimestamps = Parsers.srtTimestamps(srtContent)
+
+    if (srtTimestamps.length === 0) {
+      Log.warn('subtitle sync skipped: no timestamps in SRT')
+      return 0
+    }
+
+    const result = AudioCorrelator.correlateOnsets(vadTimestamps, srtTimestamps)
+
+    if (result.confidence < MIN_SYNC_CONFIDENCE) {
+      Log.warn(
+        `subtitle sync skipped: low confidence=${result.confidence.toFixed(1)} offset=${result.offsetSeconds.toFixed(3)}s`
+      )
+      return 0
+    }
+
+    const offset = result.offsetSeconds + config.subtitle_delay
+
+    Log.info(
+      `subtitle sync applied: offset=${offset.toFixed(3)}s confidence=${result.confidence.toFixed(1)}`
+    )
+
+    return offset
   }
 
   private pickTrack(

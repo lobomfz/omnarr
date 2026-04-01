@@ -1,0 +1,2 @@
+export const SILERO_SAMPLE_RATE = 16000
+export const SILERO_WINDOW_SAMPLES = 512

@@ -90,6 +90,7 @@ describe('Player — start', () => {
     expect(result.audio.codec_name).toBe('aac')
     expect(result.subtitle).toBeNull()
     expect(result.audioOffset).toBe(0)
+    expect(result.subtitleOffset).toBe(0)
 
     const masterRes = await fetch(result.url)
 
@@ -207,6 +208,7 @@ describe('Player — start', () => {
 
     expect(result.subtitle).not.toBeNull()
     expect(result.subtitle!.language).toBe('por')
+    expect(result.subtitleOffset).toBe(0)
 
     const masterRes = await fetch(result.url)
     const masterText = await masterRes.text()
