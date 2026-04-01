@@ -2,13 +2,14 @@
 
 Unified media manager.
 
-Search TMDB. Find releases in your indexers. Send the chosen torrent to qBittorrent. Track the download until it finishes.
+Search TMDB. Find releases in your indexers. Download via qBittorrent or rip directly from streaming sources. Scan, play, and manage your library.
 
 ## Supported today
 
 - TMDB for metadata
 - YTS
 - Beyond-HD
+- Superflix (direct HLS ripping)
 - qBittorrent
 
 ### For humans
@@ -41,14 +42,19 @@ omnarr init                         # interactive config wizard
 
 # download flow
 omnarr search "The Matrix"          # search TMDB
-omnarr releases <search_id>         # browse torrent releases
-omnarr download <release_id>        # send to qBittorrent
+omnarr releases <search_id>         # browse releases from all indexers
+omnarr download <release_id>        # torrent → qBittorrent, ripper → direct download
+omnarr download <release_id> --audio-only  # rip only audio tracks (.mka)
 omnarr status --watch               # monitor progress
 
-# scan and extract flow
+# library flow
 omnarr library                      # list media with IDs and status
+omnarr info <media_id>              # detailed view: files, tracks, status
 omnarr scan <media_id>              # probe files, discover tracks
-omnarr extract <media_id>           # extract video/audio/subtitle tracks
+
+# playback
+omnarr play <media_id>              # HLS streaming via FFmpeg + mpv
+omnarr play <media_id> --video 1 --audio 0  # pick specific tracks
 ```
 
 All user-facing IDs are 6-char strings (e.g., `C8R3OD`). The ID shown in `search` is the same one used in `scan` and `extract`.
@@ -65,19 +71,27 @@ omnarr init --empty
 # search and download
 omnarr search "Breaking Bad"
 omnarr releases ABC123
+omnarr releases ABC123 --season 1     # TV: filter by season
 omnarr download XYZ789
+omnarr download XYZ789 --audio-only   # ripper: audio tracks only
 omnarr status
 omnarr status --watch --limit 20
 omnarr wait-for XYZ789
 
 # library management
 omnarr library                       # list all media with status
+omnarr info ABC123                   # files, tracks, download status
+omnarr info ABC123 --season 1        # TV: filter by season
 omnarr scan ABC123                   # probe files on disk
 omnarr scan ABC123 --force           # re-probe from scratch
-omnarr extract ABC123                # extract tracks (video/audio/subtitle)
+
+# playback
+omnarr play ABC123                   # HLS stream, auto-selects best tracks
+omnarr play ABC123 --video 0 --audio 1
+omnarr play ABC123 --season 1 --episode 3  # TV
 ```
 
-Requires FFmpeg for `scan` and `extract`.
+Requires FFmpeg for `scan` and `play`.
 
 ## Config
 
@@ -102,7 +116,8 @@ Example config:
       "type": "beyond-hd",
       "api_key": "your-api-key",
       "rss_key": "your-rss-key"
-    }
+    },
+    { "type": "superflix" }
   ],
   "download_client": {
     "type": "qbittorrent",
