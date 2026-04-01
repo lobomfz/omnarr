@@ -37,6 +37,8 @@ export const DbMedia = {
         'm.tmdb_media_id',
         't.title',
         't.year',
+        't.tmdb_id',
+        't.imdb_id',
       ])
       .executeTakeFirst()
   },

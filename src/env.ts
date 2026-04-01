@@ -21,6 +21,8 @@ const envSchema = type({
   ),
   YTS_API_URL: type('string').default('https://movies-api.accel.li/api/v2/'),
   SUPERFLIX_API_URL: type('string').default('https://superflixapi.rest'),
+  SUBDL_API_URL: type('string').default('https://api.subdl.com'),
+  SUBDL_DOWNLOAD_URL: type('string').default('https://dl.subdl.com'),
 })
 
 export const envVariables = envSchema.assert({ ...process.env })

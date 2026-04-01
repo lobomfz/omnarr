@@ -165,6 +165,7 @@ export class Handler {
         type: release.media_type,
         indexer_source: release.indexer_source,
         audio_only: opts?.audio_only,
+        language: release.language,
       },
       (tag, status, progress) => {
         if (this.json) {
@@ -407,6 +408,31 @@ export class Handler {
         Type: m.media_type,
         Title: Formatters.mediaTitle(m),
         Status: Formatters.mediaStatus(m),
+      }))
+    )
+  }
+
+  async subtitles(opts?: { season?: number; episode?: number; lang?: string }) {
+    const { media_id } = this.parseArgs(
+      'subtitles',
+      type({ media_id: 'string' })
+    )
+
+    Log.info(`command=subtitles media_id=${media_id}`)
+
+    const results = await new Releases().searchSubtitles(media_id, opts)
+
+    if (results.length === 0) {
+      console.log('No subtitles found.')
+      return
+    }
+
+    this.output(
+      results,
+      results.map((r) => ({
+        ID: r.id,
+        Name: r.name,
+        Language: r.language ?? '',
       }))
     )
   }

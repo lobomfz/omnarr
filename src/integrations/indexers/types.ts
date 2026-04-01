@@ -19,12 +19,16 @@ export interface IndexerRelease {
   codec: string | null
   hdr: string[]
   download_url: string
+  language?: string
 }
 
 export interface SearchParams {
   query?: string
   tmdb_id?: string
   imdb_id?: string
+  languages?: string[]
+  season_number?: number
+  episode_number?: number
 }
 
 export interface Indexer {

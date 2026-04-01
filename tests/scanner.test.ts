@@ -147,6 +147,9 @@ beforeAll(async () => {
     refMkv,
     join(tmpDir, 'tv-force/Breaking.Bad.S01E01.mkv')
   )
+  await MediaFixtures.writeDummy(join(tmpDir, 'sub-discover/sub_en.srt'))
+  await MediaFixtures.copy(refMkv, join(tmpDir, 'mixed-srt/movie.mkv'))
+  await MediaFixtures.writeDummy(join(tmpDir, 'mixed-srt/sub_en.srt'))
 })
 
 afterAll(async () => {
@@ -260,12 +263,16 @@ describe('new Scanner().scan — file discovery', () => {
     expect(files).toHaveLength(4)
   })
 
-  test('ignores files with irrelevant extensions', async () => {
+  test('ignores non-media files (.nfo, .jpg, .txt)', async () => {
     const media = await seedMedia(join(tmpDir, 'ignore/The Matrix (1999)'))
     const files = await new Scanner().scan(media.id, noop)
 
-    expect(files).toHaveLength(1)
-    expect(files[0].path).toContain('movie.mkv')
+    expect(files).toHaveLength(2)
+
+    const paths = files.map((f) => f.path)
+
+    expect(paths.some((p) => p.includes('movie.mkv'))).toBe(true)
+    expect(paths.some((p) => p.includes('subs.srt'))).toBe(true)
   })
 
   test('persists each file in media_files with path and size', async () => {
@@ -644,6 +651,70 @@ describe('new Scanner().scan — progress callback', () => {
     })
 
     expect(progress).toHaveLength(0)
+  })
+})
+
+describe('new Scanner().scan — external subtitle files', () => {
+  test('discovers .srt files in content paths', async () => {
+    const media = await seedMedia(join(tmpDir, 'sub-discover'))
+    const files = await new Scanner().scan(media.id, noop)
+
+    expect(files).toHaveLength(1)
+    expect(files[0].path).toContain('sub_en.srt')
+  })
+
+  test('creates media_files without format_name or duration', async () => {
+    const media = await seedMedia(join(tmpDir, 'sub-discover'))
+    await new Scanner().scan(media.id, noop)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+
+    expect(files).toHaveLength(1)
+    expect(files[0].size).toBeGreaterThan(0)
+    expect(files[0].format_name).toBeNull()
+    expect(files[0].duration).toBeNull()
+  })
+
+  test('creates subtitle track with correct metadata and language', async () => {
+    const media = await seedMedia(join(tmpDir, 'sub-discover'))
+    await new Scanner().scan(media.id, noop)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+    const tracks = await DbMediaTracks.getByMediaFileId(files[0].id)
+
+    expect(tracks).toHaveLength(1)
+    expect(tracks[0].stream_type).toBe('subtitle')
+    expect(tracks[0].stream_index).toBe(0)
+    expect(tracks[0].codec_name).toBe('subrip')
+    expect(tracks[0].language).toBe('en')
+    expect(tracks[0].is_default).toBe(false)
+  })
+
+  test('handles mixed video and subtitle files', async () => {
+    const media = await seedMedia(join(tmpDir, 'mixed-srt'))
+    const files = await new Scanner().scan(media.id, noop)
+
+    expect(files).toHaveLength(2)
+
+    const subFile = files.find((f) => f.path.includes('.srt'))
+    const videoFile = files.find((f) => f.path.includes('.mkv'))
+
+    expect(subFile).toBeDefined()
+    expect(videoFile).toBeDefined()
+    expect(videoFile!.duration).toBeGreaterThan(0)
+    expect(subFile!.duration).toBeNull()
+  })
+
+  test('does not create keyframes or envelopes for subtitle files', async () => {
+    const media = await seedMedia(join(tmpDir, 'sub-discover'))
+    await new Scanner().scan(media.id, noop)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+    const keyframes = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
+    const envelope = await DbMediaEnvelopes.getByMediaFileId(files[0].id)
+
+    expect(keyframes).toHaveLength(0)
+    expect(envelope).toBeUndefined()
   })
 })
 

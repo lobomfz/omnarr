@@ -43,5 +43,8 @@
   },
   "overrides": {
     "@opentui/core": "0.1.92"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
   }
 }

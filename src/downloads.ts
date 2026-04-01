@@ -3,6 +3,8 @@ import { tmpdir } from 'os'
 import { dirname, join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
+import { unzipSync } from 'fflate'
+import axios from 'redaxios'
 
 import { config } from '@/config'
 import { type indexer_source, media_type } from '@/db/connection'
@@ -35,6 +37,7 @@ export class Downloads {
       type: media_type
       indexer_source: indexer_source
       audio_only?: boolean
+      language?: string | null
     },
     onProgress: (tag: string, status: string, progress: number) => void
   ) {
@@ -68,40 +71,78 @@ export class Downloads {
 
     const source = indexerMap[params.indexer_source].source
 
-    if (source === 'ripper') {
-      return await this.addRipper(
-        {
-          download_url: params.download_url,
-          imdb_id: details.imdb_id,
-          source_id: params.source_id,
-          audio_only: params.audio_only,
-          title: details.title,
-          year: details.year,
-          media,
-        },
-        onProgress
-      )
-    }
+    switch (source) {
+      case 'subtitle':
+        return await this.addSubtitle(
+          {
+            source_id: params.source_id,
+            download_url: params.download_url,
+            language: params.language,
+            media,
+          },
+          onProgress,
+          { title: details.title, year: details.year }
+        )
 
+      case 'ripper':
+        return await this.addRipper(
+          {
+            download_url: params.download_url,
+            imdb_id: details.imdb_id,
+            source_id: params.source_id,
+            audio_only: params.audio_only,
+            title: details.title,
+            year: details.year,
+            media,
+          },
+          onProgress
+        )
+
+      case 'torrent':
+        return await this.addTorrent(
+          {
+            source_id: params.source_id,
+            download_url: params.download_url,
+            media,
+          },
+          { title: details.title, year: details.year }
+        )
+    }
+  }
+
+  private async addTorrent(
+    data: {
+      source_id: string
+      download_url: string
+      media: {
+        id: string
+        media_type: media_type
+        root_folder: string
+        tmdb_media_id: number
+        added_at: Date
+      }
+    },
+    details: { title: string; year: number | null }
+  ) {
     if (!this.client) {
       throw new Error('No download client configured.')
     }
 
     Log.info(
-      `adding torrent source_id=${params.source_id} title="${details.title}"`
+      `adding torrent source_id=${data.source_id} title="${details.title}"`
     )
 
-    await this.client.addTorrent({ url: params.download_url })
+    await this.client.addTorrent({ url: data.download_url })
 
     const download = await DbDownloads.create({
-      media_id: media.id,
-      source_id: params.source_id,
-      download_url: params.download_url,
+      media_id: data.media.id,
+      source_id: data.source_id,
+      download_url: data.download_url,
     })
 
-    Log.info(`torrent sent to client source_id=${params.source_id}`)
+    Log.info(`torrent sent to client source_id=${data.source_id}`)
 
-    return { media, download, title: details.title, year: details.year }
+    return { media: data.media, download, ...details }
   }
 
   private async addRipper(
@@ -129,13 +170,7 @@ export class Downloads {
     const client = new SuperflixAdapter()
     const streams = await client.getStreams(data.imdb_id)
 
-    const tracksRoot = config.root_folders?.tracks
-
-    if (!tracksRoot) {
-      throw new Error('No tracks root folder configured')
-    }
-
-    const tracksDir = join(tracksRoot, data.media.id)
+    const tracksDir = this.resolveTracksDir(data.media.id)
 
     const entries: {
       tag: string
@@ -266,6 +301,87 @@ export class Downloads {
       title: data.title,
       year: data.year,
     }
+  }
+
+  private async addSubtitle(
+    data: {
+      source_id: string
+      download_url: string
+      language?: string | null
+      media: {
+        id: string
+        media_type: media_type
+        root_folder: string
+        tmdb_media_id: number
+        added_at: Date
+      }
+    },
+    onProgress: (tag: string, status: string, progress: number) => void,
+    details: { title: string; year: number | null }
+  ) {
+    const tracksDir = this.resolveTracksDir(data.media.id)
+    const lang = data.language?.toLowerCase() ?? 'und'
+    const tag = lang.toUpperCase()
+
+    await mkdir(tracksDir, { recursive: true })
+
+    const download = await DbDownloads.create({
+      media_id: data.media.id,
+      source_id: data.source_id,
+      download_url: data.download_url,
+      source: 'subtitle',
+      status: 'downloading',
+    })
+
+    onProgress(tag, 'downloading', 0)
+
+    try {
+      const { data: zipData } = await axios<ArrayBuffer>({
+        url: data.download_url,
+        responseType: 'arrayBuffer',
+      })
+
+      const files = unzipSync(new Uint8Array(zipData))
+      const srtEntry = Object.keys(files).find((f) => f.endsWith('.srt'))
+
+      if (!srtEntry) {
+        throw new Error('No .srt file found in subtitle archive')
+      }
+
+      const sourceHash = deriveId(data.source_id)
+      const targetPath = join(tracksDir, `sub_${lang}_${sourceHash}.srt`)
+
+      await Bun.write(targetPath, files[srtEntry])
+
+      await DbDownloads.update(download.id, {
+        status: 'completed',
+        progress: 1,
+        content_path: targetPath,
+      })
+
+      onProgress(tag, 'completed', 1)
+
+      Log.info(`subtitle saved path=${targetPath}`)
+
+      return { media: data.media, download, ...details }
+    } catch (err) {
+      await DbDownloads.update(download.id, {
+        status: 'error',
+        error_at: new Date().toISOString(),
+      }).catch(() => {})
+
+      throw err
+    }
+  }
+
+  private resolveTracksDir(mediaId: string) {
+    const tracksRoot = config.root_folders?.tracks
+
+    if (!tracksRoot) {
+      throw new Error('No tracks root folder configured')
+    }
+
+    return join(tracksRoot, mediaId)
   }
 
   async getBySourceId(sourceId: string) {

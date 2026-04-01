@@ -18,7 +18,10 @@ import {
 import { Log } from '@/log'
 import { Parsers } from '@/parsers'
 
-const VALID_EXTENSIONS = new Set(['mkv', 'mp4', 'avi', 'ts', 'mka'])
+const VALID_EXTENSIONS = new Set(['mkv', 'mp4', 'avi', 'ts', 'mka', 'srt'])
+
+const SUBTITLE_EXTENSIONS = new Set(['srt'])
+const SUBTITLE_CODEC: Record<string, string> = { srt: 'subrip' }
 
 const MEDIA_GLOB = new Bun.Glob(`**/*.{${[...VALID_EXTENSIONS].join(',')}}`)
 
@@ -203,6 +206,47 @@ export class Scanner {
     onProgress: (ratio: number) => void
   ) {
     Log.info(`probing file="${fullPath}"`)
+
+    const ext = extname(fullPath).slice(1).toLowerCase()
+
+    if (SUBTITLE_EXTENSIONS.has(ext)) {
+      const fileSize = (await stat(fullPath)).size
+      const episodeId = await this.resolveEpisodeId(
+        media.tmdb_media_id,
+        fullPath
+      )
+
+      const name = basename(fullPath, extname(fullPath))
+      const langMatch = /^sub_([a-z]+)$/i.exec(name)
+      const language = langMatch?.[1].toLowerCase()
+
+      const file = await DbMediaFiles.create({
+        media_id: media.id,
+        download_id: downloadId,
+        path: fullPath,
+        size: fileSize,
+        episode_id: episodeId,
+      })
+
+      await DbMediaTracks.createMany([
+        {
+          media_file_id: file.id,
+          stream_index: 0,
+          stream_type: 'subtitle',
+          codec_name: SUBTITLE_CODEC[ext],
+          language,
+          is_default: false,
+        },
+      ])
+
+      onProgress(1)
+
+      Log.info(
+        `subtitle registered file="${fullPath}" lang=${language ?? 'unknown'}`
+      )
+
+      return true
+    }
 
     const probe = await new FFmpegBuilder().input(fullPath).probe()
 

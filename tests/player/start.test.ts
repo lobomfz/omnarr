@@ -112,6 +112,60 @@ describe('Player — start', () => {
     await player.stop()
   })
 
+  test('subtitle served via HLS media playlist, not raw VTT', async () => {
+    const media = await seedMedia()
+    const filePath = join(tmpDir, 'start-subs-hls/movie.mkv')
+
+    await MediaFixtures.copy(refSubsMkv, filePath)
+
+    await seedDownloadWithTracks(
+      media.id,
+      'subhls_hash',
+      filePath,
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 320,
+          height: 240,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+        {
+          stream_index: 2,
+          stream_type: 'subtitle',
+          codec_name: 'subrip',
+          is_default: false,
+          language: 'por',
+        },
+      ],
+      { duration: refSubsDuration, keyframes: refSubsKeyframes }
+    )
+
+    const player = new Player({ id: media.id })
+    const result = await player.start({ sub: 0 }, { port: 0 })
+
+    const masterText = await fetch(result.url).then((r) => r.text())
+
+    expect(masterText).toContain('subs.m3u8')
+    expect(masterText).not.toContain('subs.vtt')
+
+    const subsPlaylistUrl = result.url.replace('master.m3u8', 'subs.m3u8')
+    const subsText = await fetch(subsPlaylistUrl).then((r) => r.text())
+
+    expect(subsText).toContain('#EXTM3U')
+    expect(subsText).toContain('subs.vtt')
+    expect(subsText).toContain('#EXT-X-ENDLIST')
+
+    await player.stop()
+  })
+
   test('includes subtitle in master playlist when selected', async () => {
     const media = await seedMedia()
     const filePath = join(tmpDir, 'start-subs/movie.mkv')
@@ -158,7 +212,7 @@ describe('Player — start', () => {
     const masterText = await masterRes.text()
 
     expect(masterText).toContain('SUBTITLES')
-    expect(masterText).toContain('subs.vtt')
+    expect(masterText).toContain('subs.m3u8')
 
     const vttUrl = result.url.replace('master.m3u8', 'subs.vtt')
     const vttRes = await fetch(vttUrl)
