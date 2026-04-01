@@ -1,4 +1,4 @@
-import { chmod, rm } from 'fs/promises'
+import { chmod, cp, rm } from 'fs/promises'
 
 await rm('dist', { recursive: true, force: true })
 
@@ -8,6 +8,7 @@ const result = await Bun.build({
   naming: 'omnarr',
   target: 'bun',
   minify: true,
+  external: ['onnxruntime-node'],
 })
 
 if (!result.success) {
@@ -25,4 +26,5 @@ for (const output of result.outputs) {
   await rm(output.path)
 }
 
+await cp('src/models', 'dist/models', { recursive: true })
 await chmod('dist/omnarr', 0o755)
