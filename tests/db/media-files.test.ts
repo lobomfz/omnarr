@@ -16,6 +16,7 @@ async function seedMedia() {
     tmdb_id: 603,
     media_type: 'movie',
     title: 'The Matrix',
+    imdb_id: 'tt0133093',
     year: 1999,
   })
 
@@ -28,7 +29,7 @@ async function seedMedia() {
 
   const download = await DbDownloads.create({
     media_id: media.id,
-    info_hash: 'test_hash',
+    source_id: 'test_hash',
     download_url: 'magnet:test',
     status: 'completed',
     content_path: '/movies/The Matrix (1999)',
@@ -174,6 +175,7 @@ describe('schema - media_files', () => {
       tmdb_id: 1399,
       media_type: 'tv',
       title: 'Breaking Bad',
+      imdb_id: 'tt0903747',
       year: 2008,
     })
 
@@ -186,14 +188,14 @@ describe('schema - media_files', () => {
 
     const dl1 = await DbDownloads.create({
       media_id: media1.id,
-      info_hash: 'hash1',
+      source_id: 'hash1',
       download_url: 'magnet:1',
       status: 'completed',
     })
 
     const dl2 = await DbDownloads.create({
       media_id: media2.id,
-      info_hash: 'hash2',
+      source_id: 'hash2',
       download_url: 'magnet:2',
       status: 'completed',
     })

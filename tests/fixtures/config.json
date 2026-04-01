@@ -1,7 +1,7 @@
 {
   "$schema": "../../config.schema.json",
   "root_folders": {
-    "movie": "/movies",
+    "movie": "/tmp/omnarr-test-movies",
     "tv": "/tv",
     "tracks": "/tmp/omnarr-test-tracks"
   },
@@ -13,6 +13,9 @@
     },
     {
       "type": "yts"
+    },
+    {
+      "type": "superflix"
     }
   ],
   "download_client": {

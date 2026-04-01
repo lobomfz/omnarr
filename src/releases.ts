@@ -6,6 +6,7 @@ import { DbEpisodes } from '@/db/episodes'
 import { DbReleases } from '@/db/releases'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
+import { Formatters } from '@/formatters'
 import { indexerMap } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Log } from '@/log'
@@ -27,7 +28,14 @@ export class Releases {
       }
     }
 
-    const showData = await this.tmdb.getShowWithSeasons(tmdb_id)
+    const [showData, externalIds] = await Promise.all([
+      this.tmdb.getShowWithSeasons(tmdb_id),
+      this.tmdb.getExternalIds(tmdb_id, 'tv'),
+    ])
+
+    if (!externalIds.imdb_id) {
+      throw new Error(`TMDB entry ${tmdb_id} has no IMDB ID`)
+    }
 
     const allEpisodes = await Promise.all(
       showData.seasons.map((s) =>
@@ -44,6 +52,7 @@ export class Releases {
           year: showData.year,
           overview: showData.overview,
           poster_path: showData.poster_path,
+          imdb_id: externalIds.imdb_id!,
         },
         trx
       )
@@ -76,11 +85,7 @@ export class Releases {
   }
 
   private async fetch(tmdb_id: number, type: media_type) {
-    const externalIds = await this.tmdb.getExternalIds(tmdb_id, type)
-
-    if (!externalIds.imdb_id) {
-      throw new Error('No IMDB ID found for this media.')
-    }
+    const details = await this.tmdb.getDetails(tmdb_id, type)
 
     const indexers = config.indexers.filter((c) =>
       indexerMap[c.type].types.includes(type)
@@ -98,12 +103,12 @@ export class Releases {
       indexers.map(async (c) => {
         const indexer = new indexerMap[c.type](c)
 
-        Log.info(`searching indexer=${c.type} imdb_id=${externalIds.imdb_id}`)
+        Log.info(`searching indexer=${c.type} imdb_id=${details.imdb_id}`)
 
         return await indexer
           .search({
             tmdb_id: String(tmdb_id),
-            imdb_id: externalIds.imdb_id!,
+            imdb_id: details.imdb_id,
           })
           .then((r) => {
             Log.info(`indexer=${c.type} returned ${r.length} results`)
@@ -116,7 +121,7 @@ export class Releases {
       })
     )
 
-    return results.flat()
+    return { releases: results.flat(), label: Formatters.mediaTitle(details) }
   }
 
   async search(
@@ -128,11 +133,13 @@ export class Releases {
       await this.fetchSeasons(tmdb_id)
     }
 
-    const releases = await this.fetch(tmdb_id, type)
+    const { releases, label } = await this.fetch(tmdb_id, type)
 
     const withSE = releases.map((r) => ({
       ...r,
-      ...Parsers.seasonEpisode(r.name),
+      source_id: r.source_id.toUpperCase(),
+      name: r.name ?? Formatters.releaseName(label, r.indexer_source),
+      ...Parsers.seasonEpisode(r.name ?? ''),
     }))
 
     const persisted = await DbReleases.upsert(tmdb_id, type, withSE)

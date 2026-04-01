@@ -16,10 +16,6 @@ describe('Formatters', () => {
       expect(Formatters.seasonEpisodeTag(null, null)).toBe('')
     })
 
-    test('returns empty for undefined season', () => {
-      expect(Formatters.seasonEpisodeTag(undefined, undefined)).toBe('')
-    })
-
     test('pads double-digit numbers', () => {
       expect(Formatters.seasonEpisodeTag(10, 23)).toBe('S10E23')
     })
@@ -194,8 +190,46 @@ describe('Formatters', () => {
     })
   })
 
+  describe('trackSummary', () => {
+    test('formats video track with resolution', () => {
+      expect(
+        Formatters.trackSummary('video', {
+          codec_name: 'h264',
+          width: 1920,
+          height: 1080,
+          channel_layout: null,
+          language: null,
+        })
+      ).toBe('video: h264 1920x1080')
+    })
+
+    test('formats audio track with channel layout and language', () => {
+      expect(
+        Formatters.trackSummary('audio', {
+          codec_name: 'aac',
+          width: null,
+          height: null,
+          channel_layout: '5.1',
+          language: 'en',
+        })
+      ).toBe('audio: aac 5.1 en')
+    })
+
+    test('formats minimal track', () => {
+      expect(
+        Formatters.trackSummary('subtitle', {
+          codec_name: 'subrip',
+          width: null,
+          height: null,
+          channel_layout: null,
+          language: null,
+        })
+      ).toBe('subtitle: subrip')
+    })
+  })
+
   describe('appendDownloads', () => {
-    test('track indices reset per file', () => {
+    test('track indices are global across files', () => {
       const lines: string[] = []
 
       const track = (
@@ -248,8 +282,8 @@ describe('Formatters', () => {
       const hevcLine = lines.find((l) => l.includes('hevc'))
       const opusLine = lines.find((l) => l.includes('opus'))
 
-      expect(hevcLine).toContain('video 0:')
-      expect(opusLine).toContain('audio 0:')
+      expect(hevcLine).toContain('video 1:')
+      expect(opusLine).toContain('audio 1:')
     })
   })
 })

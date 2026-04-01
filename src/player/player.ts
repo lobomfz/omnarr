@@ -106,12 +106,10 @@ export class Player {
       return tracks[index]
     }
 
-    const latest = tracks.filter(
-      (t) => t.download_id === tracks[0].download_id && t.is_default
-    )
+    const defaults = tracks.filter((t) => t.is_default)
 
-    if (latest.length > 0) {
-      return latest[0]
+    if (defaults.length > 0) {
+      return defaults[0]
     }
 
     return tracks[0]

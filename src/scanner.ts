@@ -12,7 +12,7 @@ import { DbMediaTracks } from '@/db/media-tracks'
 import { Log } from '@/log'
 import { Parsers } from '@/parsers'
 
-const VALID_EXTENSIONS = new Set(['mkv', 'mp4', 'avi', 'ts'])
+const VALID_EXTENSIONS = new Set(['mkv', 'mp4', 'avi', 'ts', 'mka'])
 
 const MEDIA_GLOB = new Bun.Glob(`**/*.{${[...VALID_EXTENSIONS].join(',')}}`)
 

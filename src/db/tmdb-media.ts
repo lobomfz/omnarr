@@ -18,6 +18,7 @@ export const DbTmdbMedia = {
           year: data.year,
           overview: data.overview,
           poster_path: data.poster_path,
+          imdb_id: data.imdb_id,
         })
       )
       .returning([
@@ -28,6 +29,7 @@ export const DbTmdbMedia = {
         'year',
         'overview',
         'poster_path',
+        'imdb_id',
         'fetched_at',
       ])
       .executeTakeFirstOrThrow()
@@ -57,7 +59,7 @@ export const DbTmdbMedia = {
     return await db
       .selectFrom('tmdb_media as t')
       .where('t.id', '=', id)
-      .select(['t.title'])
+      .select(['t.title', 't.imdb_id'])
       .executeTakeFirst()
   },
 }

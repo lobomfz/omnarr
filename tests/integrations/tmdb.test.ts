@@ -27,21 +27,23 @@ describe('TmdbClient', () => {
     expect(results[0].year).toBe(2008)
   })
 
-  test('getDetails returns parsed movie', async () => {
+  test('getDetails returns parsed movie with imdb_id', async () => {
     const details = await tmdb.getDetails(603, 'movie')
 
     expect(details.tmdb_id).toBe(603)
     expect(details.title).toBe('The Matrix')
     expect(details.year).toBe(1999)
     expect(details.poster_path).toBe('/poster.jpg')
+    expect(details.imdb_id).toBe('tt0133093')
   })
 
-  test('getDetails returns parsed tv', async () => {
+  test('getDetails returns parsed tv with imdb_id', async () => {
     const details = await tmdb.getDetails(1399, 'tv')
 
     expect(details.tmdb_id).toBe(1399)
     expect(details.title).toBe('Breaking Bad')
     expect(details.year).toBe(2008)
+    expect(details.imdb_id).toBe('tt0903747')
   })
 
   test('getExternalIds returns imdb_id', async () => {

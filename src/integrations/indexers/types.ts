@@ -1,7 +1,7 @@
 import type { DbFieldMeta } from '@lobomfz/db'
 import type { Type } from 'arktype'
 
-import { media_type } from '@/db/connection'
+import { download_source, media_type } from '@/db/connection'
 
 declare global {
   interface ArkEnv {
@@ -10,11 +10,10 @@ declare global {
 }
 
 export interface IndexerRelease {
-  torrent_id: string
-  info_hash: string
-  name: string
+  source_id: string
+  name: string | null
   size: number
-  seeders: number
+  seeders?: number
   imdb_id: string | null
   resolution: string | null
   codec: string | null
@@ -37,4 +36,5 @@ export interface IndexerClass {
   schema: Type<{ type: string }>
   name: string
   types: media_type[]
+  source: download_source
 }

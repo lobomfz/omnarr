@@ -8,6 +8,7 @@ import { database } from '@/db/connection'
 import { DbReleases } from '@/db/releases'
 import { Downloads } from '@/downloads'
 import { envVariables } from '@/env'
+import type { IndexerName } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/releases'
 
@@ -27,9 +28,10 @@ describe('status command', async () => {
 
   const addParams = {
     tmdb_id: release.tmdb_id,
-    info_hash: release.info_hash,
+    source_id: release.source_id,
     download_url: release.download_url,
     type: release.media_type,
+    indexer_source: release.indexer_source as IndexerName,
   }
 
   const tvResults = await new TmdbClient().search('Breaking Bad')
@@ -182,7 +184,7 @@ describe('status command', async () => {
 
     await QBittorrentMock.db
       .deleteFrom('torrents')
-      .where('hash', '=', release.info_hash)
+      .where('hash', '=', release.source_id.toLowerCase())
       .execute()
 
     await rm(envVariables.OMNARR_LOG_PATH, { force: true })
@@ -213,7 +215,7 @@ describe('status command', async () => {
 
     await QBittorrentMock.db
       .deleteFrom('torrents')
-      .where('hash', '=', release.info_hash)
+      .where('hash', '=', release.source_id.toLowerCase())
       .execute()
 
     await testCommand(StatusCommand, { args: [], flags: { json: true } })
@@ -243,9 +245,10 @@ describe('status command', async () => {
   test('shows S/E context for TV episode download', async () => {
     await new Downloads().add({
       tmdb_id: tvEpisodeRelease.tmdb_id,
-      info_hash: tvEpisodeRelease.info_hash,
+      source_id: tvEpisodeRelease.source_id,
       download_url: tvEpisodeRelease.download_url,
       type: tvEpisodeRelease.media_type,
+      indexer_source: tvEpisodeRelease.indexer_source as IndexerName,
     })
 
     const result = await testCommand(StatusCommand, {
@@ -262,9 +265,10 @@ describe('status command', async () => {
   test('shows season-only for TV season pack download', async () => {
     await new Downloads().add({
       tmdb_id: tvSeasonPackRelease.tmdb_id,
-      info_hash: tvSeasonPackRelease.info_hash,
+      source_id: tvSeasonPackRelease.source_id,
       download_url: tvSeasonPackRelease.download_url,
       type: tvSeasonPackRelease.media_type,
+      indexer_source: tvSeasonPackRelease.indexer_source as IndexerName,
     })
 
     const result = await testCommand(StatusCommand, {

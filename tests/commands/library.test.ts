@@ -8,6 +8,7 @@ import { DbEpisodes } from '@/db/episodes'
 import { DbReleases } from '@/db/releases'
 import { DbSeasons } from '@/db/seasons'
 import { Downloads } from '@/downloads'
+import type { IndexerName } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/releases'
 
@@ -27,9 +28,10 @@ describe('library command', async () => {
 
   const addParams = {
     tmdb_id: release.tmdb_id,
-    info_hash: release.info_hash,
+    source_id: release.source_id,
     download_url: release.download_url,
     type: release.media_type,
+    indexer_source: release.indexer_source as IndexerName,
   }
 
   beforeEach(() => {
@@ -73,9 +75,10 @@ describe('library command', async () => {
   test('shows episode progress for TV shows', async () => {
     await new Downloads().add({
       tmdb_id: 1399,
-      info_hash: 'bb_hash_s01e01',
+      source_id: 'bb_hash_s01e01',
       download_url: 'https://beyond-hd.me/dl/bb_hash_s01e01',
       type: 'tv',
+      indexer_source: 'beyond-hd',
     })
 
     const media = await database.kysely

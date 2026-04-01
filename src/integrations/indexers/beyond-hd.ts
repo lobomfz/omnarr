@@ -38,6 +38,8 @@ export class BeyondHdAdapter implements Indexer {
 
   static types: media_type[] = ['movie', 'tv']
 
+  static source = 'torrent' as const
+
   constructor(private config: typeof BeyondHdAdapter.schema.infer) {}
 
   private parseResolution(text: string) {
@@ -94,8 +96,7 @@ export class BeyondHdAdapter implements Indexer {
       }
 
       return {
-        torrent_id: String(r.id),
-        info_hash: r.info_hash.toLowerCase(),
+        source_id: r.info_hash,
         name: r.name,
         size: r.size,
         seeders: r.seeders,
