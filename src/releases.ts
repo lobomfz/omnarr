@@ -88,8 +88,10 @@ export class Releases {
   private async fetch(tmdb_id: number, type: media_type) {
     const details = await this.tmdb.getDetails(tmdb_id, type)
 
-    const indexers = config.indexers.filter((c) =>
-      indexerMap[c.type].types.includes(type)
+    const indexers = config.indexers.filter(
+      (c) =>
+        indexerMap[c.type].types.includes(type) &&
+        indexerMap[c.type].source !== 'subtitle'
     )
 
     if (indexers.length === 0) {

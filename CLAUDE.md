@@ -10,14 +10,16 @@ Omnarr is a CLI media manager built with Bun that automates search, download, an
 2. `releases <id>` → fetches torrents from configured indexers (YTS, Beyond-HD) in parallel
 3. `download <id>` → sends torrent to qBittorrent, creates library entry
 4. `status --watch` / `wait-for <id>` → monitors progress (sync-on-read with qBittorrent)
-5. `scan <id>` → FFmpeg probe on downloaded files, discovers streams (video/audio/subtitle)
-6. `play <id>` → HLS streaming via FFmpeg + local server, opens in mpv
+5. `subtitles <id>` → searches SubDL for subtitles, `download <sub_id>` saves .srt to tracks folder
+6. `scan <id>` → FFmpeg probe on downloaded files, discovers streams (video/audio/subtitle), extracts VAD timestamps
+7. `play <id>` → HLS streaming via FFmpeg + local server, opens in mpv. Auto-syncs audio/subtitles from different downloads via VAD cross-correlation
 
 ### Integrations
 
 - **TMDB** (`src/integrations/tmdb.ts`): metadata lookup, external IDs (IMDB)
 - **qBittorrent** (`src/integrations/qbittorrent.ts`): add torrents, status polling
 - **Indexers** (`src/integrations/indexers/`): plugin registry — each indexer implements `search()` with Arktype schema for config. Parallel searches, one failure doesn't block others
+- **SubDL** (`src/integrations/indexers/subdl.ts`): subtitle search by IMDB ID, downloads .srt archives
 
 ## Commands
 
@@ -33,13 +35,15 @@ bun check            # Type-check (tsgo) + lint (oxlint) + duplicate detection (
 - **CLI entry**: `src/index.ts` creates the CLI via `@bunli/core`, registers commands from `src/commands/`
 - **Handler**: `src/handler.ts` — orchestrates commands: parses args, dispatches to domain, formats output (JSON or tables)
 - **Database**: `src/db/connection.ts` defines the full schema using Arktype types with `@lobomfz/db`. Exports `database` (Database instance), `db` (Kysely instance), and `DB` (inferred type)
-- **Db objects**: `src/db/media.ts`, `src/db/downloads.ts`, `src/db/tmdb-media.ts`, `src/db/media-files.ts`, `src/db/media-tracks.ts`, `src/db/media-keyframes.ts` — stateless objects grouping query methods per entity
+- **Db objects**: `src/db/media.ts`, `src/db/downloads.ts`, `src/db/tmdb-media.ts`, `src/db/media-files.ts`, `src/db/media-tracks.ts`, `src/db/media-keyframes.ts`, `src/db/media-vad.ts` — stateless objects grouping query methods per entity
 - **Downloads**: `src/downloads.ts` — download lifecycle: creates media + sends torrent, sync-on-read with qBittorrent, stale error cleanup (>24h)
 - **Releases**: `src/releases.ts` — fetches torrents from all indexers in parallel, caches by info_hash
-- **Scanner**: `src/scanner.ts` — probes media files on disk via FFmpeg, persists file metadata and track info. Reconciles DB with disk (removes stale, adds new). Also probes keyframes per file for HLS segmentation
-- **Player**: `src/player.ts` — HLS playback: resolves tracks, validates codecs, starts local server with on-demand FFmpeg segmentation, opens in mpv
-- **HlsSession**: `src/hls-session.ts` — manages FFmpeg segmentation process: generates m3u8 playlist from keyframes, serves segments on demand, supports seeking by restarting from nearest keyframe
-- **Config**: `src/config.ts` — root folders (movie/tv/tracks), indexers, download client. Validated with Arktype
+- **Scanner**: `src/scanner.ts` — probes media files on disk via FFmpeg, persists file metadata and track info. Reconciles DB with disk (removes stale, adds new). Probes keyframes for HLS segmentation and extracts VAD timestamps for audio sync
+- **VAD Extractor**: `src/vad-extractor.ts` — Silero VAD (ONNX) extracts voice activity timestamps from audio streams via FFmpeg PCM pipe
+- **Audio Correlator**: `src/audio-correlator.ts` — FFT-based cross-correlation of VAD envelopes to compute time offset between tracks from different downloads
+- **Player**: `src/player/player.ts` — HLS playback: resolves tracks, auto-syncs audio and subtitles from different downloads via VAD correlation, starts local server, opens in mpv
+- **HLS Server/Session**: `src/player/hls-server.ts`, `src/player/hls-session.ts` — manages FFmpeg segmentation: m3u8 from keyframes, on-demand segments, seek-by-restart, audio/subtitle offset application
+- **Config**: `src/config.ts` — root folders (movie/tv/tracks), indexers, download client, subtitle_delay, transcoding options. Validated with Arktype
 - **Env**: `src/env.ts` validates environment with Arktype, exports `envVariables`
 
 ### Database Location
@@ -48,7 +52,7 @@ Production DB: `~/.local/share/omnarr/db.sqlite`
 
 ### DB Schema Relations
 
-`tmdb_media` (TMDB cache) ← `media` (user's library) ← `downloads` (active transfers) / `media_files` (files on disk) ← `media_tracks` (streams per file) / `media_keyframes` (keyframe timestamps per file). All cascade-delete from media.
+`tmdb_media` (TMDB cache) ← `media` (user's library) ← `downloads` (active transfers) / `media_files` (files on disk) ← `media_tracks` (streams per file) / `media_keyframes` (keyframe timestamps per file) / `media_vad` (VAD timestamps per file). All cascade-delete from media.
 
 ### ID System
 
@@ -59,6 +63,7 @@ All user-facing IDs are 6-char uppercase strings derived via `deriveId()` (polyn
 - **Sync-on-read**: downloads don't poll in background — they sync with qBittorrent when the user queries (`status`, `wait-for`, `library`)
 - **Indexers as plugins**: registry with Arktype schema per indexer, parallel searches, isolated failures
 - **On-demand HLS**: segments are generated by FFmpeg only when requested, not upfront. Keyframe timestamps drive playlist generation and seek-by-restart
+- **Auto-sync**: when playing tracks from different downloads, VAD timestamps are cross-correlated (FFT) to compute the offset. Applied to both audio and subtitles automatically
 
 ### FFmpeg
 

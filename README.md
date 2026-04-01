@@ -10,6 +10,7 @@ Search TMDB. Find releases in your indexers. Download via qBittorrent or rip dir
 - YTS
 - Beyond-HD
 - Superflix (direct HLS ripping)
+- SubDL (subtitles)
 - qBittorrent
 
 ### For humans
@@ -52,12 +53,19 @@ omnarr library                      # list media with IDs and status
 omnarr info <media_id>              # detailed view: files, tracks, status
 omnarr scan <media_id>              # probe files, discover tracks
 
+# subtitles
+omnarr subtitles <media_id>         # search subtitles via SubDL
+omnarr download <subtitle_id>       # download and auto-sync
+
 # playback
 omnarr play <media_id>              # HLS streaming via FFmpeg + mpv
 omnarr play <media_id> --video 1 --audio 0  # pick specific tracks
+omnarr play <media_id> --sub 0      # play with subtitle track
 ```
 
-All user-facing IDs are 6-char strings (e.g., `C8R3OD`). The ID shown in `search` is the same one used in `scan` and `extract`.
+All user-facing IDs are 6-char strings (e.g., `C8R3OD`). The ID shown in `search` is the same one used in `scan` and `play`.
+
+When playing tracks from different downloads (e.g., a separate audio rip or subtitle file), omnarr automatically syncs them using VAD-based cross-correlation.
 
 All commands support `--json`.
 
@@ -85,9 +93,15 @@ omnarr info ABC123 --season 1        # TV: filter by season
 omnarr scan ABC123                   # probe files on disk
 omnarr scan ABC123 --force           # re-probe from scratch
 
+# subtitles
+omnarr subtitles ABC123              # search subtitles via SubDL
+omnarr subtitles ABC123 --lang EN    # override configured language
+omnarr subtitles ABC123 --season 1 --episode 3  # TV
+
 # playback
 omnarr play ABC123                   # HLS stream, auto-selects best tracks
 omnarr play ABC123 --video 0 --audio 1
+omnarr play ABC123 --sub 0           # play with subtitle track
 omnarr play ABC123 --season 1 --episode 3  # TV
 ```
 
@@ -117,7 +131,12 @@ Example config:
       "api_key": "your-api-key",
       "rss_key": "your-rss-key"
     },
-    { "type": "superflix" }
+    { "type": "superflix" },
+    {
+      "type": "subdl",
+      "api_key": "your-subdl-api-key",
+      "languages": ["EN", "BR_PT"]
+    }
   ],
   "download_client": {
     "type": "qbittorrent",
@@ -125,6 +144,11 @@ Example config:
     "username": "admin",
     "password": "secret",
     "category": "omnarr"
+  },
+  "subtitle_delay": 1,
+  "transcoding": {
+    "video_crf": 21,
+    "video_preset": "veryfast"
   }
 }
 ```
