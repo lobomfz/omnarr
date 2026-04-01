@@ -5,13 +5,13 @@ import { dirname, join } from 'path'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
 import { config } from '@/config'
-import { media_type } from '@/db/connection'
+import { type indexer_source, media_type } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { Formatters } from '@/formatters'
 import type { DownloadClient } from '@/integrations/download-client'
-import { type IndexerName, indexerMap } from '@/integrations/indexers/registry'
+import { indexerMap } from '@/integrations/indexers/registry'
 import { SuperflixAdapter } from '@/integrations/indexers/superflix'
 import { QBittorrentClient } from '@/integrations/qbittorrent/client'
 import { TmdbClient } from '@/integrations/tmdb/client'
@@ -27,14 +27,17 @@ export class Downloads {
       : null
   }
 
-  async add(params: {
-    tmdb_id: number
-    source_id: string
-    download_url: string
-    type: media_type
-    indexer_source: IndexerName
-    audio_only?: boolean
-  }) {
+  async add(
+    params: {
+      tmdb_id: number
+      source_id: string
+      download_url: string
+      type: media_type
+      indexer_source: indexer_source
+      audio_only?: boolean
+    },
+    onProgress: (tag: string, status: string, progress: number) => void
+  ) {
     const details = await new TmdbClient().getDetails(
       params.tmdb_id,
       params.type
@@ -66,15 +69,18 @@ export class Downloads {
     const source = indexerMap[params.indexer_source].source
 
     if (source === 'ripper') {
-      return await this.addRipper({
-        download_url: params.download_url,
-        imdb_id: details.imdb_id,
-        source_id: params.source_id,
-        audio_only: params.audio_only,
-        title: details.title,
-        year: details.year,
-        media,
-      })
+      return await this.addRipper(
+        {
+          download_url: params.download_url,
+          imdb_id: details.imdb_id,
+          source_id: params.source_id,
+          audio_only: params.audio_only,
+          title: details.title,
+          year: details.year,
+          media,
+        },
+        onProgress
+      )
     }
 
     if (!this.client) {
@@ -98,21 +104,24 @@ export class Downloads {
     return { media, download, title: details.title, year: details.year }
   }
 
-  private async addRipper(data: {
-    source_id: string
-    imdb_id: string
-    download_url: string
-    audio_only?: boolean
-    title: string
-    year: number | null
-    media: {
-      added_at: Date
-      id: string
-      media_type: media_type
-      root_folder: string
-      tmdb_media_id: number
-    }
-  }) {
+  private async addRipper(
+    data: {
+      source_id: string
+      imdb_id: string
+      download_url: string
+      audio_only?: boolean
+      title: string
+      year: number | null
+      media: {
+        added_at: Date
+        id: string
+        media_type: media_type
+        root_folder: string
+        tmdb_media_id: number
+      }
+    },
+    onProgress: (tag: string, status: string, progress: number) => void
+  ) {
     Log.info(
       `ripper start imdb=${data.imdb_id} title="${data.title}" audio_only=${!!data.audio_only}`
     )
@@ -159,6 +168,27 @@ export class Downloads {
       })
     }
 
+    const pending: { id: number; sourceId: string }[] = []
+
+    for (const entry of entries) {
+      const sourceId = `${data.source_id}:${entry.tag}`
+      const existing = await DbDownloads.getBySourceId(sourceId)
+
+      if (existing) {
+        continue
+      }
+
+      const dl = await DbDownloads.create({
+        media_id: data.media.id,
+        source_id: sourceId,
+        download_url: data.download_url,
+        source: 'ripper',
+        status: 'pending',
+      })
+
+      pending.push({ id: dl.id, sourceId })
+    }
+
     const tmpPath = join(tmpdir(), `omnarr-dl-${data.media.id}`)
 
     await mkdir(tmpPath, { recursive: true })
@@ -173,34 +203,58 @@ export class Downloads {
 
     for (const entry of entries) {
       const sourceId = `${data.source_id}:${entry.tag}`
-      const existing = await DbDownloads.getBySourceId(sourceId)
+      const record = pending.find((p) => p.sourceId === sourceId)
 
-      if (existing) {
+      if (!record) {
         continue
       }
 
-      const tmpFile = join(tmpPath, `${entry.tag}.ts`)
+      try {
+        await DbDownloads.update(record.id, { status: 'downloading' })
 
-      await client.downloadStream(entry.stream, tmpFile)
+        onProgress(entry.tag, 'downloading', 0)
 
-      await mkdir(dirname(entry.outputPath), { recursive: true })
+        const tmpFile = join(tmpPath, `${entry.tag}.ts`)
 
-      await new FFmpegBuilder({ overwrite: true })
-        .input(tmpFile)
-        .codec(entry.codec, 'copy')
-        .output(entry.outputPath)
-        .run()
+        await client.downloadStream(
+          entry.stream,
+          tmpFile,
+          async (downloaded, total) => {
+            const progress = downloaded / total
+            await DbDownloads.update(record.id, { progress })
+            onProgress(entry.tag, 'downloading', progress)
+          }
+        )
 
-      await DbDownloads.create({
-        media_id: data.media.id,
-        source_id: sourceId,
-        download_url: data.download_url,
-        source: 'ripper',
-        status: 'completed',
-        content_path: entry.outputPath,
-      })
+        await DbDownloads.update(record.id, { status: 'processing' })
+        onProgress(entry.tag, 'processing', 1)
 
-      ripped++
+        await mkdir(dirname(entry.outputPath), { recursive: true })
+
+        await new FFmpegBuilder({ overwrite: true })
+          .input(tmpFile)
+          .codec(entry.codec, 'copy')
+          .output(entry.outputPath)
+          .run()
+
+        await DbDownloads.update(record.id, {
+          status: 'completed',
+          progress: 1,
+          content_path: entry.outputPath,
+        })
+
+        onProgress(entry.tag, 'completed', 1)
+        ripped++
+      } catch (err) {
+        Log.warn(
+          `ripper failed source_id=${sourceId} error="${err instanceof Error ? err.message : String(err)}"`
+        )
+
+        await DbDownloads.update(record.id, {
+          status: 'error',
+          error_at: new Date().toISOString(),
+        }).catch(() => {})
+      }
     }
 
     Log.info(`ripper complete ripped=${ripped} total=${entries.length}`)

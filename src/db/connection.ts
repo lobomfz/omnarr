@@ -11,7 +11,9 @@ mkdirSync(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
 const media_type = type.enumerated('movie', 'tv')
 const stream_type = type.enumerated('video', 'audio', 'subtitle')
 const download_status = type.enumerated(
+  'pending',
   'downloading',
+  'processing',
   'seeding',
   'paused',
   'completed',
@@ -133,6 +135,18 @@ export const database = new Database({
         'format_name?': 'string',
         'duration?': 'number',
         scanned_at: generated('now'),
+      }),
+
+      media_envelopes: type({
+        id: generated('autoincrement'),
+        media_file_id: type('number.integer').configure({
+          references: 'media_files.id',
+          onDelete: 'cascade',
+          unique: true,
+        }),
+        sample_rate: 'number.integer',
+        window_size: 'number.integer',
+        data: type.instanceOf(Uint8Array),
       }),
 
       media_keyframes: type({

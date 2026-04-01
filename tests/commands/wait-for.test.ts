@@ -11,11 +11,12 @@ import { testCommand } from '@bunli/test'
 import dayjs from 'dayjs'
 
 import { WaitForCommand } from '@/commands/wait-for'
-import { database } from '@/db/connection'
+import { database, type indexer_source } from '@/db/connection'
 import { DbReleases } from '@/db/releases'
 import { Downloads } from '@/downloads'
-import type { IndexerName } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
+
+const noop = () => {}
 
 import '../mocks/tmdb'
 import '../mocks/beyond-hd'
@@ -42,7 +43,7 @@ describe('wait-for', async () => {
     source_id: release.source_id,
     download_url: release.download_url,
     type: release.media_type,
-    indexer_source: release.indexer_source as IndexerName,
+    indexer_source: release.indexer_source as indexer_source,
   }
 
   beforeEach(() => {
@@ -59,7 +60,7 @@ describe('wait-for', async () => {
 
   describe('command', () => {
     beforeEach(async () => {
-      await new Downloads().add(addParams)
+      await new Downloads().add(addParams, noop)
     })
 
     test('returns immediately when torrent is already completed', async () => {
@@ -123,7 +124,7 @@ describe('wait-for', async () => {
 
   describe('error cleanup', () => {
     test('keeps error downloads within 24h grace period', async () => {
-      await new Downloads().add(addParams)
+      await new Downloads().add(addParams, noop)
 
       await QBittorrentMock.db
         .deleteFrom('torrents')
@@ -149,7 +150,7 @@ describe('wait-for', async () => {
     })
 
     test('deletes error downloads after 24h', async () => {
-      await new Downloads().add(addParams)
+      await new Downloads().add(addParams, noop)
 
       await QBittorrentMock.db
         .deleteFrom('torrents')

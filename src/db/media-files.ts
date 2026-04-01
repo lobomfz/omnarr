@@ -1,4 +1,6 @@
 import type { Insertable } from '@lobomfz/db'
+import { sql } from 'kysely'
+import { jsonArrayFrom } from 'kysely/helpers/sqlite'
 
 import { db, type DB } from '@/db/connection'
 
@@ -36,6 +38,55 @@ export const DbMediaFiles = {
     return Number(result.numDeletedRows)
   },
 
+  async getWithScanData(mediaId: string) {
+    return await db
+      .selectFrom('media_files as mf')
+      .where('mf.media_id', '=', mediaId)
+      .select([
+        'mf.id',
+        'mf.media_id',
+        'mf.download_id',
+        'mf.path',
+        'mf.size',
+        'mf.format_name',
+        'mf.duration',
+        'mf.episode_id',
+        'mf.scanned_at',
+        sql<number>`(select count(*) from media_keyframes mk where mk.media_file_id = mf.id)`.as(
+          'keyframes'
+        ),
+        (eb) =>
+          eb
+            .exists(
+              eb
+                .selectFrom('media_envelopes as me')
+                .whereRef('me.media_file_id', '=', 'mf.id')
+                .selectAll()
+            )
+            .as('has_envelope'),
+        (eb) =>
+          jsonArrayFrom(
+            eb
+              .selectFrom('media_tracks as mt')
+              .whereRef('mt.media_file_id', '=', 'mf.id')
+              .select([
+                'mt.stream_index',
+                'mt.stream_type',
+                'mt.codec_name',
+                'mt.language',
+                'mt.title',
+                'mt.is_default',
+                'mt.width',
+                'mt.height',
+                'mt.channel_layout',
+              ])
+              .orderBy('mt.stream_index')
+          ).as('tracks'),
+      ])
+      .orderBy('mf.path')
+      .execute()
+  },
+
   async deleteByIds(ids: number[]) {
     if (ids.length === 0) {
       return
@@ -44,3 +95,7 @@ export const DbMediaFiles = {
     return await db.deleteFrom('media_files').where('id', 'in', ids).execute()
   },
 }
+
+export type ScanFile = Awaited<
+  ReturnType<typeof DbMediaFiles.getWithScanData>
+>[number]

@@ -95,6 +95,21 @@ describe('scan command', () => {
     expect(types).toContain('video')
     expect(types).toContain('audio')
     expect(types).toContain('subtitle')
+
+    expect(data[0].keyframes).toBeGreaterThan(0)
+    expect(data[0].has_envelope).toBeTruthy()
+  })
+
+  test('shows keyframe and envelope status in formatted output', async () => {
+    const media = await seedMedia(join(tmpDir, 'movies/The Matrix (1999)'))
+
+    const result = await testCommand(ScanCommand, {
+      args: [String(media.id)],
+      flags: {},
+    })
+
+    expect(result.stdout).toContain('keyframes:')
+    expect(result.stdout).toContain('envelope:')
   })
 
   test('outputs formatted text without --json', async () => {
@@ -102,7 +117,7 @@ describe('scan command', () => {
 
     const result = await testCommand(ScanCommand, {
       args: [String(media.id)],
-      flags: {},
+      flags: { json: true },
     })
 
     expect(result.stdout).toContain('movie.mkv')
@@ -116,7 +131,7 @@ describe('scan command', () => {
 
     const result = await testCommand(ScanCommand, {
       args: [String(media.id)],
-      flags: {},
+      flags: { json: true },
     })
 
     expect(result.stdout).toContain('No media files found.')
@@ -125,7 +140,7 @@ describe('scan command', () => {
   test('errors when media_id does not exist', async () => {
     const result = await testCommand(ScanCommand, {
       args: ['999'],
-      flags: {},
+      flags: { json: true },
     })
 
     expect(result.exitCode).not.toBe(0)
@@ -136,14 +151,14 @@ describe('scan command', () => {
 
     await testCommand(ScanCommand, {
       args: [String(media.id)],
-      flags: {},
+      flags: { json: true },
     })
 
     const filesBefore = await DbMediaFiles.getByMediaId(media.id)
 
     await testCommand(ScanCommand, {
       args: [String(media.id)],
-      flags: { force: true },
+      flags: { force: true, json: true },
     })
 
     const filesAfter = await DbMediaFiles.getByMediaId(media.id)

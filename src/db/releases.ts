@@ -1,11 +1,10 @@
-import { db, media_type } from '@/db/connection'
-import type { IndexerName } from '@/integrations/indexers/registry'
+import { db, type indexer_source, media_type } from '@/db/connection'
 import type { IndexerRelease } from '@/integrations/indexers/types'
 import { deriveId } from '@/utils'
 
 interface SourcedRelease extends IndexerRelease {
   name: string
-  indexer_source: IndexerName
+  indexer_source: indexer_source
   season_number: number | null
   episode_number: number | null
 }

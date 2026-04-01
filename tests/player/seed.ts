@@ -4,11 +4,16 @@ import { type DB } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
+import { DbMediaEnvelopes } from '@/db/media-envelopes'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
+import {
+  ENVELOPE_SAMPLE_RATE,
+  ENVELOPE_WINDOW_SIZE,
+} from '@/envelope-extractor'
 import { deriveId } from '@/utils'
 
 export async function seedMedia() {
@@ -116,4 +121,21 @@ export async function seedDownloadWithTracks(
   }
 
   return { download, file }
+}
+
+export async function seedEnvelope(fileId: number, seed: number) {
+  const env = new Int8Array(2000)
+  let state = seed
+
+  for (let i = 0; i < 2000; i++) {
+    state = (state * 1664525 + 1013904223) & 0xffffffff
+    env[i] = Math.round(((state >>> 16) / 65536 - 0.5) * 200)
+  }
+
+  await DbMediaEnvelopes.create({
+    media_file_id: fileId,
+    sample_rate: ENVELOPE_SAMPLE_RATE,
+    window_size: ENVELOPE_WINDOW_SIZE,
+    data: new Uint8Array(env.buffer),
+  })
 }

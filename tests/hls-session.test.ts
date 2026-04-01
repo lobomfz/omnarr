@@ -59,12 +59,13 @@ const copyTranscode = await Transcoder.init(
 
 vaapiSpy.mockRestore()
 
-function createSession(outDir: string) {
+function createSession(outDir: string, opts?: { audioOffset?: number }) {
   return new HlsSession({
     videoFilePath: testMkv,
     audioFilePath: testMkv,
     videoStreamIndex: 0,
     audioStreamIndex: 1,
+    audioOffset: opts?.audioOffset ?? 0,
     segments,
     outDir,
     transcode: copyTranscode,
@@ -169,6 +170,7 @@ describe('HlsSession', () => {
       audioFilePath: '/tmp/nonexistent.mkv',
       videoStreamIndex: 0,
       audioStreamIndex: 1,
+      audioOffset: 0,
       segments: [{ pts_time: 0, duration: 1 }],
       outDir,
       transcode: copyTranscode,
@@ -244,6 +246,7 @@ describe('HlsSession — seek', () => {
       audioFilePath: seekMkv,
       videoStreamIndex: 0,
       audioStreamIndex: 1,
+      audioOffset: 0,
       segments: seekSegments,
       outDir,
       transcode: copyTranscode,
@@ -279,6 +282,55 @@ describe('HlsSession — seek', () => {
     expect(Bun.file(staleFile).size).toBe(0)
 
     await session.cleanup()
+  })
+})
+
+class TestableHlsSession extends HlsSession {
+  getArgs(fromIndex: number) {
+    return this.buildCommand(fromIndex).toArgs()
+  }
+}
+
+describe('HlsSession — audioOffset', () => {
+  test('audioOffset = 0 → no -itsoffset in FFmpeg args', () => {
+    const session = new TestableHlsSession({
+      videoFilePath: testMkv,
+      audioFilePath: testMkv + '.audio',
+      videoStreamIndex: 0,
+      audioStreamIndex: 0,
+      audioOffset: 0,
+      segments: [{ pts_time: 0, duration: 1 }],
+      outDir: join(tmpDir, 'offset-zero'),
+      transcode: copyTranscode,
+    })
+
+    const args = session.getArgs(0)
+
+    expect(args).not.toContain('-itsoffset')
+  })
+
+  test('audioOffset != 0 → -itsoffset appears before audio input', () => {
+    const audioPath = testMkv + '.audio'
+
+    const session = new TestableHlsSession({
+      videoFilePath: testMkv,
+      audioFilePath: audioPath,
+      videoStreamIndex: 0,
+      audioStreamIndex: 0,
+      audioOffset: -3.5,
+      segments: [{ pts_time: 0, duration: 1 }],
+      outDir: join(tmpDir, 'offset-applied'),
+      transcode: copyTranscode,
+    })
+
+    const args = session.getArgs(0)
+
+    const itsoffsetIdx = args.indexOf('-itsoffset')
+    const audioInputIdx = args.indexOf(audioPath)
+
+    expect(itsoffsetIdx).toBeGreaterThan(-1)
+    expect(args[itsoffsetIdx + 1]).toBe('-3.5')
+    expect(itsoffsetIdx).toBeLessThan(audioInputIdx)
   })
 })
 
@@ -343,6 +395,7 @@ describe('HlsSession — integration: dual-file', () => {
       },
       segments: longSegments,
       transcode: copyTranscode,
+      audioOffset: 0,
       port: 0,
       mediaId: 'HLSTEST',
     })

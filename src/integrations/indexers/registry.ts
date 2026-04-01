@@ -1,3 +1,5 @@
+import type { indexer_source } from '@/db/connection'
+
 import { BeyondHdAdapter } from './beyond-hd'
 import { SuperflixAdapter } from './superflix'
 import type { IndexerClass } from './types'
@@ -7,11 +9,7 @@ export const indexerSchema = BeyondHdAdapter.schema
   .or(YtsAdapter.schema)
   .or(SuperflixAdapter.schema)
 
-type IndexerConfig = typeof indexerSchema.infer
-
-export type IndexerName = IndexerConfig['type']
-
-export const indexerMap: Record<IndexerName, IndexerClass> = {
+export const indexerMap: Record<indexer_source, IndexerClass> = {
   'beyond-hd': BeyondHdAdapter,
   yts: YtsAdapter,
   superflix: SuperflixAdapter,

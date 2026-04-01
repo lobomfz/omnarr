@@ -7,8 +7,8 @@
       "devDependencies": {
         "@bunli/core": "^0.9.0",
         "@bunli/test": "^0.6.0",
-        "@lobomfz/db": "^0.3.5",
-        "@lobomfz/ffmpeg": "^0.1.2",
+        "@lobomfz/db": "link:@lobomfz/db",
+        "@lobomfz/ffmpeg": "link:@lobomfz/ffmpeg",
         "@lobomfz/ghostapi": "^0.3.4",
         "@types/bun": "^1.3.11",
         "@typescript/native-preview": "^7.0.0-dev.20260331.1",
@@ -127,9 +127,9 @@
 
     "@jscpd/tokenizer": ["@jscpd/tokenizer@4.0.4", "", { "dependencies": { "@jscpd/core": "4.0.4", "reprism": "^0.0.11", "spark-md5": "^3.0.2" } }, "sha512-xxYYY/qaLah/FlwogEbGIxx9CjDO+G9E6qawcy26WwrflzJb6wsnhjwdneN6Wb0RNCDsqvzY+bzG453jsin4UQ=="],
 
-    "@lobomfz/db": ["@lobomfz/db@0.3.5", "", { "peerDependencies": { "arktype": "^2.1.29", "kysely": "^0.28.14" } }, "sha512-dag2ZvVgi0Sjl0glQyGDtJAjehjasNiImuzjHs5KCV1R1fKySEYqDfCkNVV4T7UDNdsZWWs32SbddGEUyTXZwA=="],
+    "@lobomfz/db": ["@lobomfz/db@link:@lobomfz/db", {}],
 
-    "@lobomfz/ffmpeg": ["@lobomfz/ffmpeg@0.1.2", "", {}, "sha512-F/FdK+uP024BvWlOx9gS8cvU+QtgYbkDDwbz8n2w1qt3ZMlnzS7g6eWyLepeBXZ/i9Z0HeNfoU5WPmU2gOGoYQ=="],
+    "@lobomfz/ffmpeg": ["@lobomfz/ffmpeg@link:@lobomfz/ffmpeg", {}],
 
     "@lobomfz/ghostapi": ["@lobomfz/ghostapi@0.3.4", "", { "peerDependencies": { "@lobomfz/db": "^0.3.5", "elysia": "^1.0.0" } }, "sha512-gYSyr36zi0PH9sXyJe9KLgArMfD1eM3fDBhAkjv5HR1DS5j4wkDWXh2gcmMKqrLNSTvojjSfe1K5vTnZhe2SXA=="],
 

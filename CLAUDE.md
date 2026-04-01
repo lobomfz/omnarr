@@ -42,6 +42,10 @@ bun check            # Type-check (tsgo) + lint (oxlint) + duplicate detection (
 - **Config**: `src/config.ts` — root folders (movie/tv/tracks), indexers, download client. Validated with Arktype
 - **Env**: `src/env.ts` validates environment with Arktype, exports `envVariables`
 
+### Database Location
+
+Production DB: `~/.local/share/omnarr/db.sqlite`
+
 ### DB Schema Relations
 
 `tmdb_media` (TMDB cache) ← `media` (user's library) ← `downloads` (active transfers) / `media_files` (files on disk) ← `media_tracks` (streams per file) / `media_keyframes` (keyframe timestamps per file). All cascade-delete from media.

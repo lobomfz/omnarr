@@ -14,6 +14,7 @@ type HlsSessionOpts = {
   audioFilePath: string
   videoStreamIndex: number
   audioStreamIndex: number
+  audioOffset: number
   segments: Segment[]
   outDir: string
   transcode: TranscodeFn
@@ -55,7 +56,7 @@ export class HlsSession {
     await rm(this.opts.outDir, { recursive: true, force: true })
   }
 
-  private buildCommand(fromIndex: number) {
+  protected buildCommand(fromIndex: number) {
     const segment = this.opts.segments[fromIndex]
     const sameFile = this.opts.videoFilePath === this.opts.audioFilePath
     const audioInputIndex = sameFile ? 0 : 1
@@ -70,6 +71,10 @@ export class HlsSession {
     builder = builder.input(this.opts.videoFilePath)
 
     if (!sameFile) {
+      if (this.opts.audioOffset !== 0) {
+        builder = builder.rawInput('-itsoffset', String(this.opts.audioOffset))
+      }
+
       if (segment.pts_time > 0) {
         builder = builder.seek(segment.pts_time)
       }

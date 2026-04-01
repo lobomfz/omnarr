@@ -27,8 +27,8 @@
   "devDependencies": {
     "@bunli/core": "^0.9.0",
     "@bunli/test": "^0.6.0",
-    "@lobomfz/db": "^0.3.5",
-    "@lobomfz/ffmpeg": "^0.1.2",
+    "@lobomfz/db": "link:@lobomfz/db",
+    "@lobomfz/ffmpeg": "link:@lobomfz/ffmpeg",
     "@lobomfz/ghostapi": "^0.3.4",
     "@types/bun": "^1.3.11",
     "@typescript/native-preview": "^7.0.0-dev.20260331.1",
