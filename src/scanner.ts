@@ -1,8 +1,9 @@
 import { stat } from 'fs/promises'
-import { basename, extname, join } from 'path'
+import { basename, dirname, extname, join } from 'path'
 
 import { FFmpegBuilder, type Stream } from '@lobomfz/ffmpeg'
 
+import { db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
@@ -178,9 +179,18 @@ export class Scanner {
     return paths
   }
 
+  private parseSeasonEpisode(fullPath: string) {
+    const parsed = Parsers.seasonEpisode(basename(fullPath))
+
+    if (parsed.season_number !== null) {
+      return parsed
+    }
+
+    return Parsers.seasonEpisode(basename(dirname(fullPath)))
+  }
+
   private async resolveEpisodeId(tmdbMediaId: number, fullPath: string) {
-    const filename = basename(fullPath)
-    const parsed = Parsers.seasonEpisode(filename)
+    const parsed = this.parseSeasonEpisode(fullPath)
 
     if (parsed.season_number === null || parsed.episode_number === null) {
       return
@@ -216,24 +226,32 @@ export class Scanner {
       const langMatch = /^sub_([a-z]+)/i.exec(name)
       const language = langMatch?.[1].toLowerCase()
 
-      const file = await DbMediaFiles.create({
-        media_id: media.id,
-        download_id: downloadId,
-        path: fullPath,
-        size: fileSize,
-        episode_id: episodeId,
-      })
+      await db.transaction().execute(async (trx) => {
+        const file = await DbMediaFiles.create(
+          {
+            media_id: media.id,
+            download_id: downloadId,
+            path: fullPath,
+            size: fileSize,
+            episode_id: episodeId,
+          },
+          trx
+        )
 
-      await DbMediaTracks.createMany([
-        {
-          media_file_id: file.id,
-          stream_index: 0,
-          stream_type: 'subtitle',
-          codec_name: SUBTITLE_CODEC[ext],
-          language,
-          is_default: false,
-        },
-      ])
+        await DbMediaTracks.createMany(
+          [
+            {
+              media_file_id: file.id,
+              stream_index: 0,
+              stream_type: 'subtitle',
+              codec_name: SUBTITLE_CODEC[ext],
+              language,
+              is_default: false,
+            },
+          ],
+          trx
+        )
+      })
 
       onProgress(1)
 
@@ -245,79 +263,98 @@ export class Scanner {
     }
 
     const probe = await new FFmpegBuilder().input(fullPath).probe()
-
     const episodeId = await this.resolveEpisodeId(media.tmdb_media_id, fullPath)
-
-    const file = await DbMediaFiles.create({
-      media_id: media.id,
-      download_id: downloadId,
-      path: fullPath,
-      size: probe.format.size,
-      format_name: probe.format.format_name,
-      duration: probe.format.duration,
-      episode_id: episodeId,
-    })
-
-    await DbMediaTracks.createMany(
-      probe.streams.map((stream) => ({
-        media_file_id: file.id,
-        stream_index: stream.index,
-        stream_type: stream.codec_type,
-        codec_name: stream.codec_name,
-        language: stream.tags?.language,
-        title: stream.tags?.title,
-        is_default: !!stream.disposition?.default,
-        ...this.streamFields(stream),
-      }))
-    )
 
     const hasVideo = probe.streams.some((s) => s.codec_type === 'video')
     const hasAudio = probe.streams.some((s) => s.codec_type === 'audio')
     const keyframeWeight = hasVideo && hasAudio ? 0.5 : hasVideo ? 1 : 0
     const vadWeight = 1 - keyframeWeight
 
-    if (hasVideo) {
-      const videoStream = probe.streams.find((s) => s.codec_type === 'video')!
+    const videoStream = probe.streams.find((s) => s.codec_type === 'video')
 
-      const keyframeTimes = await new FFmpegBuilder()
-        .input(fullPath)
-        .probeKeyframes({
+    const keyframeTimes = videoStream
+      ? await new FFmpegBuilder().input(fullPath).probeKeyframes({
           duration: probe.format.duration,
           onProgress: (r) => onProgress(r * keyframeWeight),
         })
+      : undefined
 
-      const fileDuration = probe.format.duration
-
-      await DbMediaKeyframes.createBatch(
-        keyframeTimes.map((pts_time, i) => ({
-          media_file_id: file.id,
-          stream_index: videoStream.index,
-          pts_time,
-          duration: (keyframeTimes[i + 1] ?? fileDuration) - pts_time,
-        }))
-      )
-
+    if (keyframeTimes) {
       Log.info(
         `keyframe probe complete file="${fullPath}" keyframes=${keyframeTimes.length}`
       )
     }
 
-    if (hasAudio) {
-      const timestamps = await new VadExtractor().extract(
-        fullPath,
-        (r) => onProgress(keyframeWeight + r * vadWeight),
-        { duration: probe.format.duration }
-      )
+    const vadTimestamps = hasAudio
+      ? await new VadExtractor().extract(
+          fullPath,
+          (r) => onProgress(keyframeWeight + r * vadWeight),
+          { duration: probe.format.duration }
+        )
+      : undefined
 
-      await DbMediaVad.create({
-        media_file_id: file.id,
-        data: new Uint8Array(timestamps.buffer),
-      })
-
+    if (vadTimestamps) {
       Log.info(
-        `vad extracted file="${fullPath}" segments=${timestamps.length / 2}`
+        `vad extracted file="${fullPath}" segments=${vadTimestamps.length / 2}`
       )
     }
+
+    const vadData = vadTimestamps
+      ? new Uint8Array(vadTimestamps.buffer)
+      : undefined
+
+    await db.transaction().execute(async (trx) => {
+      const file = await DbMediaFiles.create(
+        {
+          media_id: media.id,
+          download_id: downloadId,
+          path: fullPath,
+          size: probe.format.size,
+          format_name: probe.format.format_name,
+          duration: probe.format.duration,
+          episode_id: episodeId,
+        },
+        trx
+      )
+
+      await DbMediaTracks.createMany(
+        probe.streams.map((stream) => ({
+          media_file_id: file.id,
+          stream_index: stream.index,
+          stream_type: stream.codec_type,
+          codec_name: stream.codec_name,
+          language: stream.tags?.language,
+          title: stream.tags?.title,
+          is_default: !!stream.disposition?.default,
+          ...this.streamFields(stream),
+        })),
+        trx
+      )
+
+      if (keyframeTimes && videoStream) {
+        const fileDuration = probe.format.duration
+
+        await DbMediaKeyframes.createBatch(
+          keyframeTimes.map((pts_time, i) => ({
+            media_file_id: file.id,
+            stream_index: videoStream.index,
+            pts_time,
+            duration: (keyframeTimes[i + 1] ?? fileDuration) - pts_time,
+          })),
+          trx
+        )
+      }
+
+      if (vadData) {
+        await DbMediaVad.create(
+          {
+            media_file_id: file.id,
+            data: vadData,
+          },
+          trx
+        )
+      }
+    })
 
     onProgress(1)
 
