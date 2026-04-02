@@ -2,6 +2,7 @@
 import { createCLI } from '@bunli/core'
 
 import { DownloadCommand } from '@/commands/download'
+import { ExportCommand } from '@/commands/export'
 import { InfoCommand } from '@/commands/info'
 import { InitCommand } from '@/commands/init'
 import { LibraryCommand } from '@/commands/library'
@@ -30,6 +31,7 @@ cli.command(ScanCommand)
 cli.command(SearchCommand)
 cli.command(ReleasesCommand)
 cli.command(DownloadCommand)
+cli.command(ExportCommand)
 cli.command(StatusCommand)
 cli.command(SubtitlesCommand)
 cli.command(WaitForCommand)

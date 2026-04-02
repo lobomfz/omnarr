@@ -1,11 +1,15 @@
+import { resolve } from 'path'
+
 import { type, type Type } from 'arktype'
 
+import { MIN_SYNC_CONFIDENCE } from '@/audio-correlator'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbReleases } from '@/db/releases'
 import { DbSearchResults } from '@/db/search-results'
 import { Downloads } from '@/downloads'
+import { Exporter } from '@/exporter'
 import { Formatters } from '@/formatters'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Log } from '@/log'
@@ -369,6 +373,15 @@ export class Handler {
       displayLines.push(`subtitle offset: ${result.subtitleOffset.toFixed(3)}s`)
     }
 
+    if (
+      result.subtitleConfidence !== null &&
+      result.subtitleConfidence < MIN_SYNC_CONFIDENCE
+    ) {
+      displayLines.push(
+        `⚠ subtitle sync confidence is low (${result.subtitleConfidence.toFixed(1)}), subtitles may be out of sync`
+      )
+    }
+
     displayLines.push('', result.url)
 
     this.output(result, displayLines.join('\n'))
@@ -448,5 +461,60 @@ export class Handler {
         Language: r.language ?? '',
       }))
     )
+  }
+
+  async export(opts: { video?: number; season?: number; episode?: number }) {
+    const { media_id, output } = this.parseArgs(
+      'export',
+      type({ media_id: 'string', output: 'string' })
+    )
+
+    const media = await DbMedia.getById(media_id)
+
+    if (!media) {
+      throw new Error(`Media '${media_id}' not found.`)
+    }
+
+    const episodeId = await this.resolveEpisodeForTv(
+      media,
+      opts.season,
+      opts.episode
+    )
+
+    Log.info(`command=export media_id=${media_id} output=${output}`)
+
+    const outputPath = resolve(output)
+
+    let lastWrite = 0
+
+    const exporter = new Exporter({ id: media_id, episode_id: episodeId })
+
+    await exporter.export({
+      video: opts.video,
+      output: outputPath,
+      onProgress: (ratio) => {
+        if (this.json) {
+          return
+        }
+
+        const now = Date.now()
+
+        if (ratio < 1 && now - lastWrite < 100) {
+          return
+        }
+
+        lastWrite = now
+
+        const pct = Formatters.progress(ratio)
+
+        process.stdout.write(`\rExporting ${pct}`)
+
+        if (ratio >= 1) {
+          process.stdout.write('\n')
+        }
+      },
+    })
+
+    this.output({ output: outputPath }, `Exported: ${outputPath}`)
   }
 }
