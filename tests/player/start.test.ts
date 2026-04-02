@@ -116,8 +116,10 @@ describe('Player — start', () => {
   test('subtitle served via HLS media playlist, not raw VTT', async () => {
     const media = await seedMedia()
     const filePath = join(tmpDir, 'start-subs-hls/movie.mkv')
+    const srtPath = join(tmpDir, 'start-subs-hls/sub.srt')
 
     await MediaFixtures.copy(refSubsMkv, filePath)
+    await Bun.write(srtPath, '1\n00:00:00,000 --> 00:00:00,100\nTest\n')
 
     await seedDownloadWithTracks(
       media.id,
@@ -138,16 +140,19 @@ describe('Player — start', () => {
           codec_name: 'aac',
           is_default: true,
         },
-        {
-          stream_index: 2,
-          stream_type: 'subtitle',
-          codec_name: 'subrip',
-          is_default: false,
-          language: 'por',
-        },
       ],
       { duration: refSubsDuration, keyframes: refSubsKeyframes }
     )
+
+    await seedDownloadWithTracks(media.id, 'subhls_sub', srtPath, [
+      {
+        stream_index: 0,
+        stream_type: 'subtitle',
+        codec_name: 'subrip',
+        is_default: false,
+        language: 'por',
+      },
+    ])
 
     const player = new Player({ id: media.id })
     const result = await player.start({ sub: 0 }, { port: 0 })
@@ -161,7 +166,7 @@ describe('Player — start', () => {
     const subsText = await fetch(subsPlaylistUrl).then((r) => r.text())
 
     expect(subsText).toContain('#EXTM3U')
-    expect(subsText).toContain('subs.vtt')
+    expect(subsText).toContain('subs_000.vtt')
     expect(subsText).toContain('#EXT-X-ENDLIST')
 
     await player.stop()
@@ -170,8 +175,10 @@ describe('Player — start', () => {
   test('includes subtitle in master playlist when selected', async () => {
     const media = await seedMedia()
     const filePath = join(tmpDir, 'start-subs/movie.mkv')
+    const srtPath = join(tmpDir, 'start-subs/sub.srt')
 
     await MediaFixtures.copy(refSubsMkv, filePath)
+    await Bun.write(srtPath, '1\n00:00:00,000 --> 00:00:00,100\nTest\n')
 
     await seedDownloadWithTracks(
       media.id,
@@ -192,16 +199,19 @@ describe('Player — start', () => {
           codec_name: 'aac',
           is_default: true,
         },
-        {
-          stream_index: 2,
-          stream_type: 'subtitle',
-          codec_name: 'subrip',
-          is_default: false,
-          language: 'por',
-        },
       ],
       { duration: refSubsDuration, keyframes: refSubsKeyframes }
     )
+
+    await seedDownloadWithTracks(media.id, 'startsub_sub', srtPath, [
+      {
+        stream_index: 0,
+        stream_type: 'subtitle',
+        codec_name: 'subrip',
+        is_default: false,
+        language: 'por',
+      },
+    ])
 
     const player = new Player({ id: media.id })
     const result = await player.start({ sub: 0 }, { port: 0 })
@@ -216,7 +226,7 @@ describe('Player — start', () => {
     expect(masterText).toContain('SUBTITLES')
     expect(masterText).toContain('subs.m3u8')
 
-    const vttUrl = result.url.replace('master.m3u8', 'subs.vtt')
+    const vttUrl = result.url.replace('master.m3u8', 'subs_000.vtt')
     const vttRes = await fetch(vttUrl)
 
     expect(vttRes.status).toBe(200)

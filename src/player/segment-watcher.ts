@@ -42,7 +42,6 @@ export class SegmentWatcher {
 
   start(fromIndex: number) {
     this.stop()
-    this.sealed.clear()
 
     this.watcher = fsWatch(this.outDir, (_eventType, filename) => {
       if (!filename?.endsWith('.ts')) {
@@ -71,7 +70,6 @@ export class SegmentWatcher {
   reset() {
     this.stop()
     this.rejectAll(new Error('Process killed'))
-    this.sealed.clear()
   }
 
   sealWritten(fromIndex: number) {

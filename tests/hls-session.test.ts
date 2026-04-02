@@ -265,24 +265,6 @@ describe('HlsSession — seek', () => {
 
     await session.cleanup()
   })
-
-  test('restart clears stale segments from previous process', async () => {
-    const outDir = join(seekDir, 'stale-segments')
-    await mkdir(outDir, { recursive: true })
-
-    const staleFile = join(outDir, 'seg_999.ts')
-    await Bun.write(staleFile, new Uint8Array(100))
-
-    expect(Bun.file(staleFile).size).toBeGreaterThan(0)
-
-    const session = createSeekSession(outDir)
-
-    await session.getSegment(0)
-
-    expect(Bun.file(staleFile).size).toBe(0)
-
-    await session.cleanup()
-  })
 })
 
 class TestableHlsSession extends HlsSession {

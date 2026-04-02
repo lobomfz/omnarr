@@ -1,4 +1,4 @@
-import { mkdir, rm, readdir, unlink } from 'fs/promises'
+import { mkdir, rm } from 'fs/promises'
 import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
@@ -147,7 +147,6 @@ export class HlsSession {
   }
 
   private async doStartProcess(fromIndex: number) {
-    await this.clearSegments()
     await mkdir(this.opts.outDir, { recursive: true })
 
     this.processStartIndex = fromIndex
@@ -173,15 +172,5 @@ export class HlsSession {
           `process exit handler error=${err instanceof Error ? err.message : String(err)}`
         )
       })
-  }
-
-  private async clearSegments() {
-    const entries = await readdir(this.opts.outDir).catch(() => [])
-
-    await Promise.all(
-      entries
-        .filter((f) => f.endsWith('.ts'))
-        .map((f) => unlink(join(this.opts.outDir, f)))
-    )
   }
 }

@@ -179,7 +179,7 @@ describe('Player — transcoder resolution', () => {
     const player = new Player({ id: media.id })
 
     await expect(() => player.start({ sub: 0 }, { port: 0 })).toThrow(
-      /subtitle.*dvd_subtitle.*subrip.*ass.*mov_text/i
+      /dvd_subtitle.*only subrip/i
     )
   })
 })

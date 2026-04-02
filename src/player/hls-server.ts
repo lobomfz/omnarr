@@ -1,5 +1,4 @@
 import { mkdtempSync } from 'fs'
-import { mkdir } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
 
@@ -9,9 +8,12 @@ import type { TracksWithFile } from '@/db/media-tracks'
 import { Log } from '@/log'
 import { HlsSession, type Segment } from '@/player/hls-session'
 import { segmentFilename } from '@/player/segment-watcher'
+import {
+  type SubtitleCue,
+  SubtitleSegmenter,
+  type SubtitleWindow,
+} from '@/player/subtitle-segmenter'
 import type { TranscodeFn } from '@/player/transcoder'
-
-const HLS_SUBTITLE_CODECS = new Set(['subrip', 'ass', 'mov_text'])
 
 const HLS_CONTENT_TYPES: Record<string, string> = {
   '.m3u8': 'application/vnd.apple.mpegurl',
@@ -41,6 +43,9 @@ type HlsServerOpts = {
 export class HlsServer extends HlsSession {
   private server!: ReturnType<typeof Bun.serve>
   private serverOpts: HlsServerOpts
+  private subtitleCues: SubtitleCue[] = []
+  private subtitleWindows: SubtitleWindow[] = []
+  private pesStartTimeCache = new Map<number, number>()
 
   constructor(opts: HlsServerOpts) {
     super({
@@ -64,13 +69,9 @@ export class HlsServer extends HlsSession {
     await Bun.write(join(this.opts.outDir, 'video.m3u8'), this.buildPlaylist())
 
     if (this.serverOpts.resolved.subtitle) {
-      await this.convertSubtitle(
+      await this.prepareSubtitles(
         this.serverOpts.resolved.subtitle,
         this.serverOpts.subtitleOffset
-      )
-      await Bun.write(
-        join(this.opts.outDir, 'subs.m3u8'),
-        this.buildSubtitlePlaylist()
       )
     }
 
@@ -118,7 +119,7 @@ export class HlsServer extends HlsSession {
       const name = this.serverOpts.resolved.subtitle.title ?? 'Subtitle'
 
       lines.push(
-        `#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",LANGUAGE="${lang}",NAME="${name}",DEFAULT=NO,AUTOSELECT=YES,URI="subs.m3u8"`
+        `#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",LANGUAGE="${lang}",NAME="${name}",DEFAULT=YES,AUTOSELECT=YES,URI="subs.m3u8"`
       )
       lines.push('#EXT-X-STREAM-INF:BANDWIDTH=0,SUBTITLES="subs"')
     } else {
@@ -130,45 +131,95 @@ export class HlsServer extends HlsSession {
     return lines.join('\n')
   }
 
-  private buildSubtitlePlaylist() {
-    const totalDuration = this.opts.segments.reduce(
-      (sum, s) => sum + s.duration,
-      0
-    )
-
-    return [
-      '#EXTM3U',
-      `#EXT-X-TARGETDURATION:${Math.ceil(totalDuration)}`,
-      '#EXT-X-PLAYLIST-TYPE:VOD',
-      `#EXTINF:${totalDuration.toFixed(6)},`,
-      'subs.vtt',
-      '#EXT-X-ENDLIST',
-    ].join('\n')
-  }
-
-  private async convertSubtitle(
+  private async prepareSubtitles(
     subtitle: ResolvedTrack,
     subtitleOffset: number
   ) {
-    if (!HLS_SUBTITLE_CODECS.has(subtitle.codec_name)) {
+    if (subtitle.codec_name !== 'subrip') {
       throw new Error(
-        `Incompatible subtitle codec '${subtitle.codec_name}'. Supported: ${[...HLS_SUBTITLE_CODECS].join(', ')}.`
+        `Incompatible subtitle codec '${subtitle.codec_name}'. Only subrip is supported.`
       )
     }
 
-    await mkdir(this.opts.outDir, { recursive: true })
+    const srt = await Bun.file(subtitle.file_path).text()
 
-    let builder = new FFmpegBuilder({ overwrite: true })
+    this.subtitleCues = SubtitleSegmenter.prepareCues(srt, subtitleOffset)
+    this.subtitleWindows = SubtitleSegmenter.computeWindows(this.opts.segments)
 
-    if (subtitleOffset !== 0) {
-      builder = builder.rawInput('-itsoffset', String(subtitleOffset))
+    await Bun.write(
+      join(this.opts.outDir, 'subs.m3u8'),
+      SubtitleSegmenter.buildSubtitlePlaylist(this.subtitleWindows)
+    )
+  }
+
+  private async probeSegmentPesStartTime(videoSegmentIndex: number) {
+    const cached = this.pesStartTimeCache.get(videoSegmentIndex)
+
+    if (cached !== undefined) {
+      return cached
     }
 
-    await builder
-      .input(subtitle.file_path)
-      .map(`0:${subtitle.stream_index}`)
-      .output(join(this.opts.outDir, 'subs.vtt'))
-      .run()
+    const segPath = await this.getSegment(videoSegmentIndex)
+
+    const probe = await new FFmpegBuilder()
+      .input(segPath)
+      .probe()
+      .catch((err) => {
+        Log.warn(
+          `failed to probe PES start time seg=${videoSegmentIndex} error=${err}`
+        )
+
+        return null
+      })
+
+    const startTime =
+      probe?.format.start_time ?? this.opts.segments[videoSegmentIndex].pts_time
+
+    this.pesStartTimeCache.set(videoSegmentIndex, startTime)
+
+    return startTime
+  }
+
+  private async serveSubtitle(index: number) {
+    if (index < 0 || index >= this.subtitleWindows.length) {
+      return new Response('Not Found', { status: 404 })
+    }
+
+    const filename = `subs_${String(index).padStart(3, '0')}.vtt`
+    const filePath = join(this.opts.outDir, filename)
+
+    const cached = Bun.file(filePath)
+
+    if (await cached.exists()) {
+      return new Response(cached, {
+        headers: {
+          'Content-Type': 'text/vtt',
+          'Access-Control-Allow-Origin': '*',
+        },
+      })
+    }
+
+    const window = this.subtitleWindows[index]
+    const pesStartTime = await this.probeSegmentPesStartTime(
+      window.firstVideoSegment
+    )
+    const mpegtsOffset = Math.round(pesStartTime * 90000)
+
+    const vtt = SubtitleSegmenter.generateVtt({
+      cues: this.subtitleCues,
+      windowStart: window.start,
+      windowEnd: window.end,
+      mpegtsOffset,
+    })
+
+    await Bun.write(filePath, vtt)
+
+    return new Response(Bun.file(filePath), {
+      headers: {
+        'Content-Type': 'text/vtt',
+        'Access-Control-Allow-Origin': '*',
+      },
+    })
   }
 
   private serve() {
@@ -203,6 +254,10 @@ export class HlsServer extends HlsSession {
           return await this.serveSegment(pathname)
         }
 
+        if (ext === '.vtt') {
+          return await this.serveVtt(pathname)
+        }
+
         const file = Bun.file(filePath)
 
         if (!(await file.exists())) {
@@ -218,6 +273,18 @@ export class HlsServer extends HlsSession {
         })
       },
     })
+  }
+
+  private async serveVtt(pathname: string) {
+    const match = pathname.match(/subs_(\d+)\.vtt$/)
+
+    if (!match) {
+      return new Response('Not Found', { status: 404 })
+    }
+
+    const index = parseInt(match[1], 10)
+
+    return await this.serveSubtitle(index)
   }
 
   private async serveSegment(pathname: string) {

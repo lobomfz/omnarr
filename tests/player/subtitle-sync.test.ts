@@ -77,7 +77,7 @@ describe('Player.resolveSubtitleOffset', () => {
     const resolved = await player.resolveTracks({})
     const offset = await player.resolveSubtitleOffset(resolved)
 
-    expect(offset).toBe(0)
+    expect(offset).toEqual({ offset: 0, confidence: null })
   })
 
   test('same download_id → offset is 0', async () => {
@@ -117,7 +117,7 @@ describe('Player.resolveSubtitleOffset', () => {
     const resolved = await player.resolveTracks({ sub: 0 })
     const offset = await player.resolveSubtitleOffset(resolved)
 
-    expect(offset).toBe(0)
+    expect(offset).toEqual({ offset: 0, confidence: null })
   })
 
   test('different download_id with missing vad → offset is 0', async () => {
@@ -153,7 +153,7 @@ describe('Player.resolveSubtitleOffset', () => {
     const resolved = await player.resolveTracks({ sub: 0 })
     const offset = await player.resolveSubtitleOffset(resolved)
 
-    expect(offset).toBe(0)
+    expect(offset).toEqual({ offset: 0, confidence: null })
   })
 
   test('different download_id with vad → attempts correlation', async () => {
@@ -196,7 +196,9 @@ describe('Player.resolveSubtitleOffset', () => {
     const resolved = await player.resolveTracks({ sub: 0 })
     const offset = await player.resolveSubtitleOffset(resolved)
 
-    expect(typeof offset).toBe('number')
+    expect(offset).toHaveProperty('offset')
+    expect(offset).toHaveProperty('confidence')
+    expect(typeof offset.offset).toBe('number')
   })
 
   test('separate audio file → uses audio file vad for correlation', async () => {
@@ -252,6 +254,8 @@ describe('Player.resolveSubtitleOffset', () => {
 
     const offset = await player.resolveSubtitleOffset(resolved)
 
-    expect(typeof offset).toBe('number')
+    expect(offset).toHaveProperty('offset')
+    expect(offset).toHaveProperty('confidence')
+    expect(typeof offset.offset).toBe('number')
   })
 })

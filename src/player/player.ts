@@ -23,7 +23,7 @@ export class Player {
     const resolved = await this.resolveTracks(selection)
 
     const audioOffset = await this.resolveAudioOffset(resolved)
-    const subtitleOffset = await this.resolveSubtitleOffset(resolved)
+    const subtitleSync = await this.resolveSubtitleOffset(resolved)
 
     const [transcode, segments] = await Promise.all([
       Transcoder.init(resolved, config.transcoding),
@@ -43,14 +43,20 @@ export class Player {
       segments,
       transcode,
       audioOffset,
-      subtitleOffset,
+      subtitleOffset: subtitleSync.offset,
       port: opts.port ?? 8787,
       mediaId: this.media.id,
     })
 
     await this.server.start()
 
-    return { url: this.server.url, audioOffset, subtitleOffset, ...resolved }
+    return {
+      url: this.server.url,
+      audioOffset,
+      subtitleOffset: subtitleSync.offset,
+      subtitleConfidence: subtitleSync.confidence,
+      ...resolved,
+    }
   }
 
   async stop() {
@@ -150,24 +156,26 @@ export class Player {
     audio: { download_id: number; file_id: number }
     subtitle: { download_id: number; file_path: string } | null
   }) {
+    const noSync = { offset: 0, confidence: null as number | null }
+
     if (!resolved.subtitle) {
-      return 0
+      return noSync
     }
 
     if (resolved.subtitle.download_id === resolved.video.download_id) {
-      return 0
+      return noSync
     }
 
     const audioFileId =
-      resolved.video.file_id !== resolved.audio.file_id
-        ? resolved.audio.file_id
-        : resolved.video.file_id
+      resolved.video.file_id === resolved.audio.file_id
+        ? resolved.video.file_id
+        : resolved.audio.file_id
 
     const vad = await DbMediaVad.getByMediaFileId(audioFileId)
 
     if (!vad) {
       Log.warn('subtitle sync skipped: missing vad for audio')
-      return 0
+      return noSync
     }
 
     const vadTimestamps = new Float32Array(
@@ -181,7 +189,7 @@ export class Player {
 
     if (srtTimestamps.length === 0) {
       Log.warn('subtitle sync skipped: no timestamps in SRT')
-      return 0
+      return noSync
     }
 
     const result = AudioCorrelator.correlateOnsets(vadTimestamps, srtTimestamps)
@@ -190,7 +198,8 @@ export class Player {
       Log.warn(
         `subtitle sync skipped: low confidence=${result.confidence.toFixed(1)} offset=${result.offsetSeconds.toFixed(3)}s`
       )
-      return 0
+
+      return { offset: 0, confidence: result.confidence }
     }
 
     const offset = result.offsetSeconds + config.subtitle_delay
@@ -199,7 +208,7 @@ export class Player {
       `subtitle sync applied: offset=${offset.toFixed(3)}s confidence=${result.confidence.toFixed(1)}`
     )
 
-    return offset
+    return { offset, confidence: result.confidence }
   }
 
   private pickTrack(
