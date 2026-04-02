@@ -15,12 +15,19 @@ interface PageData {
   sourceUrl: string
 }
 
+const superflixEpisode = type({
+  ID: 'number',
+  epi_num: 'number',
+  title: 'string',
+  season: 'number',
+})
+
 export class SuperflixAdapter implements Indexer {
   static schema = type({ type: "'superflix'" })
 
   static name = 'Superflix'
 
-  static types: ('movie' | 'tv')[] = ['movie']
+  static types: ('movie' | 'tv')[] = ['movie', 'tv']
 
   static source = 'ripper' as const
 
@@ -31,9 +38,17 @@ export class SuperflixAdapter implements Indexer {
       return []
     }
 
-    const page = await this.getPageData(params.imdb_id).catch((err) => {
+    if (params.season_number !== undefined) {
+      return await this.searchTv(params.imdb_id, params.season_number)
+    }
+
+    return await this.searchMovie(params.imdb_id)
+  }
+
+  private async searchMovie(imdbId: string) {
+    const page = await this.getPageData(imdbId).catch((err) => {
       Log.warn(
-        `superflix: page fetch failed imdb=${params.imdb_id} error="${err.message}"`
+        `superflix: page fetch failed imdb=${imdbId} error="${err.message}"`
       )
       return null
     })
@@ -57,21 +72,105 @@ export class SuperflixAdapter implements Indexer {
 
     return [
       {
-        source_id: `superflix:${params.imdb_id}`,
+        source_id: `superflix:${imdbId}`,
         name: null,
         size,
-        imdb_id: params.imdb_id,
+        imdb_id: imdbId,
         resolution,
         codec: null,
         hdr: [],
-        download_url: `imdb:${params.imdb_id}`,
+        download_url: `imdb:${imdbId}`,
       },
     ]
   }
 
-  private async getPageData(imdbId: string) {
+  private async searchTv(imdbId: string, season: number) {
+    const episodes = await this.getEpisodeList(imdbId, season).catch((err) => {
+      Log.warn(
+        `superflix: episode list failed imdb=${imdbId} error="${err.message}"`
+      )
+      return []
+    })
+
+    if (episodes.length === 0) {
+      return []
+    }
+
+    const page = await this.getPageData(imdbId, {
+      season,
+      episode: episodes[0].epi_num,
+    }).catch((err) => {
+      Log.warn(
+        `superflix: tv page fetch failed imdb=${imdbId} season=${season} error="${err.message}"`
+      )
+      return null
+    })
+
+    if (!page) {
+      return []
+    }
+
+    const videoId = await this.getVideoId(page)
+    const player = await this.getPlayer(videoId, page)
+    const masterPlaylist = await this.getMasterPlaylist(player)
+
+    const resolution = this.extractResolution(masterPlaylist)
+    const episodeSize = await this.estimateSize(masterPlaylist, player.url)
+
+    return [
+      {
+        source_id: `superflix:${imdbId}:${season}`,
+        name: null,
+        size: episodeSize * episodes.length,
+        imdb_id: imdbId,
+        resolution,
+        codec: null,
+        hdr: [],
+        download_url: `imdb:${imdbId}`,
+      },
+    ]
+  }
+
+  async getEpisodeList(imdbId: string, season: number) {
     const { data } = await axios<string>({
-      url: `${this.base}/filme/${imdbId}`,
+      url: `${this.base}/serie/${imdbId}`,
+      headers: { 'Sec-Fetch-Dest': 'iframe' },
+    })
+
+    const allEpisodes = this.parseAllEpisodes(data, imdbId)
+    const seasonEpisodes = allEpisodes[String(season)]
+
+    if (!seasonEpisodes || seasonEpisodes.length === 0) {
+      return []
+    }
+
+    return superflixEpisode.array().assert(seasonEpisodes)
+  }
+
+  private parseAllEpisodes(html: string, imdbId: string) {
+    const match = html.match(/ALL_EPISODES\s*=\s*(.+);/)
+
+    if (!match) {
+      throw new Error(`Superflix: ALL_EPISODES not found for IMDB ${imdbId}`)
+    }
+
+    try {
+      return JSON.parse(match[1]) as Record<string, unknown[]>
+    } catch {
+      throw new Error(`Superflix: ALL_EPISODES parse failed for IMDB ${imdbId}`)
+    }
+  }
+
+  private async getPageData(
+    imdbId: string,
+    episode?: { season: number; episode: number }
+  ) {
+    const path = episode
+      ? `/serie/${imdbId}/${episode.season}/${episode.episode}`
+      : `/filme/${imdbId}`
+
+    const { data } = await axios<string>({
+      url: `${this.base}${path}`,
       headers: { 'Sec-Fetch-Dest': 'iframe' },
     })
 
@@ -270,8 +369,11 @@ export class SuperflixAdapter implements Indexer {
     return streams
   }
 
-  async getStreams(imdbId: string) {
-    const page = await this.getPageData(imdbId)
+  async getStreams(
+    imdbId: string,
+    episode?: { season: number; episode: number }
+  ) {
+    const page = await this.getPageData(imdbId, episode)
 
     const videoId = await this.getVideoId(page)
 

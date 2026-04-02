@@ -13,9 +13,13 @@ export const DownloadCommand = defineCommand({
     'audio-only': option(type('boolean | undefined'), {
       description: 'Download only audio tracks as separate .mka files',
     }),
+    lang: option(type('string | undefined'), {
+      description: 'Download only audio tracks matching this language',
+    }),
   },
   handler: ({ positional, flags }) =>
     new Handler(positional, flags.json).download({
       audio_only: flags['audio-only'],
+      lang: flags.lang,
     }),
 })

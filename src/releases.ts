@@ -85,7 +85,11 @@ export class Releases {
     )
   }
 
-  private async fetch(tmdb_id: number, type: media_type) {
+  private async fetch(
+    tmdb_id: number,
+    type: media_type,
+    opts?: { season?: number }
+  ) {
     const details = await this.tmdb.getDetails(tmdb_id, type)
 
     const indexers = config.indexers.filter(
@@ -112,6 +116,7 @@ export class Releases {
           .search({
             tmdb_id: String(tmdb_id),
             imdb_id: details.imdb_id,
+            season_number: opts?.season,
           })
           .then((r) => {
             Log.info(`indexer=${c.type} returned ${r.length} results`)
@@ -136,14 +141,19 @@ export class Releases {
       await this.fetchSeasons(tmdb_id)
     }
 
-    const { releases, label } = await this.fetch(tmdb_id, type)
+    const { releases, label } = await this.fetch(tmdb_id, type, filters)
 
-    const withSE = releases.map((r) => ({
-      ...r,
-      source_id: r.source_id.toUpperCase(),
-      name: r.name ?? Formatters.releaseName(label, r.indexer_source),
-      ...Parsers.seasonEpisode(r.name ?? ''),
-    }))
+    const withSE = releases.map((r) => {
+      const parsed = Parsers.seasonEpisode(r.name ?? '')
+
+      return {
+        ...r,
+        source_id: r.source_id.toUpperCase(),
+        name: r.name ?? Formatters.releaseName(label, r.indexer_source),
+        season_number: parsed.season_number ?? filters?.season ?? null,
+        episode_number: parsed.episode_number,
+      }
+    })
 
     const persisted = await DbReleases.upsert(tmdb_id, type, withSE)
 
@@ -166,12 +176,9 @@ export class Releases {
       throw new Error(`Media '${media_id}' not found.`)
     }
 
-    if (
-      media.media_type === 'tv' &&
-      (opts?.season === undefined || opts?.episode === undefined)
-    ) {
+    if (media.media_type === 'tv' && opts?.season === undefined) {
       throw new Error(
-        'TV shows require --season and --episode. Use info to see available episodes.'
+        'TV shows require --season. Use info to see available episodes.'
       )
     }
 

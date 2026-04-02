@@ -86,6 +86,8 @@ export const DbReleases = {
         'r.download_url',
         'r.name',
         'r.language',
+        'r.season_number',
+        'r.episode_number',
       ])
       .executeTakeFirst()
   },

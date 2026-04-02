@@ -17,6 +17,7 @@ import { SuperflixAdapter } from '@/integrations/indexers/superflix'
 import { QBittorrentClient } from '@/integrations/qbittorrent/client'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Log } from '@/log'
+import { Parsers } from '@/parsers'
 import { deriveId } from '@/utils'
 
 export class Downloads {
@@ -36,7 +37,10 @@ export class Downloads {
       type: media_type
       indexer_source: indexer_source
       audio_only?: boolean
+      lang?: string
       language?: string | null
+      season_number?: number | null
+      episode_number?: number | null
     },
     onProgress: (tag: string, status: string, progress: number) => void
   ) {
@@ -77,6 +81,8 @@ export class Downloads {
             source_id: params.source_id,
             download_url: params.download_url,
             language: params.language,
+            season_number: params.season_number,
+            episode_number: params.episode_number,
             media,
           },
           onProgress,
@@ -90,6 +96,8 @@ export class Downloads {
             imdb_id: details.imdb_id,
             source_id: params.source_id,
             audio_only: params.audio_only,
+            lang: params.lang,
+            season_number: params.season_number,
             title: details.title,
             year: details.year,
             media,
@@ -150,6 +158,8 @@ export class Downloads {
       imdb_id: string
       download_url: string
       audio_only?: boolean
+      lang?: string
+      season_number?: number | null
       title: string
       year: number | null
       media: {
@@ -163,41 +173,38 @@ export class Downloads {
     onProgress: (tag: string, status: string, progress: number) => void
   ) {
     Log.info(
-      `ripper start imdb=${data.imdb_id} title="${data.title}" audio_only=${!!data.audio_only}`
+      `ripper start imdb=${data.imdb_id} title="${data.title}" audio_only=${!!data.audio_only} season=${data.season_number ?? 'none'}`
     )
 
     const client = new SuperflixAdapter()
-    const streams = await client.getStreams(data.imdb_id)
-
     const tracksDir = this.resolveTracksDir(data.media.id)
 
-    const entries: {
+    const units: {
       tag: string
-      stream: { url: string; referer: string }
-      outputPath: string
-      codec: 'v' | 'a'
+      dir: string
+      episode?: { season: number; episode: number }
     }[] = []
 
-    if (!data.audio_only && streams.video) {
-      entries.push({
-        tag: 'VIDEO',
-        stream: streams.video,
-        outputPath: join(tracksDir, 'video.mkv'),
-        codec: 'v',
-      })
+    if (data.season_number == null) {
+      units.push({ tag: '', dir: tracksDir })
+    } else {
+      const episodes = await client.getEpisodeList(
+        data.imdb_id,
+        data.season_number
+      )
+
+      for (const ep of episodes) {
+        const seTag = `S${String(data.season_number).padStart(2, '0')}E${String(ep.epi_num).padStart(2, '0')}`
+
+        units.push({
+          tag: seTag,
+          dir: join(tracksDir, seTag.toLowerCase()),
+          episode: { season: data.season_number, episode: ep.epi_num },
+        })
+      }
     }
 
-    for (let i = 0; i < streams.audio.length; i++) {
-      const s = streams.audio[i]
-      const label = s.lang ?? String(i)
-
-      entries.push({
-        tag: label.toUpperCase(),
-        stream: s,
-        outputPath: join(tracksDir, `audio_${label}.mka`),
-        codec: 'a',
-      })
-    }
+    await DbDownloads.deleteIncomplete(data.source_id)
 
     const download = await DbDownloads.create({
       media_id: data.media.id,
@@ -213,45 +220,100 @@ export class Downloads {
 
     await using _ = {
       [Symbol.asyncDispose]: async () => {
-        await rm(tmpPath, { recursive: true }).catch(() => {})
+        await rm(tmpPath, { recursive: true }).catch((err) =>
+          Log.warn(`failed to cleanup temp dir path=${tmpPath} error=${err}`)
+        )
       },
     }
 
+    let completedUnits = 0
     let ripped = 0
+    let totalStreams = 0
 
-    for (const entry of entries) {
+    for (const unit of units) {
       try {
-        onProgress(entry.tag, 'downloading', 0)
+        const streams = await client.getStreams(data.imdb_id, unit.episode)
 
-        const tmpFile = join(tmpPath, `${entry.tag}.ts`)
+        const entries: {
+          tag: string
+          stream: { url: string; referer: string }
+          outputPath: string
+          codec: 'v' | 'a'
+        }[] = []
 
-        await client.downloadStream(
-          entry.stream,
-          tmpFile,
-          async (downloaded, total) => {
-            const streamProgress = downloaded / total
-            const overall = (ripped + streamProgress) / entries.length
+        if (!data.audio_only && streams.video) {
+          entries.push({
+            tag: unit.tag ? `${unit.tag} VIDEO` : 'VIDEO',
+            stream: streams.video,
+            outputPath: join(unit.dir, 'video.mkv'),
+            codec: 'v',
+          })
+        }
 
-            await DbDownloads.update(download.id, { progress: overall })
-            onProgress(entry.tag, 'downloading', streamProgress)
+        const audioStreams = data.lang
+          ? streams.audio.filter((s) => s.lang === data.lang)
+          : streams.audio
+
+        for (let i = 0; i < audioStreams.length; i++) {
+          const s = audioStreams[i]
+          const label = s.lang ?? String(i)
+
+          entries.push({
+            tag: unit.tag
+              ? `${unit.tag} ${label.toUpperCase()}`
+              : label.toUpperCase(),
+            stream: s,
+            outputPath: join(unit.dir, `audio_${label}.mka`),
+            codec: 'a',
+          })
+        }
+
+        totalStreams += entries.length
+
+        for (const entry of entries) {
+          try {
+            onProgress(entry.tag, 'downloading', 0)
+
+            const tmpFile = join(
+              tmpPath,
+              `${entry.tag.replaceAll(' ', '_')}.ts`
+            )
+
+            await client.downloadStream(
+              entry.stream,
+              tmpFile,
+              (downloaded, total) => {
+                onProgress(entry.tag, 'downloading', downloaded / total)
+              }
+            )
+
+            onProgress(entry.tag, 'processing', 1)
+
+            await mkdir(dirname(entry.outputPath), { recursive: true })
+
+            await new FFmpegBuilder({ overwrite: true })
+              .input(tmpFile)
+              .codec(entry.codec, 'copy')
+              .output(entry.outputPath)
+              .run()
+
+            onProgress(entry.tag, 'completed', 1)
+            ripped++
+          } catch (err) {
+            Log.warn(
+              `ripper failed tag=${entry.tag} error="${err instanceof Error ? err.message : String(err)}"`
+            )
           }
-        )
+        }
 
-        onProgress(entry.tag, 'processing', 1)
+        completedUnits++
 
-        await mkdir(dirname(entry.outputPath), { recursive: true })
-
-        await new FFmpegBuilder({ overwrite: true })
-          .input(tmpFile)
-          .codec(entry.codec, 'copy')
-          .output(entry.outputPath)
-          .run()
-
-        onProgress(entry.tag, 'completed', 1)
-        ripped++
+        await DbDownloads.update(download.id, {
+          progress: completedUnits / units.length,
+        })
       } catch (err) {
         Log.warn(
-          `ripper failed tag=${entry.tag} error="${err instanceof Error ? err.message : String(err)}"`
+          `ripper failed unit=${unit.tag || 'movie'} error="${err instanceof Error ? err.message : String(err)}"`
         )
       }
     }
@@ -269,13 +331,15 @@ export class Downloads {
       })
     }
 
-    Log.info(`ripper complete ripped=${ripped} total=${entries.length}`)
+    Log.info(
+      `ripper complete ripped=${ripped} units=${completedUnits}/${units.length}`
+    )
 
     return {
       media: data.media,
       download,
       ripped,
-      total: entries.length,
+      total: totalStreams,
       title: data.title,
       year: data.year,
     }
@@ -286,6 +350,8 @@ export class Downloads {
       source_id: string
       download_url: string
       language?: string | null
+      season_number?: number | null
+      episode_number?: number | null
       media: {
         id: string
         media_type: media_type
@@ -301,7 +367,15 @@ export class Downloads {
     const lang = data.language?.toLowerCase() ?? 'und'
     const tag = lang.toUpperCase()
 
-    await mkdir(tracksDir, { recursive: true })
+    const targetDir =
+      data.season_number != null && data.episode_number != null
+        ? join(
+            tracksDir,
+            `s${String(data.season_number).padStart(2, '0')}e${String(data.episode_number).padStart(2, '0')}`
+          )
+        : tracksDir
+
+    await mkdir(targetDir, { recursive: true })
 
     const download = await DbDownloads.create({
       media_id: data.media.id,
@@ -313,6 +387,9 @@ export class Downloads {
 
     onProgress(tag, 'downloading', 0)
 
+    const isSeasonPack =
+      data.season_number != null && data.episode_number == null
+
     try {
       const { data: zipData } = await axios<ArrayBuffer>({
         url: data.download_url,
@@ -320,16 +397,63 @@ export class Downloads {
       })
 
       const files = unzipSync(new Uint8Array(zipData))
-      const srtEntry = Object.keys(files).find((f) => f.endsWith('.srt'))
+      const srtEntries = Object.keys(files).filter((f) => f.endsWith('.srt'))
 
-      if (!srtEntry) {
+      if (srtEntries.length === 0) {
         throw new Error('No .srt file found in subtitle archive')
       }
 
       const sourceHash = deriveId(data.source_id)
-      const targetPath = join(tracksDir, `sub_${lang}_${sourceHash}.srt`)
 
-      await Bun.write(targetPath, files[srtEntry])
+      if (isSeasonPack) {
+        let saved = 0
+
+        for (const entry of srtEntries) {
+          const parsed = Parsers.seasonEpisode(entry)
+
+          if (parsed.season_number === null || parsed.episode_number === null) {
+            Log.warn(`season pack: skipping "${entry}" (no episode pattern)`)
+            continue
+          }
+
+          const epDir = join(
+            tracksDir,
+            `s${String(parsed.season_number).padStart(2, '0')}e${String(parsed.episode_number).padStart(2, '0')}`
+          )
+
+          await mkdir(epDir, { recursive: true })
+          await Bun.write(
+            join(epDir, `sub_${lang}_${sourceHash}.srt`),
+            files[entry]
+          )
+
+          saved++
+        }
+
+        if (saved === 0) {
+          throw new Error(
+            'Season pack contained no .srt files with episode patterns'
+          )
+        }
+
+        await DbDownloads.update(download.id, {
+          status: 'completed',
+          progress: 1,
+          content_path: tracksDir,
+        })
+
+        onProgress(tag, 'completed', 1)
+
+        Log.info(
+          `season pack saved=${saved}/${srtEntries.length} dir=${tracksDir}`
+        )
+
+        return { media: data.media, download, ...details }
+      }
+
+      const targetPath = join(targetDir, `sub_${lang}_${sourceHash}.srt`)
+
+      await Bun.write(targetPath, files[srtEntries[0]])
 
       await DbDownloads.update(download.id, {
         status: 'completed',
@@ -346,7 +470,11 @@ export class Downloads {
       await DbDownloads.update(download.id, {
         status: 'error',
         error_at: new Date().toISOString(),
-      }).catch(() => {})
+      }).catch((err) =>
+        Log.warn(
+          `failed to update download status id=${download.id} error=${err}`
+        )
+      )
 
       throw err
     }

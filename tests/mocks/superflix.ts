@@ -52,6 +52,13 @@ const SuperflixMock = new Mock(
       video_id: 'number',
       lang: 'string',
     }),
+    episodes: type({
+      imdb_id: 'string',
+      season: 'number',
+      episode: 'number',
+      content_id: 'number',
+      video_id: 'number',
+    }),
   },
   (app, { db }) => {
     // Step 1: GET /filme/:imdbId → HTML with JS vars
@@ -230,6 +237,67 @@ var API_URL_SOURCE = "${baseUrl}/player/source";
         headers: { 'content-type': 'video/mp2t' },
       })
     })
+
+    app.get('/serie/:imdbId', async ({ params }) => {
+      const eps = await db
+        .selectFrom('episodes')
+        .selectAll()
+        .where('imdb_id', '=', params.imdbId)
+        .execute()
+
+      if (eps.length === 0) {
+        return new Response('Not found', { status: 404 })
+      }
+
+      const grouped: Record<string, unknown[]> = {}
+
+      for (const ep of eps) {
+        const key = String(ep.season)
+
+        if (!grouped[key]) {
+          grouped[key] = []
+        }
+
+        grouped[key].push({
+          ID: ep.content_id,
+          epi_num: ep.episode,
+          title: `Episode ${ep.episode}`,
+          season: ep.season,
+        })
+      }
+
+      return new Response(
+        `<html><head><script>var ALL_EPISODES = ${JSON.stringify(grouped)};</script></head></html>`,
+        { headers: { 'content-type': 'text/html' } }
+      )
+    })
+
+    app.get('/serie/:imdbId/:season/:episode', async ({ params }) => {
+      const ep = await db
+        .selectFrom('episodes')
+        .select('content_id')
+        .where('imdb_id', '=', params.imdbId)
+        .where('season', '=', Number(params.season))
+        .where('episode', '=', Number(params.episode))
+        .executeTakeFirst()
+
+      if (!ep) {
+        return new Response('Not found', { status: 404 })
+      }
+
+      const html = `<html><head><script>
+var INITIAL_CONTENT_ID = ${ep.content_id};
+var CONTENT_TYPE = "serie";
+var CSRF_TOKEN = "mock-csrf-token";
+var PAGE_TOKEN = "mock-page-token";
+var API_URL_OPTIONS = "${baseUrl}/player/options";
+var API_URL_SOURCE = "${baseUrl}/player/source";
+</script></head><body></body></html>`
+
+      return new Response(html, {
+        headers: { 'content-type': 'text/html' },
+      })
+    })
   },
   { base_url: baseUrl }
 )
@@ -241,6 +309,9 @@ await SuperflixMock.db
     { imdb_id: 'tt0000000', content_id: 200, video_id: 99 },
     { imdb_id: 'tt0000001', content_id: 300, video_id: 77 },
     { imdb_id: 'tt0000003', content_id: 999, video_id: 0 },
+    { imdb_id: 'tt0903747', content_id: 400, video_id: 50 },
+    { imdb_id: 'tt0903747', content_id: 401, video_id: 51 },
+    { imdb_id: 'tt0903747', content_id: 402, video_id: 52 },
   ])
   .execute()
 
@@ -251,5 +322,38 @@ await SuperflixMock.db
     { video_id: 42, lang: 'en' },
     { video_id: 77, lang: 'es' },
     { video_id: 0, lang: 'pt' },
+    { video_id: 50, lang: 'pt' },
+    { video_id: 50, lang: 'en' },
+    { video_id: 51, lang: 'pt' },
+    { video_id: 51, lang: 'en' },
+    { video_id: 52, lang: 'pt' },
+    { video_id: 52, lang: 'en' },
+  ])
+  .execute()
+
+await SuperflixMock.db
+  .insertInto('episodes')
+  .values([
+    {
+      imdb_id: 'tt0903747',
+      season: 1,
+      episode: 1,
+      content_id: 400,
+      video_id: 50,
+    },
+    {
+      imdb_id: 'tt0903747',
+      season: 1,
+      episode: 2,
+      content_id: 401,
+      video_id: 51,
+    },
+    {
+      imdb_id: 'tt0903747',
+      season: 1,
+      episode: 3,
+      content_id: 402,
+      video_id: 52,
+    },
   ])
   .execute()

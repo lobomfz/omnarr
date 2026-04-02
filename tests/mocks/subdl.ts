@@ -12,6 +12,19 @@ const zipWithoutSrt = zipSync({
   'readme.txt': strToU8('No subtitle here'),
 })
 
+const seasonPackZip = zipSync({
+  'Breaking.Bad.S01E01.srt': strToU8(
+    '1\n00:00:01,000 --> 00:00:02,000\nPilot sub\n'
+  ),
+  'Breaking.Bad.S01E02.srt': strToU8(
+    '1\n00:00:01,000 --> 00:00:02,000\nEp2 sub\n'
+  ),
+  'Breaking.Bad.S01E03.srt': strToU8(
+    '1\n00:00:01,000 --> 00:00:02,000\nEp3 sub\n'
+  ),
+  'readme.nfo': strToU8('not a subtitle'),
+})
+
 const SubdlMock = new Mock(
   {
     subtitles: type({
@@ -75,9 +88,13 @@ const SubdlMock = new Mock(
     )
 
     app.get('/subtitle/:path', ({ params }) => {
-      const content = params.path.includes('no-srt')
-        ? zipWithoutSrt
-        : zipContent
+      let content = zipContent
+
+      if (params.path.includes('no-srt')) {
+        content = zipWithoutSrt
+      } else if (params.path.includes('season-pack')) {
+        content = seasonPackZip
+      }
 
       return new Response(Buffer.from(content), {
         headers: { 'content-type': 'application/zip' },
@@ -145,6 +162,17 @@ await SubdlMock.db
       imdb_id: 'tt0903747',
       season: 1,
       episode: 2,
+    },
+    {
+      id: 6,
+      release_name: 'Breaking.Bad.S01.1080p.BluRay',
+      name: 'SUBDL.com::bb.s01.pack.zip',
+      lang: 'english',
+      language: 'EN',
+      author: 'packuser',
+      url: '/subtitle/season-pack.zip',
+      imdb_id: 'tt0903747',
+      season: 1,
     },
   ])
   .execute()

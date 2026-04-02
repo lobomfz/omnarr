@@ -114,6 +114,12 @@ export class Handler {
       )
     }
 
+    if (searchResult.media_type === 'tv' && opts?.season === undefined) {
+      throw new Error(
+        'TV shows require --season. Use search to see available media.'
+      )
+    }
+
     const results = await new Releases().search(
       searchResult.tmdb_id,
       searchResult.media_type,
@@ -141,7 +147,7 @@ export class Handler {
     )
   }
 
-  async download(opts?: { audio_only?: boolean }) {
+  async download(opts?: { audio_only?: boolean; lang?: string }) {
     const { release_id } = this.parseArgs(
       'download',
       type({ release_id: 'string' })
@@ -165,7 +171,10 @@ export class Handler {
         type: release.media_type,
         indexer_source: release.indexer_source,
         audio_only: opts?.audio_only,
+        lang: opts?.lang,
         language: release.language,
+        season_number: release.season_number,
+        episode_number: release.episode_number,
       },
       (tag, status, progress) => {
         if (this.json) {

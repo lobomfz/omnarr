@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
 import { testCommand } from '@bunli/test'
+import dayjs from 'dayjs'
 
 import { ReleasesCommand } from '@/commands/releases'
 import { database, db } from '@/db/connection'
@@ -94,7 +95,7 @@ describe('TV releases', () => {
 
     await testCommand(ReleasesCommand, {
       args: [searchId],
-      flags: { json: true },
+      flags: { json: true, season: '1' },
     })
 
     const seasons = await db.selectFrom('seasons').selectAll().execute()
@@ -111,7 +112,7 @@ describe('TV releases', () => {
 
     const result = await testCommand(ReleasesCommand, {
       args: [searchId],
-      flags: { json: true },
+      flags: { json: true, season: '1' },
     })
 
     const data = JSON.parse(result.stdout)
@@ -147,13 +148,13 @@ describe('TV releases', () => {
 
     const result = await testCommand(ReleasesCommand, {
       args: [searchId],
-      flags: { json: true },
+      flags: { json: true, season: '1' },
     })
 
     const data = JSON.parse(result.stdout)
 
     for (const r of data) {
-      expect(r.indexer_source).toBe('beyond-hd')
+      expect(r.indexer_source).not.toBe('yts')
     }
   })
 
@@ -162,7 +163,7 @@ describe('TV releases', () => {
 
     await testCommand(ReleasesCommand, {
       args: [searchId],
-      flags: { json: true },
+      flags: { json: true, season: '1' },
     })
 
     const before = await db
@@ -174,7 +175,7 @@ describe('TV releases', () => {
 
     await testCommand(ReleasesCommand, {
       args: [searchId],
-      flags: { json: true },
+      flags: { json: true, season: '1' },
     })
 
     const after = await db
@@ -197,7 +198,7 @@ describe('TV releases', () => {
 
     const failed = await testCommand(ReleasesCommand, {
       args: [searchId],
-      flags: { json: true },
+      flags: { json: true, season: '1' },
     })
 
     expect(failed.exitCode).not.toBe(0)
@@ -218,7 +219,7 @@ describe('TV releases', () => {
 
     const retried = await testCommand(ReleasesCommand, {
       args: [searchId],
-      flags: { json: true },
+      flags: { json: true, season: '1' },
     })
 
     expect(retried.exitCode).toBe(0)
@@ -234,5 +235,45 @@ describe('TV releases', () => {
 
     expect(seasonsAfterRetry).toHaveLength(2)
     expect(episodesAfterRetry.length).toBeGreaterThan(0)
+  })
+
+  test('re-fetches seasons when TTL expired', async () => {
+    const searchId = await setupTvSearch()
+
+    await testCommand(ReleasesCommand, {
+      args: [searchId],
+      flags: { json: true, season: '1' },
+    })
+
+    const oldDate = dayjs().subtract(8, 'days').toDate()
+
+    await db.updateTable('seasons').set({ updated_at: oldDate }).execute()
+
+    const before = await db
+      .selectFrom('seasons as s')
+      .select(['s.updated_at'])
+      .orderBy('s.updated_at', 'desc')
+      .limit(1)
+      .executeTakeFirstOrThrow()
+
+    expect(new Date(before.updated_at).getTime()).toBeLessThan(
+      Date.now() - 7 * 24 * 60 * 60 * 1000
+    )
+
+    await testCommand(ReleasesCommand, {
+      args: [searchId],
+      flags: { json: true, season: '1' },
+    })
+
+    const after = await db
+      .selectFrom('seasons as s')
+      .select(['s.updated_at'])
+      .orderBy('s.updated_at', 'desc')
+      .limit(1)
+      .executeTakeFirstOrThrow()
+
+    expect(new Date(after.updated_at).getTime()).toBeGreaterThan(
+      oldDate.getTime()
+    )
   })
 })
