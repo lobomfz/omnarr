@@ -171,8 +171,8 @@ describe('Formatters', () => {
           file_count: 1,
           track_count: 3,
           download_status: null,
-          total_episodes: 0,
-          episodes_with_files: 0,
+          total_episodes: null,
+          episodes_with_files: null,
         })
       ).toBe('scanned')
     })
@@ -183,8 +183,8 @@ describe('Formatters', () => {
           file_count: 0,
           track_count: 0,
           download_status: 'downloading',
-          total_episodes: 0,
-          episodes_with_files: 0,
+          total_episodes: null,
+          episodes_with_files: null,
         })
       ).toBe('downloading')
     })
@@ -288,6 +288,155 @@ describe('Formatters', () => {
 
       expect(hevcLine).toContain('video 1:')
       expect(opusLine).toContain('audio 1:')
+    })
+  })
+
+  describe('fileStats', () => {
+    test('formats size, format, and duration', () => {
+      expect(
+        Formatters.fileStats({
+          size: 8_000_000_000,
+          format_name: 'matroska',
+          duration: 7200,
+        })
+      ).toBe('8.0GB, matroska, 120.0min')
+    })
+
+    test('handles null format and duration', () => {
+      expect(
+        Formatters.fileStats({
+          size: 500_000_000,
+          format_name: null,
+          duration: null,
+        })
+      ).toBe('500MB, ?, ?')
+    })
+  })
+
+  describe('scanResult', () => {
+    test('formats files with tracks and scan status', () => {
+      const result = Formatters.scanResult([
+        {
+          id: 1,
+          media_id: 'X',
+          download_id: 1,
+          path: '/movies/movie.mkv',
+          size: 8_000_000_000,
+          format_name: 'matroska',
+          duration: 7200,
+          episode_id: null,
+          scanned_at: new Date('2026-01-01'),
+          keyframes: 500,
+          has_vad: true,
+          tracks: [
+            {
+              stream_index: 0,
+              stream_type: 'video',
+              codec_name: 'h264',
+              language: null,
+              title: null,
+              is_default: true,
+              width: 1920,
+              height: 1080,
+              channel_layout: null,
+            },
+          ],
+        },
+      ])
+
+      expect(result).toContain('movie.mkv')
+      expect(result).toContain('8.0GB')
+      expect(result).toContain('h264')
+      expect(result).toContain('1920x1080')
+      expect(result).toContain('keyframes: 500')
+      expect(result).toContain('vad: yes')
+    })
+
+    test('shows vad: no when has_vad is false', () => {
+      const result = Formatters.scanResult([
+        {
+          id: 1,
+          media_id: 'X',
+          download_id: 1,
+          path: '/movies/movie.mkv',
+          size: 1_000_000_000,
+          format_name: 'matroska',
+          duration: 3600,
+          episode_id: null,
+          scanned_at: new Date('2026-01-01'),
+          keyframes: 0,
+          has_vad: false,
+          tracks: [],
+        },
+      ])
+
+      expect(result).toContain('vad: no')
+      expect(result).not.toContain('keyframes')
+    })
+  })
+
+  describe('appendSeasons', () => {
+    test('formats seasons with downloaded episodes', () => {
+      const lines: string[] = []
+
+      Formatters.appendSeasons(lines, [
+        {
+          season_number: 1,
+          title: 'Season 1',
+          episodes: [
+            {
+              episode_number: 1,
+              title: 'Pilot',
+              files: [
+                {
+                  path: '/tv/s01e01.mkv',
+                  size: 2_000_000_000,
+                  format_name: 'matroska',
+                  duration: 3600,
+                  has_keyframes: true,
+                  has_vad: true,
+                  tracks: [
+                    {
+                      stream_index: 0,
+                      stream_type: 'video',
+                      codec_name: 'hevc',
+                      language: null,
+                      title: null,
+                      is_default: true,
+                      width: 3840,
+                      height: 2160,
+                      channel_layout: null,
+                    },
+                  ],
+                },
+              ],
+            },
+            { episode_number: 2, title: 'Second', files: [] },
+          ],
+        },
+      ])
+
+      const output = lines.join('\n')
+
+      expect(output).toContain('Season 1')
+      expect(output).toContain('E01  Pilot')
+      expect(output).toContain('s01e01.mkv')
+      expect(output).toContain('hevc')
+      expect(output).not.toContain('E02')
+    })
+
+    test('skips seasons with no downloaded episodes', () => {
+      const lines: string[] = []
+
+      Formatters.appendSeasons(lines, [
+        {
+          season_number: 1,
+          title: 'Season 1',
+          episodes: [{ episode_number: 1, title: 'Pilot', files: [] }],
+        },
+      ])
+
+      expect(lines).toHaveLength(0)
     })
   })
 })

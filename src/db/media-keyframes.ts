@@ -3,12 +3,12 @@ import type { Insertable } from '@lobomfz/db'
 import { db, type DB } from '@/db/connection'
 
 export const DbMediaKeyframes = {
-  async createBatch(data: Insertable<DB['media_keyframes']>[]) {
+  async createBatch(data: Insertable<DB['media_keyframes']>[], executor = db) {
     if (data.length === 0) {
       return
     }
 
-    await db.insertInto('media_keyframes').values(data).execute()
+    await executor.insertInto('media_keyframes').values(data).execute()
   },
 
   async getSegmentsByFileId(mediaFileId: number) {

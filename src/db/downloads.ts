@@ -144,6 +144,14 @@ export const DbDownloads = {
       .execute()
   },
 
+  async deleteIncomplete(sourceId: string) {
+    return await db
+      .deleteFrom('downloads')
+      .where('source_id', '=', sourceId)
+      .where('status', '=', 'downloading')
+      .execute()
+  },
+
   async deleteByMediaId(mediaId: string) {
     return await db
       .deleteFrom('downloads')

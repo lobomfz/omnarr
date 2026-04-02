@@ -118,7 +118,7 @@ export const Formatters = {
 
       const status: string[] = []
 
-      if (f.keyframes > 0) {
+      if (f.keyframes) {
         status.push(`keyframes: ${f.keyframes}`)
       }
 
@@ -172,7 +172,7 @@ export const Formatters = {
     total_episodes: number | null
     episodes_with_files: number | null
   }) {
-    if (media.total_episodes) {
+    if (media.total_episodes != null) {
       return `${media.episodes_with_files ?? 0}/${media.total_episodes} episodes`
     }
 
@@ -265,12 +265,12 @@ export const Formatters = {
 
         lines.push(`  ${epNum}${epTitle}`)
 
+        const typeCounters: Record<string, number> = {}
+
         for (const f of e.files) {
           lines.push(
             `    ${f.path.split('/').at(-1)} (${Formatters.fileStats(f)})`
           )
-
-          const typeCounters: Record<string, number> = {}
 
           for (const t of f.tracks) {
             const idx = typeCounters[t.stream_type] ?? 0

@@ -1,12 +1,11 @@
 import type { Insertable } from '@lobomfz/db'
-import { sql } from 'kysely'
 import { jsonArrayFrom } from 'kysely/helpers/sqlite'
 
 import { db, type DB } from '@/db/connection'
 
 export const DbMediaFiles = {
-  async create(data: Insertable<DB['media_files']>) {
-    return await db
+  async create(data: Insertable<DB['media_files']>, executor = db) {
+    return await executor
       .insertInto('media_files')
       .values(data)
       .returningAll()
@@ -15,17 +14,17 @@ export const DbMediaFiles = {
 
   async getByMediaId(mediaId: string) {
     return await db
-      .selectFrom('media_files')
-      .where('media_id', '=', mediaId)
-      .selectAll()
+      .selectFrom('media_files as mf')
+      .where('mf.media_id', '=', mediaId)
+      .selectAll('mf')
       .execute()
   },
 
   async getByPath(path: string) {
     return await db
-      .selectFrom('media_files')
-      .where('path', '=', path)
-      .selectAll()
+      .selectFrom('media_files as mf')
+      .where('mf.path', '=', path)
+      .selectAll('mf')
       .executeTakeFirst()
   },
 
@@ -52,9 +51,12 @@ export const DbMediaFiles = {
         'mf.duration',
         'mf.episode_id',
         'mf.scanned_at',
-        sql<number>`(select count(*) from media_keyframes mk where mk.media_file_id = mf.id)`.as(
-          'keyframes'
-        ),
+        (eb) =>
+          eb
+            .selectFrom('media_keyframes as mk')
+            .whereRef('mk.media_file_id', '=', 'mf.id')
+            .select(eb.fn.countAll<number>().as('count'))
+            .as('keyframes'),
         (eb) =>
           eb
             .exists(
