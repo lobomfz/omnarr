@@ -26,5 +26,5 @@ for (const output of result.outputs) {
   await rm(output.path)
 }
 
-await cp('src/models', 'dist/models', { recursive: true })
+await cp('src/audio/models', 'dist/models', { recursive: true })
 await chmod('dist/omnarr', 0o755)
