@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+process.on('SIGINT', () => process.exit(0))
+
 import { createCLI } from '@bunli/core'
 
 import { DownloadCommand } from '@/commands/download'

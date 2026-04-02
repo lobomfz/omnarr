@@ -5,7 +5,7 @@ import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 import { Mock } from '@lobomfz/ghostapi'
 import { type } from 'arktype'
 
-import { envVariables } from '@/env'
+import { envVariables } from '@/lib/env'
 
 const baseUrl = envVariables.SUPERFLIX_API_URL
 

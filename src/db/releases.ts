@@ -1,6 +1,6 @@
 import { db, type indexer_source, media_type } from '@/db/connection'
 import type { IndexerRelease } from '@/integrations/indexers/types'
-import { deriveId } from '@/utils'
+import { deriveId } from '@/lib/utils'
 
 interface SourcedRelease extends IndexerRelease {
   name: string

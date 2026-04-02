@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { Parsers } from '@/parsers'
+import { Parsers } from '@/lib/parsers'
 
 describe('Parsers.srtTimestamps', () => {
   test('parses standard SRT content into Float32Array pairs', () => {

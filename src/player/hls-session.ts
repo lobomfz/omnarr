@@ -3,7 +3,7 @@ import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
-import { Log } from '@/log'
+import { Log } from '@/lib/log'
 import { SegmentWatcher, segmentFilename } from '@/player/segment-watcher'
 import type { TranscodeFn } from '@/player/transcoder'
 

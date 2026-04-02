@@ -1,18 +1,12 @@
 {
   "name": "omnarr",
-  "version": "0.1.4",
+  "version": "0.2",
   "description": "CLI media manager",
   "bin": "./dist/omnarr",
   "type": "module",
   "files": [
     "dist",
     "config.schema.json"
-  ],
-  "os": [
-    "linux"
-  ],
-  "cpu": [
-    "x64"
   ],
   "publishConfig": {
     "access": "public"
@@ -46,7 +40,9 @@
   },
   "dependencies": {
     "fflate": "^0.8.2",
-    "onnxruntime-node": "^1.24.3"
+    "fuzzball": "^2.2.3",
+    "onnxruntime-node": "^1.24.3",
+    "p-queue": "^9.1.1"
   },
   "trustedDependencies": [
     "onnxruntime-node"

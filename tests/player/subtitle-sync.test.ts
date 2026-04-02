@@ -52,7 +52,7 @@ beforeEach(() => {
   database.reset()
 })
 
-describe('Player.resolveSubtitleOffset', () => {
+describe('Player.resolveSubtitleSync', () => {
   test('no subtitle selected → offset is 0', async () => {
     const media = await seedMedia()
 
@@ -75,7 +75,7 @@ describe('Player.resolveSubtitleOffset', () => {
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
-    const offset = await player.resolveSubtitleOffset(resolved)
+    const offset = await player.resolveSubtitleSync(resolved)
 
     expect(offset).toEqual({ offset: 0, confidence: null })
   })
@@ -115,7 +115,7 @@ describe('Player.resolveSubtitleOffset', () => {
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({ sub: 0 })
-    const offset = await player.resolveSubtitleOffset(resolved)
+    const offset = await player.resolveSubtitleSync(resolved)
 
     expect(offset).toEqual({ offset: 0, confidence: null })
   })
@@ -151,7 +151,7 @@ describe('Player.resolveSubtitleOffset', () => {
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({ sub: 0 })
-    const offset = await player.resolveSubtitleOffset(resolved)
+    const offset = await player.resolveSubtitleSync(resolved)
 
     expect(offset).toEqual({ offset: 0, confidence: null })
   })
@@ -194,11 +194,11 @@ describe('Player.resolveSubtitleOffset', () => {
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({ sub: 0 })
-    const offset = await player.resolveSubtitleOffset(resolved)
+    const offset = await player.resolveSubtitleSync(resolved)
 
-    expect(offset).toHaveProperty('offset')
-    expect(offset).toHaveProperty('confidence')
-    expect(typeof offset.offset).toBe('number')
+    expect(offset.offset).toBeTypeOf('number')
+    expect(offset.confidence).toBeTypeOf('number')
+    expect(offset.confidence).toBeGreaterThanOrEqual(0)
   })
 
   test('separate audio file → uses audio file vad for correlation', async () => {
@@ -252,10 +252,10 @@ describe('Player.resolveSubtitleOffset', () => {
     expect(resolved.audio.file_id).toBe(audioFile.id)
     expect(resolved.video.file_id).not.toBe(resolved.audio.file_id)
 
-    const offset = await player.resolveSubtitleOffset(resolved)
+    const offset = await player.resolveSubtitleSync(resolved)
 
-    expect(offset).toHaveProperty('offset')
-    expect(offset).toHaveProperty('confidence')
-    expect(typeof offset.offset).toBe('number')
+    expect(offset.offset).toBeTypeOf('number')
+    expect(offset.confidence).toBeTypeOf('number')
+    expect(offset.confidence).toBeGreaterThanOrEqual(0)
   })
 })

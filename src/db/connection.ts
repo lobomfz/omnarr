@@ -3,8 +3,8 @@ import { dirname } from 'path'
 
 import { Database, type, generated } from '@lobomfz/db'
 
-import { envVariables } from '@/env'
-import { Log } from '@/log'
+import { envVariables } from '@/lib/env'
+import { Log } from '@/lib/log'
 
 mkdirSync(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
 

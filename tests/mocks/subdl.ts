@@ -2,10 +2,36 @@ import { Mock } from '@lobomfz/ghostapi'
 import { type } from 'arktype'
 import { strToU8, zipSync } from 'fflate'
 
-import { envVariables } from '@/env'
+import { envVariables } from '@/lib/env'
 
 const zipContent = zipSync({
   'subtitle.srt': strToU8('1\n00:00:01,000 --> 00:00:02,000\nTest subtitle\n'),
+})
+
+const goodSyncSrt = `1
+00:00:05,000 --> 00:00:05,500
+Line one
+
+2
+00:08:20,000 --> 00:08:20,500
+Line two
+`
+
+const goodSyncZip = zipSync({
+  'synced.srt': strToU8(goodSyncSrt),
+})
+
+const badSyncSrt = `1
+00:04:10,000 --> 00:04:10,500
+Off one
+
+2
+00:12:30,000 --> 00:12:30,500
+Off two
+`
+
+const badSyncZip = zipSync({
+  'unsynced.srt': strToU8(badSyncSrt),
 })
 
 const zipWithoutSrt = zipSync({
@@ -25,7 +51,7 @@ const seasonPackZip = zipSync({
   'readme.nfo': strToU8('not a subtitle'),
 })
 
-const SubdlMock = new Mock(
+export const SubdlMock = new Mock(
   {
     subtitles: type({
       id: 'number',
@@ -94,6 +120,10 @@ const SubdlMock = new Mock(
         content = zipWithoutSrt
       } else if (params.path.includes('season-pack')) {
         content = seasonPackZip
+      } else if (params.path.includes('good-sync')) {
+        content = goodSyncZip
+      } else if (params.path.includes('bad-sync')) {
+        content = badSyncZip
       }
 
       return new Response(Buffer.from(content), {

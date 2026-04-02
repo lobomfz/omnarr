@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { deriveId } from '@/utils'
+import { deriveId } from '@/lib/utils'
 
 describe('deriveId', () => {
   test('produces 6-char uppercase base36 string', () => {

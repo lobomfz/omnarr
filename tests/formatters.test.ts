@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { Formatters } from '@/formatters'
+import { Formatters } from '@/lib/formatters'
 
 describe('Formatters', () => {
   describe('seasonEpisodeTag', () => {

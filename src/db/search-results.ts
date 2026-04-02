@@ -1,7 +1,7 @@
 import type { Insertable } from '@lobomfz/db'
 
 import { db, type DB } from '@/db/connection'
-import { deriveId } from '@/utils'
+import { deriveId } from '@/lib/utils'
 
 export const DbSearchResults = {
   async upsert(results: Omit<Insertable<DB['search_results']>, 'id'>[]) {

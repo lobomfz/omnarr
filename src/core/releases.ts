@@ -1,17 +1,17 @@
 import dayjs from 'dayjs'
 
-import { config } from '@/config'
+import { config } from '@/lib/config'
 import { db, media_type } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import { DbReleases } from '@/db/releases'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { Formatters } from '@/formatters'
+import { Formatters } from '@/lib/formatters'
 import { indexerMap } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
-import { Log } from '@/log'
-import { Parsers } from '@/parsers'
+import { Log } from '@/lib/log'
+import { Parsers } from '@/lib/parsers'
 
 const SEASONS_TTL_DAYS = 7
 

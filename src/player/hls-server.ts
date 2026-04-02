@@ -5,7 +5,7 @@ import { join, resolve } from 'path'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
 import type { TracksWithFile } from '@/db/media-tracks'
-import { Log } from '@/log'
+import { Log } from '@/lib/log'
 import { HlsSession, type Segment } from '@/player/hls-session'
 import { segmentFilename } from '@/player/segment-watcher'
 import {

@@ -4,9 +4,10 @@ import { dirname, join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 import { unzipSync } from 'fflate'
+import PQueue from 'p-queue'
 import axios from 'redaxios'
 
-import { config } from '@/config'
+import { config } from '@/lib/config'
 import { type indexer_source, media_type } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
@@ -16,9 +17,9 @@ import { indexerMap } from '@/integrations/indexers/registry'
 import { SuperflixAdapter } from '@/integrations/indexers/superflix'
 import { QBittorrentClient } from '@/integrations/qbittorrent/client'
 import { TmdbClient } from '@/integrations/tmdb/client'
-import { Log } from '@/log'
-import { Parsers } from '@/parsers'
-import { deriveId } from '@/utils'
+import { Log } from '@/lib/log'
+import { Parsers } from '@/lib/parsers'
+import { deriveId } from '@/lib/utils'
 
 export class Downloads {
   private client: DownloadClient | null
@@ -41,6 +42,7 @@ export class Downloads {
       language?: string | null
       season_number?: number | null
       episode_number?: number | null
+      concurrency?: number
     },
     onProgress: (tag: string, status: string, progress: number) => void
   ) {
@@ -102,7 +104,8 @@ export class Downloads {
             year: details.year,
             media,
           },
-          onProgress
+          onProgress,
+          params.concurrency
         )
 
       case 'torrent':
@@ -170,7 +173,8 @@ export class Downloads {
         tmdb_media_id: number
       }
     },
-    onProgress: (tag: string, status: string, progress: number) => void
+    onProgress: (tag: string, status: string, progress: number) => void,
+    concurrency?: number
   ) {
     Log.info(
       `ripper start imdb=${data.imdb_id} title="${data.title}" audio_only=${!!data.audio_only} season=${data.season_number ?? 'none'}`
@@ -178,6 +182,131 @@ export class Downloads {
 
     const client = new SuperflixAdapter()
     const tracksDir = this.resolveTracksDir(data.media.id)
+
+    const effectiveConcurrency = concurrency ?? 1
+
+    const entries = await this.gatherRipperEntries(
+      client,
+      data,
+      tracksDir,
+      onProgress,
+      effectiveConcurrency
+    )
+
+    onProgress('Gathering', 'completed', 1)
+
+    await DbDownloads.deleteIncomplete(data.source_id)
+
+    const download = await DbDownloads.create({
+      media_id: data.media.id,
+      source_id: data.source_id,
+      download_url: data.download_url,
+      source: 'ripper',
+      status: 'downloading',
+    })
+
+    const tmpPath = join(tmpdir(), `omnarr-dl-${data.media.id}`)
+
+    await mkdir(tmpPath, { recursive: true })
+
+    await using _ = {
+      [Symbol.asyncDispose]: async () => {
+        await rm(tmpPath, { recursive: true }).catch((err) =>
+          Log.warn(`failed to cleanup temp dir path=${tmpPath} error=${err}`)
+        )
+      },
+    }
+
+    let ripped = 0
+    let completed = 0
+
+    const queue = new PQueue({ concurrency: effectiveConcurrency })
+
+    onProgress('Ripping', `0/${entries.length}`, 0)
+
+    for (const entry of entries) {
+      queue.add(async () => {
+        try {
+          const tmpFile = join(tmpPath, `${entry.tag.replaceAll(' ', '_')}.ts`)
+
+          await client.downloadStream(entry.stream, tmpFile, () => {})
+
+          await mkdir(dirname(entry.outputPath), { recursive: true })
+
+          await new FFmpegBuilder({ overwrite: true })
+            .input(tmpFile)
+            .codec(entry.codec, 'copy')
+            .output(entry.outputPath)
+            .run()
+
+          ripped++
+        } catch (err) {
+          Log.warn(
+            `ripper failed tag=${entry.tag} error="${err instanceof Error ? err.message : String(err)}"`
+          )
+        }
+
+        completed++
+
+        onProgress(
+          'Ripping',
+          `${completed}/${entries.length}`,
+          completed / entries.length
+        )
+
+        await DbDownloads.update(download.id, {
+          progress: completed / entries.length,
+        })
+      })
+    }
+
+    await queue.onIdle()
+
+    onProgress(`Ripped ${ripped}/${entries.length}`, 'completed', 1)
+
+    if (ripped > 0) {
+      await DbDownloads.update(download.id, {
+        status: 'completed',
+        progress: 1,
+        content_path: tracksDir,
+      })
+    } else {
+      await DbDownloads.update(download.id, {
+        status: 'error',
+        error_at: new Date().toISOString(),
+      })
+    }
+
+    Log.info(`ripper complete ripped=${ripped}/${entries.length}`)
+
+    return {
+      media: data.media,
+      download,
+      ripped,
+      total: entries.length,
+      title: data.title,
+      year: data.year,
+    }
+  }
+
+  private async gatherRipperEntries(
+    client: SuperflixAdapter,
+    data: {
+      imdb_id: string
+      audio_only?: boolean
+      lang?: string
+      season_number?: number | null
+    },
+    tracksDir: string,
+    onProgress: (tag: string, status: string, progress: number) => void,
+    concurrency: number
+  ) {
+    const entries: {
+      tag: string
+      stream: { url: string; referer: string }
+      outputPath: string
+      codec: 'v' | 'a'
+    }[] = []
 
     const units: {
       tag: string
@@ -204,145 +333,60 @@ export class Downloads {
       }
     }
 
-    await DbDownloads.deleteIncomplete(data.source_id)
+    let gathered = 0
 
-    const download = await DbDownloads.create({
-      media_id: data.media.id,
-      source_id: data.source_id,
-      download_url: data.download_url,
-      source: 'ripper',
-      status: 'downloading',
-    })
-
-    const tmpPath = join(tmpdir(), `omnarr-dl-${data.media.id}`)
-
-    await mkdir(tmpPath, { recursive: true })
-
-    await using _ = {
-      [Symbol.asyncDispose]: async () => {
-        await rm(tmpPath, { recursive: true }).catch((err) =>
-          Log.warn(`failed to cleanup temp dir path=${tmpPath} error=${err}`)
-        )
-      },
-    }
-
-    let completedUnits = 0
-    let ripped = 0
-    let totalStreams = 0
+    const queue = new PQueue({ concurrency })
 
     for (const unit of units) {
-      try {
-        const streams = await client.getStreams(data.imdb_id, unit.episode)
+      queue.add(async () => {
+        try {
+          const streams = await client.getStreams(data.imdb_id, unit.episode)
 
-        const entries: {
-          tag: string
-          stream: { url: string; referer: string }
-          outputPath: string
-          codec: 'v' | 'a'
-        }[] = []
-
-        if (!data.audio_only && streams.video) {
-          entries.push({
-            tag: unit.tag ? `${unit.tag} VIDEO` : 'VIDEO',
-            stream: streams.video,
-            outputPath: join(unit.dir, 'video.mkv'),
-            codec: 'v',
-          })
-        }
-
-        const audioStreams = data.lang
-          ? streams.audio.filter((s) => s.lang === data.lang)
-          : streams.audio
-
-        for (let i = 0; i < audioStreams.length; i++) {
-          const s = audioStreams[i]
-          const label = s.lang ?? String(i)
-
-          entries.push({
-            tag: unit.tag
-              ? `${unit.tag} ${label.toUpperCase()}`
-              : label.toUpperCase(),
-            stream: s,
-            outputPath: join(unit.dir, `audio_${label}.mka`),
-            codec: 'a',
-          })
-        }
-
-        totalStreams += entries.length
-
-        for (const entry of entries) {
-          try {
-            onProgress(entry.tag, 'downloading', 0)
-
-            const tmpFile = join(
-              tmpPath,
-              `${entry.tag.replaceAll(' ', '_')}.ts`
-            )
-
-            await client.downloadStream(
-              entry.stream,
-              tmpFile,
-              (downloaded, total) => {
-                onProgress(entry.tag, 'downloading', downloaded / total)
-              }
-            )
-
-            onProgress(entry.tag, 'processing', 1)
-
-            await mkdir(dirname(entry.outputPath), { recursive: true })
-
-            await new FFmpegBuilder({ overwrite: true })
-              .input(tmpFile)
-              .codec(entry.codec, 'copy')
-              .output(entry.outputPath)
-              .run()
-
-            onProgress(entry.tag, 'completed', 1)
-            ripped++
-          } catch (err) {
-            Log.warn(
-              `ripper failed tag=${entry.tag} error="${err instanceof Error ? err.message : String(err)}"`
-            )
+          if (!data.audio_only && streams.video) {
+            entries.push({
+              tag: unit.tag ? `${unit.tag} VIDEO` : 'VIDEO',
+              stream: streams.video,
+              outputPath: join(unit.dir, 'video.mkv'),
+              codec: 'v',
+            })
           }
+
+          const audioStreams = data.lang
+            ? streams.audio.filter((s) => s.lang === data.lang)
+            : streams.audio
+
+          for (let i = 0; i < audioStreams.length; i++) {
+            const s = audioStreams[i]
+            const label = s.lang ?? String(i)
+
+            entries.push({
+              tag: unit.tag
+                ? `${unit.tag} ${label.toUpperCase()}`
+                : label.toUpperCase(),
+              stream: s,
+              outputPath: join(unit.dir, `audio_${label}.mka`),
+              codec: 'a',
+            })
+          }
+        } catch (err) {
+          Log.warn(
+            `ripper failed unit=${unit.tag || 'movie'} error="${err instanceof Error ? err.message : String(err)}"`
+          )
         }
 
-        completedUnits++
+        gathered++
 
-        await DbDownloads.update(download.id, {
-          progress: completedUnits / units.length,
-        })
-      } catch (err) {
-        Log.warn(
-          `ripper failed unit=${unit.tag || 'movie'} error="${err instanceof Error ? err.message : String(err)}"`
+        onProgress(
+          'Gathering',
+          `${gathered}/${units.length} episodes`,
+          gathered / units.length
         )
-      }
-    }
-
-    if (ripped > 0) {
-      await DbDownloads.update(download.id, {
-        status: 'completed',
-        progress: 1,
-        content_path: tracksDir,
-      })
-    } else {
-      await DbDownloads.update(download.id, {
-        status: 'error',
-        error_at: new Date().toISOString(),
       })
     }
 
-    Log.info(
-      `ripper complete ripped=${ripped} units=${completedUnits}/${units.length}`
-    )
+    await queue.onIdle()
 
-    return {
-      media: data.media,
-      download,
-      ripped,
-      total: totalStreams,
-      title: data.title,
-      year: data.year,
-    }
+    return entries
   }
 
   private async addSubtitle(

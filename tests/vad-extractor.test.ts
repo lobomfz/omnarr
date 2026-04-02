@@ -5,7 +5,7 @@ import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
-import { VadExtractor } from '@/vad-extractor'
+import { VadExtractor } from '@/audio/vad-extractor'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-vad-'))
 const silentMkv = join(tmpDir, 'silent.mkv')

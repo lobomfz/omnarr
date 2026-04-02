@@ -20,8 +20,8 @@ import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { Scanner } from '@/scanner'
-import { deriveId } from '@/utils'
+import { Scanner } from '@/core/scanner'
+import { deriveId } from '@/lib/utils'
 
 const noop = () => {}
 

@@ -1,28 +1,16 @@
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
-import { AudioCorrelator, MIN_SYNC_CONFIDENCE } from '@/audio-correlator'
-import { DbMediaTracks, type TracksWithFile } from '@/db/media-tracks'
-import { DbMediaVad } from '@/db/media-vad'
-import { Log } from '@/log'
+import { type TracksWithFile } from '@/db/media-tracks'
+import { Log } from '@/lib/log'
+import { TrackResolver } from '@/audio/track-resolver'
 
 type ResolvedTracks = Awaited<ReturnType<Exporter['resolveTracks']>>
 
 type Track = TracksWithFile[number]
 
-export class Exporter {
-  constructor(private media: { id: string; episode_id?: number }) {}
-
+export class Exporter extends TrackResolver {
   async resolveTracks(opts: { video?: number }) {
-    const allTracks = await DbMediaTracks.getWithFile({
-      media_id: this.media.id,
-      episode_id: this.media.episode_id,
-    })
-
-    if (allTracks.length === 0) {
-      throw new Error('No tracks found. Run scan first.')
-    }
-
-    const byType = Map.groupBy(allTracks, (t) => t.stream_type)
+    const byType = await this.getTracks()
 
     const videoTracks = byType.get('video') ?? []
     const audioTracks = byType.get('audio') ?? []
@@ -44,16 +32,8 @@ export class Exporter {
 
     offsets.set(resolved.video.download_id, 0)
 
-    const videoVad = await this.loadVad(resolved.video.file_id)
-
     for (const dlId of downloadIds) {
       if (dlId === resolved.video.download_id) {
-        continue
-      }
-
-      if (!videoVad) {
-        Log.warn(`export offset skipped: missing vad for video file`)
-        offsets.set(dlId, 0)
         continue
       }
 
@@ -66,28 +46,12 @@ export class Exporter {
         continue
       }
 
-      const dlVad = await this.loadVad(dlTrack.file_id)
-
-      if (!dlVad) {
-        Log.warn(`export offset skipped: missing vad for download=${dlId}`)
-        offsets.set(dlId, 0)
-        continue
-      }
-
-      const result = AudioCorrelator.correlateTimestamps(videoVad, dlVad)
-
-      if (result.confidence < MIN_SYNC_CONFIDENCE) {
-        Log.warn(
-          `export offset skipped: low confidence=${result.confidence.toFixed(1)} download=${dlId}`
-        )
-        offsets.set(dlId, 0)
-        continue
-      }
-
-      Log.info(
-        `export offset applied: offset=${result.offsetSeconds.toFixed(3)}s confidence=${result.confidence.toFixed(1)} download=${dlId}`
+      const result = await this.resolveOffset(
+        resolved.video.file_id,
+        dlTrack.file_id
       )
-      offsets.set(dlId, result.offsetSeconds)
+
+      offsets.set(dlId, result.offset)
     }
 
     return offsets
@@ -179,20 +143,6 @@ export class Exporter {
     }
 
     return builder.output(output)
-  }
-
-  private async loadVad(fileId: number) {
-    const vad = await DbMediaVad.getByMediaFileId(fileId)
-
-    if (!vad) {
-      return null
-    }
-
-    return new Float32Array(
-      vad.data.buffer,
-      vad.data.byteOffset,
-      vad.data.byteLength / Float32Array.BYTES_PER_ELEMENT
-    )
   }
 
   private pickVideo(tracks: TracksWithFile, index?: number) {

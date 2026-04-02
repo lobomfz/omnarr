@@ -8,8 +8,8 @@ import { DbEpisodes } from '@/db/episodes'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbSeasons } from '@/db/seasons'
-import { Scanner } from '@/scanner'
-import { deriveId } from '@/utils'
+import { Scanner } from '@/core/scanner'
+import { deriveId } from '@/lib/utils'
 
 const testDir = join(tmpdir(), 'omnarr-scanner-subtitle-test')
 const noop = () => {}

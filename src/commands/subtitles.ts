@@ -1,7 +1,7 @@
 import { defineCommand, option } from '@bunli/core'
 import { type } from 'arktype'
 
-import { Handler } from '@/handler'
+import { Handler } from '@/commands/handler'
 import { subdlLanguage } from '@/integrations/indexers/subdl'
 
 export const SubtitlesCommand = defineCommand({
@@ -10,6 +10,9 @@ export const SubtitlesCommand = defineCommand({
   options: {
     json: option(type('boolean | undefined'), {
       description: 'Output as JSON',
+    }),
+    auto: option(type('boolean | undefined'), {
+      description: 'Auto-match: download and test subtitles until one syncs',
     }),
     season: option(type('string.numeric.parse | undefined'), {
       description: 'Season number (required for TV)',
@@ -23,6 +26,7 @@ export const SubtitlesCommand = defineCommand({
   },
   handler: ({ positional, flags }) =>
     new Handler(positional, flags.json).subtitles({
+      auto: flags.auto,
       season: flags.season,
       episode: flags.episode,
       lang: flags.lang,

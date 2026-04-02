@@ -13,7 +13,7 @@ import dayjs from 'dayjs'
 import { WaitForCommand } from '@/commands/wait-for'
 import { database, type indexer_source } from '@/db/connection'
 import { DbReleases } from '@/db/releases'
-import { Downloads } from '@/downloads'
+import { Downloads } from '@/core/downloads'
 import { TmdbClient } from '@/integrations/tmdb/client'
 
 const noop = () => {}
@@ -22,7 +22,7 @@ import '../mocks/tmdb'
 import '../mocks/beyond-hd'
 import '../mocks/yts'
 import '../mocks/qbittorrent'
-import { Releases } from '@/releases'
+import { Releases } from '@/core/releases'
 
 import { QBittorrentMock } from '../mocks/qbittorrent'
 

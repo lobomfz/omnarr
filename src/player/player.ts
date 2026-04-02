@@ -1,12 +1,10 @@
-import { AudioCorrelator, MIN_SYNC_CONFIDENCE } from '@/audio-correlator'
-import { config } from '@/config'
+import { config } from '@/lib/config'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
-import { DbMediaTracks, type TracksWithFile } from '@/db/media-tracks'
-import { DbMediaVad } from '@/db/media-vad'
-import { Log } from '@/log'
-import { Parsers } from '@/parsers'
+import { type TracksWithFile } from '@/db/media-tracks'
+import { Log } from '@/lib/log'
 import { HlsServer } from '@/player/hls-server'
 import { Transcoder } from '@/player/transcoder'
+import { TrackResolver } from '@/audio/track-resolver'
 
 type TrackSelection = {
   video?: number
@@ -14,16 +12,14 @@ type TrackSelection = {
   sub?: number
 }
 
-export class Player {
+export class Player extends TrackResolver {
   private server?: HlsServer
-
-  constructor(private media: { id: string; episode_id?: number }) {}
 
   async start(selection: TrackSelection, opts: { port?: number }) {
     const resolved = await this.resolveTracks(selection)
 
     const audioOffset = await this.resolveAudioOffset(resolved)
-    const subtitleSync = await this.resolveSubtitleOffset(resolved)
+    const subtitleSync = await this.resolveSubtitleSync(resolved)
 
     const [transcode, segments] = await Promise.all([
       Transcoder.init(resolved, config.transcoding),
@@ -74,16 +70,7 @@ export class Player {
   }
 
   async resolveTracks(selection: TrackSelection) {
-    const allTracks = await DbMediaTracks.getWithFile({
-      media_id: this.media.id,
-      episode_id: this.media.episode_id,
-    })
-
-    if (allTracks.length === 0) {
-      throw new Error('No tracks found. Run scan first.')
-    }
-
-    const byType = Map.groupBy(allTracks, (t) => t.stream_type)
+    const byType = await this.getTracks()
 
     const video = this.pickTrack(byType.get('video'), 'video', selection.video)
     const audio = this.pickTrack(byType.get('audio'), 'audio', selection.audio)
@@ -109,49 +96,15 @@ export class Player {
       return 0
     }
 
-    const [videoVad, audioVad] = await Promise.all([
-      DbMediaVad.getByMediaFileId(resolved.video.file_id),
-      DbMediaVad.getByMediaFileId(resolved.audio.file_id),
-    ])
-
-    if (!videoVad || !audioVad) {
-      Log.warn(
-        `audio sync skipped: missing vad video=${!!videoVad} audio=${!!audioVad}`
-      )
-      return 0
-    }
-
-    const videoTimestamps = new Float32Array(
-      videoVad.data.buffer,
-      videoVad.data.byteOffset,
-      videoVad.data.byteLength / Float32Array.BYTES_PER_ELEMENT
-    )
-    const audioTimestamps = new Float32Array(
-      audioVad.data.buffer,
-      audioVad.data.byteOffset,
-      audioVad.data.byteLength / Float32Array.BYTES_PER_ELEMENT
+    const result = await this.resolveOffset(
+      resolved.video.file_id,
+      resolved.audio.file_id
     )
 
-    const result = AudioCorrelator.correlateTimestamps(
-      videoTimestamps,
-      audioTimestamps
-    )
-
-    if (result.confidence < MIN_SYNC_CONFIDENCE) {
-      Log.warn(
-        `audio sync skipped: low confidence=${result.confidence.toFixed(1)} offset=${result.offsetSeconds.toFixed(3)}s`
-      )
-      return 0
-    }
-
-    Log.info(
-      `audio sync applied: offset=${result.offsetSeconds.toFixed(3)}s confidence=${result.confidence.toFixed(1)}`
-    )
-
-    return result.offsetSeconds
+    return result.offset
   }
 
-  async resolveSubtitleOffset(resolved: {
+  async resolveSubtitleSync(resolved: {
     video: { download_id: number; file_id: number }
     audio: { download_id: number; file_id: number }
     subtitle: { download_id: number; file_path: string } | null
@@ -171,44 +124,19 @@ export class Player {
         ? resolved.video.file_id
         : resolved.audio.file_id
 
-    const vad = await DbMediaVad.getByMediaFileId(audioFileId)
-
-    if (!vad) {
-      Log.warn('subtitle sync skipped: missing vad for audio')
-      return noSync
-    }
-
-    const vadTimestamps = new Float32Array(
-      vad.data.buffer,
-      vad.data.byteOffset,
-      vad.data.byteLength / Float32Array.BYTES_PER_ELEMENT
+    const result = await this.resolveSubtitleOffset(
+      audioFileId,
+      resolved.subtitle.file_path
     )
 
-    const srtContent = await Bun.file(resolved.subtitle.file_path).text()
-    const srtTimestamps = Parsers.srtTimestamps(srtContent)
-
-    if (srtTimestamps.length === 0) {
-      Log.warn('subtitle sync skipped: no timestamps in SRT')
-      return noSync
+    if (result.confidence === null || result.offset === 0) {
+      return result
     }
 
-    const result = AudioCorrelator.correlateOnsets(vadTimestamps, srtTimestamps)
-
-    if (result.confidence < MIN_SYNC_CONFIDENCE) {
-      Log.warn(
-        `subtitle sync skipped: low confidence=${result.confidence.toFixed(1)} offset=${result.offsetSeconds.toFixed(3)}s`
-      )
-
-      return { offset: 0, confidence: result.confidence }
+    return {
+      offset: result.offset + config.subtitle_delay,
+      confidence: result.confidence,
     }
-
-    const offset = result.offsetSeconds + config.subtitle_delay
-
-    Log.info(
-      `subtitle sync applied: offset=${offset.toFixed(3)}s confidence=${result.confidence.toFixed(1)}`
-    )
-
-    return { offset, confidence: result.confidence }
   }
 
   private pickTrack(

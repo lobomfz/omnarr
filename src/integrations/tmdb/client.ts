@@ -2,8 +2,8 @@ import dayjs from 'dayjs'
 import axios from 'redaxios'
 
 import { media_type } from '@/db/connection'
-import { envVariables } from '@/env'
-import { Log } from '@/log'
+import { envVariables } from '@/lib/env'
+import { Log } from '@/lib/log'
 
 import type { TmdbTypes } from './types'
 

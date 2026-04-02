@@ -1,7 +1,7 @@
 import { type } from 'arktype'
 import axios from 'redaxios'
 
-import { envVariables } from '@/env'
+import { envVariables } from '@/lib/env'
 
 import type { Indexer, IndexerRelease, SearchParams } from './types'
 

@@ -1,7 +1,7 @@
 import { defineCommand, option } from '@bunli/core'
 import { type } from 'arktype'
 
-import { Handler } from '@/handler'
+import { Handler } from '@/commands/handler'
 
 export const LibraryCommand = defineCommand({
   name: 'library',

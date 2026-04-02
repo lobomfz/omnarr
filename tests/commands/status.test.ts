@@ -6,10 +6,10 @@ import { testCommand } from '@bunli/test'
 import { StatusCommand } from '@/commands/status'
 import { database, type indexer_source } from '@/db/connection'
 import { DbReleases } from '@/db/releases'
-import { Downloads } from '@/downloads'
-import { envVariables } from '@/env'
+import { Downloads } from '@/core/downloads'
+import { envVariables } from '@/lib/env'
 import { TmdbClient } from '@/integrations/tmdb/client'
-import { Releases } from '@/releases'
+import { Releases } from '@/core/releases'
 
 const noop = () => {}
 

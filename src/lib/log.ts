@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
 
-import { envVariables } from '@/env'
+import { envVariables } from '@/lib/env'
 
 mkdirSync(dirname(envVariables.OMNARR_LOG_PATH), { recursive: true })
 

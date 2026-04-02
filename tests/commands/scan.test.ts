@@ -18,7 +18,7 @@ import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/utils'
+import { deriveId } from '@/lib/utils'
 
 import { MediaFixtures } from '../fixtures/media'
 

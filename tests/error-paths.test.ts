@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { TmdbClient } from '@/integrations/tmdb/client'
-import { Releases } from '@/releases'
+import { Releases } from '@/core/releases'
 
 import { TmdbMock } from './mocks/tmdb'
 import './mocks/beyond-hd'

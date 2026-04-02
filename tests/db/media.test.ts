@@ -8,7 +8,7 @@ import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/utils'
+import { deriveId } from '@/lib/utils'
 
 beforeEach(() => {
   database.reset()

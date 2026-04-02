@@ -1,8 +1,8 @@
 import { type } from 'arktype'
 
-import { envVariables } from '@/env'
+import { envVariables } from '@/lib/env'
 import { indexerSchema } from '@/integrations/indexers/registry'
-import { Log } from '@/log'
+import { Log } from '@/lib/log'
 
 const qbittorrentClient = type({
   type: "'qbittorrent'",

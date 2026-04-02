@@ -1,12 +1,21 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
+import { rm } from 'fs/promises'
 
 import { testCommand } from '@bunli/test'
 
 import { SubtitlesCommand } from '@/commands/subtitles'
+import { config } from '@/lib/config'
 import { database, db } from '@/db/connection'
-import { deriveId } from '@/utils'
+import { DbDownloads } from '@/db/downloads'
+import { DbMedia } from '@/db/media'
+import { DbMediaFiles } from '@/db/media-files'
+import { DbMediaTracks } from '@/db/media-tracks'
+import { DbMediaVad } from '@/db/media-vad'
+import { DbReleases } from '@/db/releases'
+import { DbTmdbMedia } from '@/db/tmdb-media'
+import { deriveId } from '@/lib/utils'
 
-import '../mocks/subdl'
+import { SubdlMock } from '../mocks/subdl'
 
 beforeEach(() => {
   database.reset()
@@ -185,6 +194,215 @@ describe('subtitles command', () => {
     const result = await testCommand(SubtitlesCommand, {
       args: [deriveId('999:movie')],
       flags: { json: true },
+    })
+
+    expect(result.exitCode).not.toBe(0)
+  })
+})
+
+const tracksDir = config.root_folders!.tracks!
+const VAD_TIMESTAMPS = new Float32Array([5.0, 5.5, 500.0, 500.5])
+
+async function setupAutoMatch() {
+  const tmdb = await DbTmdbMedia.upsert({
+    tmdb_id: 603,
+    media_type: 'movie',
+    title: 'The Matrix',
+    imdb_id: 'tt0133093',
+    year: 1999,
+  })
+
+  const media = await DbMedia.create({
+    id: deriveId('603:movie'),
+    tmdb_media_id: tmdb.id,
+    media_type: 'movie',
+    root_folder: '/tmp/omnarr-test-movies',
+  })
+
+  const download = await DbDownloads.create({
+    media_id: media.id,
+    source_id: 'VIDEO_HASH_001',
+    download_url: 'magnet:VIDEO_HASH_001',
+    status: 'completed',
+    content_path: '/movies/The Matrix (1999)',
+  })
+
+  const file = await DbMediaFiles.create({
+    media_id: media.id,
+    download_id: download.id,
+    path: '/movies/The Matrix (1999)/movie.mkv',
+    size: 8_000_000_000,
+    duration: 8160,
+  })
+
+  await DbMediaTracks.createMany([
+    {
+      media_file_id: file.id,
+      stream_index: 0,
+      stream_type: 'video',
+      codec_name: 'h264',
+      is_default: true,
+      width: 1920,
+      height: 1080,
+    },
+  ])
+
+  await DbMediaVad.create({
+    media_file_id: file.id,
+    data: new Uint8Array(VAD_TIMESTAMPS.buffer),
+  })
+
+  await DbReleases.upsert(603, 'movie', [
+    {
+      source_id: 'VIDEO_HASH_001',
+      indexer_source: 'yts',
+      name: 'The.Matrix.1999.1080p.BluRay.x264-GROUP',
+      size: 8_000_000_000,
+      imdb_id: 'tt0133093',
+      resolution: '1080p',
+      codec: 'x264',
+      hdr: [],
+      download_url: 'magnet:VIDEO_HASH_001',
+    },
+  ])
+
+  return media.id
+}
+
+async function cleanAutoMatch() {
+  await SubdlMock.db.deleteFrom('subtitles').where('id', '>=', 100).execute()
+  await rm(tracksDir, { recursive: true }).catch(() => {})
+}
+
+describe('subtitles --auto --json', () => {
+  beforeEach(async () => {
+    await cleanAutoMatch()
+  })
+
+  afterAll(async () => {
+    await cleanAutoMatch()
+  })
+
+  test('returns matched result with confidence scores', async () => {
+    const mediaId = await setupAutoMatch()
+
+    await SubdlMock.db
+      .insertInto('subtitles')
+      .values([
+        {
+          id: 500,
+          release_name: 'The.Matrix.1999.1080p.BluRay.x264-GROUP',
+          name: 'json-test-sub',
+          lang: 'english',
+          language: 'EN',
+          author: 'matcher',
+          url: '/subtitle/good-sync-500.zip',
+          imdb_id: 'tt0133093',
+        },
+      ])
+      .execute()
+
+    const result = await testCommand(SubtitlesCommand, {
+      args: [mediaId],
+      flags: { json: true, auto: true },
+    })
+
+    expect(result.exitCode).toBe(0)
+
+    const data = JSON.parse(result.stdout)
+
+    expect(data.matched).not.toBeNull()
+    expect(data.matched.confidence).toBeTypeOf('number')
+    expect(data.matched.offset).toBeTypeOf('number')
+    expect(data.matched.name).toBeTypeOf('string')
+    expect(data.matched.status).toBe('matched')
+    expect(data.tested).toBeInstanceOf(Array)
+    expect(data.tested.length).toBeGreaterThanOrEqual(1)
+  })
+
+  test('returns null matched with tested array on exhaustion', async () => {
+    const mediaId = await setupAutoMatch()
+
+    await SubdlMock.db
+      .insertInto('subtitles')
+      .values(
+        Array.from({ length: 3 }, (_, i) => ({
+          id: 600 + i,
+          release_name: `The.Matrix.1999.${720 + i}p-GRP${i}`,
+          name: `exhaust-cmd-${i}`,
+          lang: 'english',
+          language: 'EN',
+          author: 'matcher',
+          url: `/subtitle/bad-sync-${600 + i}.zip`,
+          imdb_id: 'tt0133093',
+        }))
+      )
+      .execute()
+
+    const result = await testCommand(SubtitlesCommand, {
+      args: [mediaId],
+      flags: { json: true, auto: true },
+    })
+
+    expect(result.exitCode).toBe(0)
+
+    const data = JSON.parse(result.stdout)
+
+    expect(data.matched).toBeNull()
+    expect(data.tested.length).toBeGreaterThanOrEqual(1)
+
+    for (const attempt of data.tested) {
+      expect(attempt.name).toBeTypeOf('string')
+      expect(attempt.status).toBe('no-match')
+    }
+  })
+
+  test('errors when media has no VAD data', async () => {
+    const tmdb = await DbTmdbMedia.upsert({
+      tmdb_id: 700,
+      media_type: 'movie',
+      title: 'No VAD Movie',
+      imdb_id: 'tt0700000',
+      year: 2000,
+    })
+
+    const media = await DbMedia.create({
+      id: deriveId('700:movie'),
+      tmdb_media_id: tmdb.id,
+      media_type: 'movie',
+      root_folder: '/tmp/omnarr-test-movies',
+    })
+
+    const download = await DbDownloads.create({
+      media_id: media.id,
+      source_id: 'VID_NOVAD',
+      download_url: 'magnet:VID_NOVAD',
+      status: 'completed',
+      content_path: '/movies/novad',
+    })
+
+    const file = await DbMediaFiles.create({
+      media_id: media.id,
+      download_id: download.id,
+      path: '/movies/novad/movie.mkv',
+      size: 1_000_000,
+    })
+
+    await DbMediaTracks.createMany([
+      {
+        media_file_id: file.id,
+        stream_index: 0,
+        stream_type: 'video',
+        codec_name: 'h264',
+        is_default: true,
+        width: 1920,
+        height: 1080,
+      },
+    ])
+
+    const result = await testCommand(SubtitlesCommand, {
+      args: [media.id],
+      flags: { json: true, auto: true },
     })
 
     expect(result.exitCode).not.toBe(0)

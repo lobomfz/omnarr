@@ -10,7 +10,7 @@ import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/utils'
+import { deriveId } from '@/lib/utils'
 
 export async function seedMedia() {
   const tmdb = await DbTmdbMedia.upsert({

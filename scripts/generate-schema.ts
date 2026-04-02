@@ -1,4 +1,4 @@
-import { configJsonSchema } from '@/config'
+import { configJsonSchema } from '@/lib/config'
 
 await Bun.write(
   'config.schema.json',

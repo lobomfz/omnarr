@@ -1,7 +1,7 @@
 import { Mock } from '@lobomfz/ghostapi'
 import { type } from 'arktype'
 
-import { envVariables } from '@/env'
+import { envVariables } from '@/lib/env'
 
 const BeyondHdMock = new Mock(
   {

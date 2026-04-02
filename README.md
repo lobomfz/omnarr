@@ -1,154 +1,34 @@
 # omnarr
 
-Unified media manager.
+a self-hosted media server that lets you mix video, audio, and subtitles from different sources into a single, auto-synced playback.
 
-Search TMDB. Find releases in your indexers. Download via qBittorrent or rip directly from streaming sources. Scan, play, and manage your library.
+## goals
 
-## Supported today
+- replace Radarr, Sonarr, Prowlarr, Bazarr, and Plex with a single tool
+- pick video from one source, audio from another, subtitles from a third. play them as one
+- auto-download and sync subtitles in your preferred language
+- watch in the browser or cast to a Chromecast
+- multiple profiles with per-user language and track preferences
+- resume where you left off, across devices
+- actually work without requiring a PhD
 
-- TMDB for metadata
-- YTS
-- Beyond-HD
-- Superflix (direct HLS ripping)
-- SubDL (subtitles)
-- qBittorrent
+## why
 
-### For humans
+the \*arr stack is fragmented by design. each tool does one thing, and getting them to work together means configuring half a dozen services that barely talk to each other.
 
-Copy and paste this prompt to your LLM agent:
+plex and jellyfin sit on the other end. they play what you give them, but they don't help you get it.
 
-```bash
-Install and configure omnarr by following the instructions here:
-curl https://raw.githubusercontent.com/lobomfz/omnarr/refs/heads/main/LLMS.md
-```
+omnarr handles the full pipeline from search to playback as a single tool, and that's what makes things like cross-source sync possible. when omnarr owns the whole chain it can do things a collection of specialized tools can't.
 
-### For LLM Agents
+this lets omnarr scan your files before playback, figure out what's inside each one and how to align them together, so when you hit play everything just works.
 
-Fetch the installation guide and follow it:
+## current features (cli-only, no UI)
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/lobomfz/omnarr/refs/heads/main/LLMS.md
-```
-
-## Manual install
-
-```bash
-bun i -g omnarr
-```
-
-## Quick start
-
-```bash
-omnarr init                         # interactive config wizard
-
-# download flow
-omnarr search "The Matrix"          # search TMDB
-omnarr releases <search_id>         # browse releases from all indexers
-omnarr download <release_id>        # torrent → qBittorrent, ripper → direct download
-omnarr download <release_id> --audio-only  # rip only audio tracks (.mka)
-omnarr status --watch               # monitor progress
-
-# library flow
-omnarr library                      # list media with IDs and status
-omnarr info <media_id>              # detailed view: files, tracks, status
-omnarr scan <media_id>              # probe files, discover tracks
-
-# subtitles
-omnarr subtitles <media_id>         # search subtitles via SubDL
-omnarr download <subtitle_id>       # download and auto-sync
-
-# playback
-omnarr play <media_id>              # HLS streaming via FFmpeg + mpv
-omnarr play <media_id> --video 1 --audio 0  # pick specific tracks
-omnarr play <media_id> --sub 0      # play with subtitle track
-```
-
-All user-facing IDs are 6-char strings (e.g., `C8R3OD`). The ID shown in `search` is the same one used in `scan` and `play`.
-
-When playing tracks from different downloads (e.g., a separate audio rip or subtitle file), omnarr automatically syncs them using VAD-based cross-correlation.
-
-All commands support `--json`.
-
-## Commands
-
-```bash
-# setup
-omnarr init
-omnarr init --empty
-
-# search and download
-omnarr search "Breaking Bad"
-omnarr releases ABC123
-omnarr releases ABC123 --season 1     # TV: filter by season
-omnarr download XYZ789
-omnarr download XYZ789 --audio-only   # ripper: audio tracks only
-omnarr status
-omnarr status --watch --limit 20
-omnarr wait-for XYZ789
-
-# library management
-omnarr library                       # list all media with status
-omnarr info ABC123                   # files, tracks, download status
-omnarr info ABC123 --season 1        # TV: filter by season
-omnarr scan ABC123                   # probe files on disk
-omnarr scan ABC123 --force           # re-probe from scratch
-
-# subtitles
-omnarr subtitles ABC123              # search subtitles via SubDL
-omnarr subtitles ABC123 --lang EN    # override configured language
-omnarr subtitles ABC123 --season 1 --episode 3  # TV
-
-# playback
-omnarr play ABC123                   # HLS stream, auto-selects best tracks
-omnarr play ABC123 --video 0 --audio 1
-omnarr play ABC123 --sub 0           # play with subtitle track
-omnarr play ABC123 --season 1 --episode 3  # TV
-```
-
-Requires FFmpeg for `scan` and `play`.
-
-## Config
-
-By default:
-
-- config: `~/.config/omnarr/config.json`
-- database: `~/.local/share/omnarr/db.sqlite`
-
-Example config:
-
-```json
-{
-  "$schema": "./schema.json",
-  "root_folders": {
-    "movie": "/media/movies",
-    "tv": "/media/tv",
-    "tracks": "/media/tracks"
-  },
-  "indexers": [
-    { "type": "yts" },
-    {
-      "type": "beyond-hd",
-      "api_key": "your-api-key",
-      "rss_key": "your-rss-key"
-    },
-    { "type": "superflix" },
-    {
-      "type": "subdl",
-      "api_key": "your-subdl-api-key",
-      "languages": ["EN", "BR_PT"]
-    }
-  ],
-  "download_client": {
-    "type": "qbittorrent",
-    "url": "http://localhost:8080",
-    "username": "admin",
-    "password": "secret",
-    "category": "omnarr"
-  },
-  "subtitle_delay": 1,
-  "transcoding": {
-    "video_crf": 21,
-    "video_preset": "veryfast"
-  }
-}
-```
+- search tmdb
+- download movies and shows from torrents and streaming sources
+- download subtitles tested against your actual files
+- scan and index all files
+- auto-sync audio and subtitles across sources
+- transcode to h264
+- export to mkv
+- monitor download status

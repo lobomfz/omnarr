@@ -4,11 +4,11 @@ import { dirname, join } from 'path'
 import type { PromptApi } from '@bunli/core'
 import type { Type } from 'arktype'
 
-import type { Config, ConfigInput } from '@/config'
-import { configJsonSchema } from '@/config'
-import { envVariables } from '@/env'
+import type { Config, ConfigInput } from '@/lib/config'
+import { configJsonSchema } from '@/lib/config'
+import { envVariables } from '@/lib/env'
 import { indexerMap } from '@/integrations/indexers/registry'
-import { Log } from '@/log'
+import { Log } from '@/lib/log'
 
 interface SchemaProp {
   key: string

@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 import { mockPromptResponses, testCommand } from '@bunli/test'
 
 import { InitCommand } from '@/commands/init'
-import { envVariables } from '@/env'
+import { envVariables } from '@/lib/env'
 
 const configPath = envVariables.OMNARR_CONFIG_PATH
 const schemaPath = join(dirname(configPath), 'schema.json')

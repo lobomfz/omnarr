@@ -4,7 +4,7 @@ import type {
   DownloadClient,
   TorrentStatus,
 } from '@/integrations/download-client'
-import { Log } from '@/log'
+import { Log } from '@/lib/log'
 
 interface QBitTorrent {
   hash: string

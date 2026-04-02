@@ -7,9 +7,9 @@ import { database, type indexer_source } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbReleases } from '@/db/releases'
 import { DbSeasons } from '@/db/seasons'
-import { Downloads } from '@/downloads'
+import { Downloads } from '@/core/downloads'
 import { TmdbClient } from '@/integrations/tmdb/client'
-import { Releases } from '@/releases'
+import { Releases } from '@/core/releases'
 
 const noop = () => {}
 

@@ -2,6 +2,7 @@ import { stat } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
 
 import { FFmpegBuilder, type Stream } from '@lobomfz/ffmpeg'
+import PQueue from 'p-queue'
 
 import { db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
@@ -11,9 +12,9 @@ import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'
-import { Log } from '@/log'
-import { Parsers } from '@/parsers'
-import { VadExtractor } from '@/vad-extractor'
+import { Log } from '@/lib/log'
+import { Parsers } from '@/lib/parsers'
+import { VadExtractor } from '@/audio/vad-extractor'
 
 const VALID_EXTENSIONS = new Set(['mkv', 'mp4', 'avi', 'ts', 'mka', 'srt'])
 
@@ -31,7 +32,7 @@ export class Scanner {
       path: string,
       ratio: number
     ) => void,
-    opts?: { force?: boolean }
+    opts?: { force?: boolean; concurrency?: number }
   ) {
     const media = await DbMedia.getById(mediaId)
 
@@ -61,7 +62,8 @@ export class Scanner {
       { id: mediaId, tmdb_media_id: media.tmdb_media_id },
       diskFiles,
       resolvedIds,
-      onProgress
+      onProgress,
+      opts?.concurrency
     )
   }
 
@@ -74,7 +76,8 @@ export class Scanner {
       total: number,
       path: string,
       ratio: number
-    ) => void
+    ) => void,
+    concurrency?: number
   ) {
     const existingFiles = await DbMediaFiles.getByMediaId(media.id)
 
@@ -96,27 +99,33 @@ export class Scanner {
 
     let probed = 0
 
-    for (let i = 0; i < newFiles.length; i++) {
-      const [path, downloadId] = newFiles[i]
+    const queue = new PQueue({ concurrency: concurrency ?? 1 })
 
-      onProgress(i + 1, newFiles.length, path, 0)
+    let nextIndex = 0
 
-      const success = await this.probeAndPersist(
-        media,
-        downloadId,
-        path,
-        (ratio) => onProgress(i + 1, newFiles.length, path, ratio)
-      ).catch((err) => {
-        Log.warn(
-          `probe failed file="${path}" error="${err instanceof Error ? err.message : String(err)}"`
-        )
-        return false
+    for (const [path, downloadId] of newFiles) {
+      const fileIndex = ++nextIndex
+
+      queue.add(async () => {
+        const success = await this.probeAndPersist(
+          media,
+          downloadId,
+          path,
+          (ratio) => onProgress(fileIndex, newFiles.length, path, ratio)
+        ).catch((err) => {
+          Log.warn(
+            `probe failed file="${path}" error="${err instanceof Error ? err.message : String(err)}"`
+          )
+          return false
+        })
+
+        if (success) {
+          probed++
+        }
       })
-
-      if (success) {
-        probed++
-      }
     }
+
+    await queue.onIdle()
 
     const finalFiles = await DbMediaFiles.getByMediaId(media.id)
 
@@ -272,26 +281,40 @@ export class Scanner {
 
     const videoStream = probe.streams.find((s) => s.codec_type === 'video')
 
-    const keyframeTimes = videoStream
-      ? await new FFmpegBuilder().input(fullPath).probeKeyframes({
-          duration: probe.format.duration,
-          onProgress: (r) => onProgress(r * keyframeWeight),
-        })
-      : undefined
+    let keyframeRatio = 0
+    let vadRatio = 0
+
+    const reportProgress = () => {
+      onProgress(keyframeRatio * keyframeWeight + vadRatio * vadWeight)
+    }
+
+    const [keyframeTimes, vadTimestamps] = await Promise.all([
+      videoStream
+        ? new FFmpegBuilder().input(fullPath).probeKeyframes({
+            duration: probe.format.duration,
+            onProgress: (r) => {
+              keyframeRatio = r
+              reportProgress()
+            },
+          })
+        : undefined,
+      hasAudio
+        ? new VadExtractor().extract(
+            fullPath,
+            (r) => {
+              vadRatio = r
+              reportProgress()
+            },
+            { duration: probe.format.duration }
+          )
+        : undefined,
+    ])
 
     if (keyframeTimes) {
       Log.info(
         `keyframe probe complete file="${fullPath}" keyframes=${keyframeTimes.length}`
       )
     }
-
-    const vadTimestamps = hasAudio
-      ? await new VadExtractor().extract(
-          fullPath,
-          (r) => onProgress(keyframeWeight + r * vadWeight),
-          { duration: probe.format.duration }
-        )
-      : undefined
 
     if (vadTimestamps) {
       Log.info(

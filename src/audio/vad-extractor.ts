@@ -3,7 +3,7 @@ import { join } from 'path'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 import { InferenceSession, Tensor } from 'onnxruntime-node'
 
-import { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES } from '@/vad-constants'
+import { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES } from '@/audio/vad-constants'
 
 export { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES }
 

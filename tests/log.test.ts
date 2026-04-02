@@ -1,8 +1,8 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 import { rm } from 'fs/promises'
 
-import { envVariables } from '@/env'
-import { Log } from '@/log'
+import { envVariables } from '@/lib/env'
+import { Log } from '@/lib/log'
 
 beforeEach(async () => {
   await rm(envVariables.OMNARR_LOG_PATH, { force: true })

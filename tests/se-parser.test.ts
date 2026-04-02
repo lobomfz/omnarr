@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { Parsers } from '@/parsers'
+import { Parsers } from '@/lib/parsers'
 
 describe('Parsers.seasonEpisode', () => {
   test('S01E05', () => {

@@ -73,6 +73,10 @@ All FFmpeg/ffprobe operations must go through `@lobomfz/ffmpeg` (`FFmpegBuilder`
 
 This is a small codebase. Use direct tool calls (Read, Grep, Glob) instead of Explore subagents. Subagents are unnecessary overhead here.
 
+## Gotchas
+
+- CLI option inputs are ALWAYS strings. For numeric options, use `type('string.numeric.parse | undefined')` — NOT `type('number | undefined')`. The `string.numeric.parse` morph transforms the string input into a number at parse time.
+
 ## Conventions
 
 - Path alias: `@/*` maps to `src/*`

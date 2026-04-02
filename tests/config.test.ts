@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { config } from '@/config'
+import { config } from '@/lib/config'
 
 describe('config', () => {
   test('reads and validates config from fixture', () => {

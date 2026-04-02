@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
-import { AudioCorrelator, MIN_SYNC_CONFIDENCE } from '@/audio-correlator'
-import { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES } from '@/vad-extractor'
+import { AudioCorrelator, MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
+import { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES } from '@/audio/vad-extractor'
 
 const WINDOW_DURATION = SILERO_WINDOW_SAMPLES / SILERO_SAMPLE_RATE
 

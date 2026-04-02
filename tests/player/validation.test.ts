@@ -11,7 +11,7 @@ import * as fsPromises from 'fs/promises'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
-import { config } from '@/config'
+import { config } from '@/lib/config'
 import { database } from '@/db/connection'
 import { Player } from '@/player/player'
 import { Transcoder } from '@/player/transcoder'

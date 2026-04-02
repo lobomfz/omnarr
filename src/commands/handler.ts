@@ -2,21 +2,22 @@ import { resolve } from 'path'
 
 import { type, type Type } from 'arktype'
 
-import { MIN_SYNC_CONFIDENCE } from '@/audio-correlator'
+import { MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbReleases } from '@/db/releases'
 import { DbSearchResults } from '@/db/search-results'
-import { Downloads } from '@/downloads'
-import { Exporter } from '@/exporter'
-import { Formatters } from '@/formatters'
+import { Downloads } from '@/core/downloads'
+import { Exporter } from '@/core/exporter'
+import { Formatters } from '@/lib/formatters'
 import { TmdbClient } from '@/integrations/tmdb/client'
-import { Log } from '@/log'
+import { Log } from '@/lib/log'
 import { Player } from '@/player/player'
-import { Releases } from '@/releases'
-import { Scanner } from '@/scanner'
-import { extractSchemaProps } from '@/utils'
+import { Releases } from '@/core/releases'
+import { Scanner } from '@/core/scanner'
+import { SubtitleMatcher } from '@/core/subtitle-matcher'
+import { extractSchemaProps } from '@/lib/utils'
 
 export class Handler {
   constructor(
@@ -151,7 +152,11 @@ export class Handler {
     )
   }
 
-  async download(opts?: { audio_only?: boolean; lang?: string }) {
+  async download(opts?: {
+    audio_only?: boolean
+    lang?: string
+    concurrency?: number
+  }) {
     const { release_id } = this.parseArgs(
       'download',
       type({ release_id: 'string' })
@@ -179,9 +184,10 @@ export class Handler {
         language: release.language,
         season_number: release.season_number,
         episode_number: release.episode_number,
+        concurrency: opts?.concurrency,
       },
       (tag, status, progress) => {
-        if (this.json) {
+        if (this.json || !process.stdout.isTTY) {
           return
         }
 
@@ -229,8 +235,6 @@ export class Handler {
       return
     }
 
-    process.on('SIGINT', () => process.exit(0))
-
     while (true) {
       await this.listDownloads(limit, true)
       await Bun.sleep(2000)
@@ -252,8 +256,6 @@ export class Handler {
     }
 
     const interval = 5 * 1000
-
-    process.on('SIGINT', () => process.exit(0))
 
     while (true) {
       const download = await new Downloads().getBySourceId(release.source_id)
@@ -277,7 +279,7 @@ export class Handler {
     }
   }
 
-  async scan(opts: { force?: boolean }) {
+  async scan(opts: { force?: boolean; concurrency?: number }) {
     const { media_id } = this.parseArgs('scan', type({ media_id: 'string' }))
 
     Log.info(`command=scan media_id=${media_id} force=${!!opts.force}`)
@@ -288,7 +290,7 @@ export class Handler {
     const files = await new Scanner().scan(
       media_id,
       (current, total, path, ratio) => {
-        if (this.json) {
+        if (this.json || !process.stdout.isTTY) {
           return
         }
 
@@ -438,13 +440,22 @@ export class Handler {
     )
   }
 
-  async subtitles(opts?: { season?: number; episode?: number; lang?: string }) {
+  async subtitles(opts?: {
+    auto?: boolean
+    season?: number
+    episode?: number
+    lang?: string
+  }) {
     const { media_id } = this.parseArgs(
       'subtitles',
       type({ media_id: 'string' })
     )
 
     Log.info(`command=subtitles media_id=${media_id}`)
+
+    if (opts?.auto) {
+      return await this.autoMatchSubtitles(media_id, opts)
+    }
 
     const results = await new Releases().searchSubtitles(media_id, opts)
 
@@ -461,6 +472,71 @@ export class Handler {
         Language: r.language ?? '',
       }))
     )
+  }
+
+  private async autoMatchSubtitles(
+    media_id: string,
+    opts: { season?: number; episode?: number; lang?: string }
+  ) {
+    const media = await DbMedia.getById(media_id)
+
+    if (!media) {
+      throw new Error(`Media '${media_id}' not found.`)
+    }
+
+    const episodeId = await this.resolveEpisodeForTv(
+      media,
+      opts.season,
+      opts.episode
+    )
+
+    const matcher = new SubtitleMatcher({ id: media_id, episode_id: episodeId })
+
+    const result = await matcher.match(opts, (info) => {
+      if (this.json || !process.stdout.isTTY) {
+        return
+      }
+
+      if (info.status === 'downloading') {
+        console.log(`\n  ${info.name}`)
+        process.stdout.write('    downloading...')
+        return
+      }
+
+      if (info.status === 'testing') {
+        process.stdout.write(' testing...')
+        return
+      }
+
+      if (info.status === 'matched') {
+        console.log(` confidence: ${info.confidence!.toFixed(1)} ✓`)
+        return
+      }
+
+      if (info.confidence === null) {
+        console.log(' failed')
+      } else {
+        console.log(` confidence: ${info.confidence.toFixed(1)} ✗`)
+      }
+    })
+
+    if (result.matched) {
+      const lines = [
+        '',
+        `Subtitle synced: ${result.matched.name}`,
+        `offset: ${result.matched.offset.toFixed(3)}s | confidence: ${result.matched.confidence!.toFixed(1)}`,
+      ]
+
+      this.output(result, lines.join('\n'))
+    } else {
+      const lines = [
+        '',
+        `No subtitle matched with sufficient confidence (min: ${MIN_SYNC_CONFIDENCE})`,
+        `${result.tested.length} subtitles saved — use play --sub to try manually`,
+      ]
+
+      this.output(result, lines.join('\n'))
+    }
   }
 
   async export(opts: { video?: number; season?: number; episode?: number }) {
@@ -493,7 +569,7 @@ export class Handler {
       video: opts.video,
       output: outputPath,
       onProgress: (ratio) => {
-        if (this.json) {
+        if (this.json || !process.stdout.isTTY) {
           return
         }
 

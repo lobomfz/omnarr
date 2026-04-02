@@ -1,7 +1,7 @@
 import { defineCommand, option } from '@bunli/core'
 import { type } from 'arktype'
 
-import { InitWizard } from '@/init-wizard'
+import { InitWizard } from '@/commands/init-wizard'
 
 export const InitCommand = defineCommand({
   name: 'init',

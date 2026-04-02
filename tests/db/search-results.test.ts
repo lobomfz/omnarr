@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { database } from '@/db/connection'
 import { DbSearchResults } from '@/db/search-results'
-import { deriveId } from '@/utils'
+import { deriveId } from '@/lib/utils'
 
 beforeEach(() => {
   database.reset()

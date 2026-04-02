@@ -1,4 +1,4 @@
-import { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES } from '@/vad-constants'
+import { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES } from '@/audio/vad-constants'
 
 export const MIN_SYNC_CONFIDENCE = 15
 
