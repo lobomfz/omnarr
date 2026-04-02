@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { testCommand } from '@bunli/test'
 
 import { LibraryCommand } from '@/commands/library'
-import { database, type indexer_source } from '@/db/connection'
+import { Downloads } from '@/core/downloads'
+import { Releases } from '@/core/releases'
+import { database } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbReleases } from '@/db/releases'
 import { DbSeasons } from '@/db/seasons'
-import { Downloads } from '@/core/downloads'
 import { TmdbClient } from '@/integrations/tmdb/client'
-import { Releases } from '@/core/releases'
 
 const noop = () => {}
 
@@ -27,21 +27,13 @@ describe('library command', async () => {
   )
   const release = (await DbReleases.getById(releases[0].id))!
 
-  const addParams = {
-    tmdb_id: release.tmdb_id,
-    source_id: release.source_id,
-    download_url: release.download_url,
-    type: release.media_type,
-    indexer_source: release.indexer_source as indexer_source,
-  }
-
   beforeEach(() => {
     database.reset()
     QBittorrentMock.reset()
   })
 
   test('shows downloading status when torrent is active', async () => {
-    await new Downloads().add(addParams, noop)
+    await new Downloads().add(release, noop)
 
     const result = await testCommand(LibraryCommand, {
       args: [],
@@ -55,7 +47,7 @@ describe('library command', async () => {
   })
 
   test('shows downloaded status when torrent is completed but not scanned', async () => {
-    await new Downloads().add(addParams, noop)
+    await new Downloads().add(release, noop)
 
     await database.kysely
       .updateTable('downloads')
@@ -76,11 +68,16 @@ describe('library command', async () => {
   test('shows episode progress for TV shows', async () => {
     await new Downloads().add(
       {
+        id: 'BBTEST',
         tmdb_id: 1399,
+        media_type: 'tv',
         source_id: 'bb_hash_s01e01',
-        download_url: 'https://beyond-hd.me/dl/bb_hash_s01e01',
-        type: 'tv',
         indexer_source: 'beyond-hd',
+        download_url: 'https://beyond-hd.me/dl/bb_hash_s01e01',
+        name: 'Breaking Bad S01E01',
+        language: null,
+        season_number: null,
+        episode_number: null,
       },
       noop
     )
@@ -147,7 +144,7 @@ describe('library command', async () => {
   })
 
   test('shows zero total_episodes for movies', async () => {
-    await new Downloads().add(addParams, noop)
+    await new Downloads().add(release, noop)
 
     const result = await testCommand(LibraryCommand, {
       args: [],

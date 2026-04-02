@@ -1,6 +1,7 @@
 import { access } from 'fs/promises'
 
-import { FFmpegBuilder, type Preset } from '@lobomfz/ffmpeg'
+import type { FFmpegBuilder} from '@lobomfz/ffmpeg';
+import { type Preset } from '@lobomfz/ffmpeg'
 
 const HLS_VIDEO_CODECS = new Set(['h264'])
 const HLS_AUDIO_CODECS = new Set(['aac', 'ac3', 'eac3'])

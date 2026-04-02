@@ -11,9 +11,10 @@ import { testCommand } from '@bunli/test'
 import dayjs from 'dayjs'
 
 import { WaitForCommand } from '@/commands/wait-for'
-import { database, type indexer_source } from '@/db/connection'
-import { DbReleases } from '@/db/releases'
 import { Downloads } from '@/core/downloads'
+import { TorrentSync } from '@/core/torrent-sync'
+import { database } from '@/db/connection'
+import { DbReleases } from '@/db/releases'
 import { TmdbClient } from '@/integrations/tmdb/client'
 
 const noop = () => {}
@@ -38,14 +39,6 @@ describe('wait-for', async () => {
 
   const release = (await DbReleases.getById(releases[0].id))!
 
-  const addParams = {
-    tmdb_id: release.tmdb_id,
-    source_id: release.source_id,
-    download_url: release.download_url,
-    type: release.media_type,
-    indexer_source: release.indexer_source as indexer_source,
-  }
-
   beforeEach(() => {
     database.reset('media_files')
     database.reset('downloads')
@@ -60,7 +53,7 @@ describe('wait-for', async () => {
 
   describe('command', () => {
     beforeEach(async () => {
-      await new Downloads().add(addParams, noop)
+      await new Downloads().add(release, noop)
     })
 
     test('returns immediately when torrent is already completed', async () => {
@@ -124,20 +117,18 @@ describe('wait-for', async () => {
 
   describe('error cleanup', () => {
     test('keeps error downloads within 24h grace period', async () => {
-      await new Downloads().add(addParams, noop)
+      await new Downloads().add(release, noop)
 
       await QBittorrentMock.db
         .deleteFrom('torrents')
         .where('hash', '=', 'abc123')
         .execute()
 
-      const dl = new Downloads()
-
-      await dl.list(10)
+      await new TorrentSync().sync()
 
       setSystemTime(now.add(12, 'hours').toDate())
 
-      await dl.list(10)
+      await new TorrentSync().sync()
 
       const row = await database.kysely
         .selectFrom('downloads')
@@ -150,20 +141,18 @@ describe('wait-for', async () => {
     })
 
     test('deletes error downloads after 24h', async () => {
-      await new Downloads().add(addParams, noop)
+      await new Downloads().add(release, noop)
 
       await QBittorrentMock.db
         .deleteFrom('torrents')
         .where('hash', '=', 'abc123')
         .execute()
 
-      const dl = new Downloads()
-
-      await dl.list(10)
+      await new TorrentSync().sync()
 
       setSystemTime(now.add(25, 'hours').toDate())
 
-      await dl.list(10)
+      await new TorrentSync().sync()
 
       const row = await database.kysely
         .selectFrom('downloads')

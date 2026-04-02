@@ -3,21 +3,23 @@ import { resolve } from 'path'
 import { type, type Type } from 'arktype'
 
 import { MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
+import { Downloads } from '@/core/downloads'
+import { Exporter } from '@/core/exporter'
+import { Releases } from '@/core/releases'
+import { Scanner } from '@/core/scanner'
+import { SubtitleMatcher } from '@/core/subtitle-matcher'
+import { TorrentSync } from '@/core/torrent-sync'
+import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbReleases } from '@/db/releases'
 import { DbSearchResults } from '@/db/search-results'
-import { Downloads } from '@/core/downloads'
-import { Exporter } from '@/core/exporter'
-import { Formatters } from '@/lib/formatters'
 import { TmdbClient } from '@/integrations/tmdb/client'
+import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
-import { Player } from '@/player/player'
-import { Releases } from '@/core/releases'
-import { Scanner } from '@/core/scanner'
-import { SubtitleMatcher } from '@/core/subtitle-matcher'
 import { extractSchemaProps } from '@/lib/utils'
+import { Player } from '@/player/player'
 
 export class Handler {
   constructor(
@@ -173,19 +175,7 @@ export class Handler {
     }
 
     const result = await new Downloads().add(
-      {
-        tmdb_id: release.tmdb_id,
-        source_id: release.source_id,
-        download_url: release.download_url,
-        type: release.media_type,
-        indexer_source: release.indexer_source,
-        audio_only: opts?.audio_only,
-        lang: opts?.lang,
-        language: release.language,
-        season_number: release.season_number,
-        episode_number: release.episode_number,
-        concurrency: opts?.concurrency,
-      },
+      release,
       (tag, status, progress) => {
         if (this.json || !process.stdout.isTTY) {
           return
@@ -198,14 +188,17 @@ export class Handler {
         if (status === 'completed' || status === 'processing') {
           process.stdout.write('\n')
         }
-      }
+      },
+      opts
     )
 
     this.output(result, `Added: ${Formatters.mediaTitle(result)}`)
   }
 
   private async listDownloads(limit: number, clear = false) {
-    const downloads = await new Downloads().list(limit)
+    await new TorrentSync().sync()
+
+    const downloads = await DbDownloads.list(limit)
 
     if (downloads.length === 0) {
       console.log('No downloads.')
@@ -258,7 +251,9 @@ export class Handler {
     const interval = 5 * 1000
 
     while (true) {
-      const download = await new Downloads().getBySourceId(release.source_id)
+      await new TorrentSync().sync()
+
+      const download = await DbDownloads.getBySourceId(release.source_id)
 
       if (!download) {
         throw new Error(`No download found for release '${release_id}'`)
@@ -422,7 +417,7 @@ export class Handler {
   }
 
   async library() {
-    const media = await DbMedia.list()
+    const media = await DbMedia.list({})
 
     if (media.length === 0) {
       console.log('Library is empty.')

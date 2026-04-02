@@ -1,14 +1,21 @@
 {
   "entry": [
     "scripts/*.ts",
-    "tests/**/*.test.ts"
+    "tests/**/*.test.ts",
+    "src/web/server.ts",
+    "src/web/main.tsx"
   ],
   "project": [
     "src/**/*.ts",
+    "src/**/*.tsx",
     "tests/**/*.ts",
     "scripts/*.ts"
   ],
   "ignoreDependencies": [
-    "oxfmt"
+    "oxfmt",
+    "bun-plugin-tailwind",
+    "tailwindcss",
+    "@fontsource-variable/inter",
+    "@fontsource-variable/jetbrains-mono"
   ]
 }

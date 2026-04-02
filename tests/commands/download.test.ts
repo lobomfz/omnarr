@@ -5,12 +5,12 @@ import { join } from 'path'
 import { testCommand } from '@bunli/test'
 
 import { DownloadCommand } from '@/commands/download'
-import { config } from '@/lib/config'
-import { database, type indexer_source } from '@/db/connection'
-import { DbReleases } from '@/db/releases'
 import { Downloads } from '@/core/downloads'
-import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/core/releases'
+import { database } from '@/db/connection'
+import { DbReleases } from '@/db/releases'
+import { TmdbClient } from '@/integrations/tmdb/client'
+import { config } from '@/lib/config'
 
 import { QBittorrentMock } from '../mocks/qbittorrent'
 import '../mocks/beyond-hd'
@@ -64,7 +64,7 @@ describe('download command', async () => {
     const data = JSON.parse(result.stdout)
     expect(data.title).toBe('The Matrix')
     expect(data.year).toBe(1999)
-    expect(data.media.root_folder).toBe('/tmp/omnarr-test-movies')
+    expect(data.media_id).toBeDefined()
   })
 
   test('stores source_id from indexer', async () => {
@@ -105,11 +105,16 @@ describe('download command', async () => {
 
     await new Downloads().add(
       {
+        id: 'SECOND',
         tmdb_id: results[0].tmdb_id,
+        media_type: results[0].media_type,
         source_id: 'second_hash',
-        download_url: 'magnet:?xt=urn:btih:second_hash&dn=Matrix2',
-        type: results[0].media_type,
         indexer_source: 'beyond-hd',
+        download_url: 'magnet:?xt=urn:btih:second_hash&dn=Matrix2',
+        name: 'The Matrix 2',
+        language: null,
+        season_number: null,
+        episode_number: null,
       },
       noop
     )
@@ -149,29 +154,9 @@ describe('download command', async () => {
   test('rejects download when same source_id is already active', async () => {
     const release = (await DbReleases.getById(releaseId))!
 
-    await new Downloads().add(
-      {
-        tmdb_id: release.tmdb_id,
-        source_id: release.source_id,
-        download_url: release.download_url,
-        type: release.media_type,
-        indexer_source: release.indexer_source as indexer_source,
-      },
-      noop
-    )
+    await new Downloads().add(release, noop)
 
-    await expect(() =>
-      new Downloads().add(
-        {
-          tmdb_id: release.tmdb_id,
-          source_id: release.source_id,
-          download_url: release.download_url,
-          type: release.media_type,
-          indexer_source: release.indexer_source as indexer_source,
-        },
-        noop
-      )
-    ).toThrow()
+    await expect(() => new Downloads().add(release, noop)).toThrow()
 
     const downloads = await database.kysely
       .selectFrom('downloads')
@@ -199,18 +184,7 @@ describe('download command', async () => {
       })
       .execute()
 
-    await expect(() =>
-      new Downloads().add(
-        {
-          tmdb_id: release.tmdb_id,
-          source_id: release.source_id,
-          download_url: release.download_url,
-          type: release.media_type,
-          indexer_source: release.indexer_source as indexer_source,
-        },
-        noop
-      )
-    ).toThrow()
+    await expect(() => new Downloads().add(release, noop)).toThrow()
 
     const downloads = await database.kysely
       .selectFrom('downloads')
@@ -265,7 +239,7 @@ describe('superflix download', async () => {
     expect(result.exitCode).toBe(0)
 
     const data = JSON.parse(result.stdout)
-    const mediaId = data.media.id
+    const mediaId = data.media_id
 
     expect(data.ripped).toBe(3)
     expect(data.total).toBe(3)
@@ -309,7 +283,7 @@ describe('superflix download', async () => {
     expect(result.exitCode).toBe(0)
 
     const data = JSON.parse(result.stdout)
-    const mediaId = data.media.id
+    const mediaId = data.media_id
 
     expect(data.ripped).toBe(2)
     expect(data.total).toBe(2)
@@ -328,32 +302,14 @@ describe('superflix download', async () => {
   test('retries download after incomplete', async () => {
     const release = (await DbReleases.getById(superflixReleaseId))!
 
-    await new Downloads().add(
-      {
-        tmdb_id: release.tmdb_id,
-        source_id: release.source_id,
-        download_url: release.download_url,
-        type: release.media_type,
-        indexer_source: release.indexer_source as indexer_source,
-      },
-      noop
-    )
+    await new Downloads().add(release, noop)
 
     await database.kysely
       .updateTable('downloads')
       .set({ status: 'downloading', progress: 0.5 })
       .execute()
 
-    const result = await new Downloads().add(
-      {
-        tmdb_id: release.tmdb_id,
-        source_id: release.source_id,
-        download_url: release.download_url,
-        type: release.media_type,
-        indexer_source: release.indexer_source as indexer_source,
-      },
-      noop
-    )
+    const result = await new Downloads().add(release, noop)
 
     expect(result).toHaveProperty('ripped')
 
@@ -387,11 +343,16 @@ describe('superflix error handling', () => {
   test('completes download when some streams fail', async () => {
     const result = await new Downloads().add(
       {
+        id: 'SFAIL1',
         tmdb_id: 10001,
+        media_type: 'movie',
         source_id: 'SUPERFLIX:TT0000001',
-        download_url: 'imdb:tt0000001',
-        type: 'movie',
         indexer_source: 'superflix',
+        download_url: 'imdb:tt0000001',
+        name: 'Test Partial Fail',
+        language: null,
+        season_number: null,
+        episode_number: null,
       },
       noop
     )
@@ -411,11 +372,16 @@ describe('superflix error handling', () => {
   test('marks download as error when all streams fail', async () => {
     const result = await new Downloads().add(
       {
+        id: 'SFAIL2',
         tmdb_id: 10002,
+        media_type: 'movie',
         source_id: 'SUPERFLIX:TT9999999',
-        download_url: 'imdb:tt9999999',
-        type: 'movie',
         indexer_source: 'superflix',
+        download_url: 'imdb:tt9999999',
+        name: 'Test All Fail',
+        language: null,
+        season_number: null,
+        episode_number: null,
       },
       noop
     )
@@ -472,7 +438,7 @@ describe('superflix audio-only download', async () => {
     expect(data.ripped).toBe(2)
     expect(data.total).toBe(2)
 
-    const mediaId = data.media.id
+    const mediaId = data.media_id
 
     expect(
       await Bun.file(join(tracksDir, mediaId, 'audio_pt.mka')).exists()
@@ -558,7 +524,7 @@ describe('superflix TV season download', async () => {
     expect(result.exitCode).toBe(0)
 
     const data = JSON.parse(result.stdout)
-    const mediaId = data.media.id
+    const mediaId = data.media_id
 
     expect(data.ripped).toBe(9)
     expect(data.total).toBe(9)
@@ -602,7 +568,7 @@ describe('superflix TV season download', async () => {
     expect(result.exitCode).toBe(0)
 
     const data = JSON.parse(result.stdout)
-    const mediaId = data.media.id
+    const mediaId = data.media_id
 
     expect(data.ripped).toBe(6)
     expect(data.total).toBe(6)

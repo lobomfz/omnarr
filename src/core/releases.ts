@@ -1,7 +1,8 @@
 import dayjs from 'dayjs'
 
 import { config } from '@/lib/config'
-import { db, media_type } from '@/db/connection'
+import type { media_type } from '@/db/connection';
+import { db } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import { DbReleases } from '@/db/releases'

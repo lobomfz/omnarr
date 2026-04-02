@@ -1,7 +1,7 @@
 import type { DbFieldMeta } from '@lobomfz/db'
 import type { Type } from 'arktype'
 
-import { download_source, media_type } from '@/db/connection'
+import type { download_source, media_type } from '@/db/connection'
 
 declare global {
   interface ArkEnv {

@@ -1,7 +1,7 @@
 import { type } from 'arktype'
 import axios from 'redaxios'
 
-import { media_type } from '@/db/connection'
+import type { media_type } from '@/db/connection'
 import { envVariables } from '@/lib/env'
 
 import type { Indexer, IndexerRelease, SearchParams } from './types'

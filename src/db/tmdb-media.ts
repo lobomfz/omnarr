@@ -1,6 +1,7 @@
 import type { Insertable } from '@lobomfz/db'
 
-import { db, media_type, type DB } from '@/db/connection'
+import type { media_type} from '@/db/connection';
+import { db, type DB } from '@/db/connection'
 
 type InsertExecutor = Pick<typeof db, 'insertInto'>
 

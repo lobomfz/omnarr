@@ -16,6 +16,7 @@
     "build": "bun run scripts/build.ts",
     "check": "bun run scripts/check.ts",
     "generate-schema": "bun run scripts/generate-schema.ts",
+    "dev:web": "concurrently 'tsr watch' 'bun --watch src/web/server.ts'",
     "prepublishOnly": "bun run build"
   },
   "devDependencies": {
@@ -52,7 +53,6 @@
     "@orpc/tanstack-query": "^1.13.13",
     "@tanstack/react-query": "^5.96.1",
     "@tanstack/react-router": "^1.168.10",
-    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "fflate": "^0.8.2",
     "fuzzball": "^2.2.3",

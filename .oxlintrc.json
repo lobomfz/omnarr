@@ -20,7 +20,8 @@
     "max-depth": ["warn", { "max": 4 }],
     "max-nested-callbacks": ["warn", { "max": 4 }],
     "no-map-spread": "off",
-    "no-shadow": "off"
+    "no-shadow": "off",
+    "typescript/consistent-type-imports": "error"
   },
   "categories": {
     "correctness": "error",

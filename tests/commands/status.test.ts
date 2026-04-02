@@ -4,12 +4,12 @@ import { rm } from 'fs/promises'
 import { testCommand } from '@bunli/test'
 
 import { StatusCommand } from '@/commands/status'
-import { database, type indexer_source } from '@/db/connection'
-import { DbReleases } from '@/db/releases'
 import { Downloads } from '@/core/downloads'
-import { envVariables } from '@/lib/env'
-import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/core/releases'
+import { database } from '@/db/connection'
+import { DbReleases } from '@/db/releases'
+import { TmdbClient } from '@/integrations/tmdb/client'
+import { envVariables } from '@/lib/env'
 
 const noop = () => {}
 
@@ -26,14 +26,6 @@ describe('status command', async () => {
     results[0].media_type
   )
   const release = (await DbReleases.getById(releases[0].id))!
-
-  const addParams = {
-    tmdb_id: release.tmdb_id,
-    source_id: release.source_id,
-    download_url: release.download_url,
-    type: release.media_type,
-    indexer_source: release.indexer_source as indexer_source,
-  }
 
   const tvResults = await new TmdbClient().search('Breaking Bad')
   const tvReleases = await new Releases().search(
@@ -53,7 +45,7 @@ describe('status command', async () => {
   })
 
   test('syncs progress from qbittorrent', async () => {
-    await new Downloads().add(addParams, noop)
+    await new Downloads().add(release, noop)
 
     await QBittorrentMock.db
       .updateTable('torrents')
@@ -81,7 +73,7 @@ describe('status command', async () => {
   })
 
   test('marks download as error when torrent removed from qbittorrent', async () => {
-    await new Downloads().add(addParams, noop)
+    await new Downloads().add(release, noop)
 
     await QBittorrentMock.db
       .updateTable('torrents')
@@ -115,7 +107,7 @@ describe('status command', async () => {
   })
 
   test('recovers download status when torrent reappears in qbittorrent', async () => {
-    await new Downloads().add(addParams, noop)
+    await new Downloads().add(release, noop)
 
     await QBittorrentMock.db
       .deleteFrom('torrents')
@@ -135,7 +127,7 @@ describe('status command', async () => {
       .insertInto('torrents')
       .values({
         hash: 'abc123',
-        url: addParams.download_url,
+        url: release.download_url,
         savepath: '/downloads/The Matrix (1999)',
         category: 'omnarr',
         progress: 1,
@@ -157,7 +149,7 @@ describe('status command', async () => {
   })
 
   test('syncs content_path from qbittorrent', async () => {
-    await new Downloads().add(addParams, noop)
+    await new Downloads().add(release, noop)
 
     const contentPath = '/downloads/The.Matrix.1999.1080p'
 
@@ -181,7 +173,7 @@ describe('status command', async () => {
   })
 
   test('logs entered error only on first transition to error', async () => {
-    await new Downloads().add(addParams, noop)
+    await new Downloads().add(release, noop)
 
     await QBittorrentMock.db
       .deleteFrom('torrents')
@@ -212,7 +204,7 @@ describe('status command', async () => {
   })
 
   test('does not log exited error while download remains in error', async () => {
-    await new Downloads().add(addParams, noop)
+    await new Downloads().add(release, noop)
 
     await QBittorrentMock.db
       .deleteFrom('torrents')
@@ -244,16 +236,7 @@ describe('status command', async () => {
   })
 
   test('shows S/E context for TV episode download', async () => {
-    await new Downloads().add(
-      {
-        tmdb_id: tvEpisodeRelease.tmdb_id,
-        source_id: tvEpisodeRelease.source_id,
-        download_url: tvEpisodeRelease.download_url,
-        type: tvEpisodeRelease.media_type,
-        indexer_source: tvEpisodeRelease.indexer_source as indexer_source,
-      },
-      noop
-    )
+    await new Downloads().add(tvEpisodeRelease, noop)
 
     const result = await testCommand(StatusCommand, {
       args: [],
@@ -267,16 +250,7 @@ describe('status command', async () => {
   })
 
   test('shows season-only for TV season pack download', async () => {
-    await new Downloads().add(
-      {
-        tmdb_id: tvSeasonPackRelease.tmdb_id,
-        source_id: tvSeasonPackRelease.source_id,
-        download_url: tvSeasonPackRelease.download_url,
-        type: tvSeasonPackRelease.media_type,
-        indexer_source: tvSeasonPackRelease.indexer_source as indexer_source,
-      },
-      noop
-    )
+    await new Downloads().add(tvSeasonPackRelease, noop)
 
     const result = await testCommand(StatusCommand, {
       args: [],
@@ -291,7 +265,7 @@ describe('status command', async () => {
   })
 
   test('shows no S/E for movie download', async () => {
-    await new Downloads().add(addParams, noop)
+    await new Downloads().add(release, noop)
 
     const result = await testCommand(StatusCommand, {
       args: [],

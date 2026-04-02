@@ -1,4 +1,5 @@
-import { db, type indexer_source, media_type } from '@/db/connection'
+import type { media_type } from '@/db/connection'
+import { db, type indexer_source } from '@/db/connection'
 import type { IndexerRelease } from '@/integrations/indexers/types'
 import { deriveId } from '@/lib/utils'
 
@@ -8,6 +9,10 @@ interface SourcedRelease extends IndexerRelease {
   season_number?: number | null
   episode_number?: number | null
 }
+
+export type Release = NonNullable<
+  Awaited<ReturnType<typeof DbReleases.getById>>
+>
 
 export const DbReleases = {
   async upsert(

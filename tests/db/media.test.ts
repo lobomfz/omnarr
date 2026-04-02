@@ -136,7 +136,7 @@ describe('DbMedia.list', () => {
       },
     ])
 
-    const [row] = await DbMedia.list()
+    const [row] = await DbMedia.list({})
 
     expect(row.file_count).toBe(1)
     expect(row.track_count).toBe(2)
@@ -160,7 +160,7 @@ describe('DbMedia.list', () => {
       status: 'downloading',
     })
 
-    const [row] = await DbMedia.list()
+    const [row] = await DbMedia.list({})
 
     expect(row.download_status).toBe('downloading')
   })
@@ -183,7 +183,7 @@ describe('DbMedia.list', () => {
       size: 1_000_000_000,
     })
 
-    const [row] = await DbMedia.list()
+    const [row] = await DbMedia.list({})
 
     expect(row.total_episodes).toBe(7)
     expect(row.episodes_with_files).toBe(1)
@@ -193,9 +193,9 @@ describe('DbMedia.list', () => {
     await seedMedia()
     await seedTvMedia()
 
-    const movies = await DbMedia.list('movie')
-    const tv = await DbMedia.list('tv')
-    const all = await DbMedia.list()
+    const movies = await DbMedia.list({ media_type: 'movie' })
+    const tv = await DbMedia.list({ media_type: 'tv' })
+    const all = await DbMedia.list({})
 
     expect(movies).toHaveLength(1)
     expect(movies[0].media_type).toBe('movie')

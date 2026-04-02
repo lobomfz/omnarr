@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
 import axios from 'redaxios'
 
-import { media_type } from '@/db/connection'
+import type { media_type } from '@/db/connection'
 import { envVariables } from '@/lib/env'
 import { Log } from '@/lib/log'
 

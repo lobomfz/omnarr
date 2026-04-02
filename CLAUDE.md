@@ -76,6 +76,7 @@ This is a small codebase. Use direct tool calls (Read, Grep, Glob) instead of Ex
 ## Gotchas
 
 - CLI option inputs are ALWAYS strings. For numeric options, use `type('string.numeric.parse | undefined')` — NOT `type('number | undefined')`. The `string.numeric.parse` morph transforms the string input into a number at parse time.
+- Never pipe `bun check` output. No `| tail`, `| grep`, `| head`, `2>&1 |` — run it plain. The output is already concise.
 
 ## Conventions
 

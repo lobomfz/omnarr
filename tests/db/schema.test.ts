@@ -258,7 +258,7 @@ describe('schema - media', () => {
       root_folder: '/tv',
     })
 
-    const all = await DbMedia.list()
+    const all = await DbMedia.list({})
 
     expect(all).toHaveLength(2)
     expect(all[0].title).toBeDefined()
@@ -296,19 +296,19 @@ describe('schema - media', () => {
       root_folder: '/tv',
     })
 
-    const movies = await DbMedia.list('movie')
+    const movies = await DbMedia.list({ media_type: 'movie' })
 
     expect(movies).toHaveLength(1)
     expect(movies[0].title).toBe('The Matrix')
 
-    const tv = await DbMedia.list('tv')
+    const tv = await DbMedia.list({ media_type: 'tv' })
 
     expect(tv).toHaveLength(1)
     expect(tv[0].title).toBe('Breaking Bad')
   })
 
   test('list returns empty array when no media', async () => {
-    const all = await DbMedia.list()
+    const all = await DbMedia.list({})
 
     expect(all).toHaveLength(0)
   })

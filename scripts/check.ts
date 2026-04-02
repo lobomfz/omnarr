@@ -36,7 +36,7 @@ async function runTypes() {
 }
 
 async function runLint() {
-  const result = await $`oxlint`.cwd(ROOT).nothrow()
+  const result = await $`oxlint --fix`.cwd(ROOT).nothrow()
   return result.exitCode
 }
 

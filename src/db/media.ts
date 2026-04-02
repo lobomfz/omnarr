@@ -1,10 +1,52 @@
-import type { Insertable } from '@lobomfz/db'
-import { sql } from 'kysely'
+import { type Insertable, type ExpressionBuilder, sql } from '@lobomfz/db'
 import { jsonArrayFrom } from 'kysely/helpers/sqlite'
 
-import { db, media_type, type DB } from '@/db/connection'
+import { type LibrarySchemas } from '@/api/schemas'
+import { type AliasedDb, db, type DB } from '@/db/connection'
 
 export type MediaInfo = NonNullable<Awaited<ReturnType<typeof DbMedia.getInfo>>>
+
+function selectHasKeyframes(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
+  return eb
+    .exists(
+      eb
+        .selectFrom('media_keyframes as mk')
+        .whereRef('mk.media_file_id', '=', 'mf.id')
+        .selectAll()
+    )
+    .as('has_keyframes')
+}
+
+function selectHasVad(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
+  return eb
+    .exists(
+      eb
+        .selectFrom('media_vad as mv')
+        .whereRef('mv.media_file_id', '=', 'mf.id')
+        .selectAll()
+    )
+    .as('has_vad')
+}
+
+function selectTracks(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
+  return jsonArrayFrom(
+    eb
+      .selectFrom('media_tracks as mt')
+      .whereRef('mt.media_file_id', '=', 'mf.id')
+      .select([
+        'mt.stream_index',
+        'mt.stream_type',
+        'mt.codec_name',
+        'mt.language',
+        'mt.title',
+        'mt.is_default',
+        'mt.width',
+        'mt.height',
+        'mt.channel_layout',
+      ])
+      .orderBy('mt.stream_index')
+  ).as('tracks')
+}
 
 export const DbMedia = {
   async create(data: Insertable<DB['media']>) {
@@ -39,11 +81,13 @@ export const DbMedia = {
         't.year',
         't.tmdb_id',
         't.imdb_id',
+        't.poster_path',
+        't.overview',
       ])
       .executeTakeFirst()
   },
 
-  async list(filterType?: media_type) {
+  async list(filters: typeof LibrarySchemas.list.infer) {
     let query = db
       .selectFrom('media as m')
       .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
@@ -54,6 +98,7 @@ export const DbMedia = {
         'm.media_type',
         't.title',
         't.year',
+        't.poster_path',
         sql<number>`count(distinct mf.id)`.as('file_count'),
         sql<number>`count(mt.id)`.as('track_count'),
         (eb) =>
@@ -81,8 +126,8 @@ export const DbMedia = {
       ])
       .groupBy('m.id')
 
-    if (filterType) {
-      query = query.where('m.media_type', '=', filterType)
+    if (filters.media_type) {
+      query = query.where('m.media_type', '=', filters.media_type)
     }
 
     return await query.execute()
@@ -100,6 +145,8 @@ export const DbMedia = {
         'm.added_at',
         't.title',
         't.year',
+        't.poster_path',
+        't.overview',
         (eb) =>
           jsonArrayFrom(
             eb
@@ -125,42 +172,9 @@ export const DbMedia = {
                         'mf.size',
                         'mf.format_name',
                         'mf.duration',
-                        (eb) =>
-                          eb
-                            .exists(
-                              eb
-                                .selectFrom('media_keyframes as mk')
-                                .whereRef('mk.media_file_id', '=', 'mf.id')
-                                .selectAll()
-                            )
-                            .as('has_keyframes'),
-                        (eb) =>
-                          eb
-                            .exists(
-                              eb
-                                .selectFrom('media_vad as mv')
-                                .whereRef('mv.media_file_id', '=', 'mf.id')
-                                .selectAll()
-                            )
-                            .as('has_vad'),
-                        (eb) =>
-                          jsonArrayFrom(
-                            eb
-                              .selectFrom('media_tracks as mt')
-                              .whereRef('mt.media_file_id', '=', 'mf.id')
-                              .select([
-                                'mt.stream_index',
-                                'mt.stream_type',
-                                'mt.codec_name',
-                                'mt.language',
-                                'mt.title',
-                                'mt.is_default',
-                                'mt.width',
-                                'mt.height',
-                                'mt.channel_layout',
-                              ])
-                              .orderBy('mt.stream_index')
-                          ).as('tracks'),
+                        selectHasKeyframes,
+                        selectHasVad,
+                        selectTracks,
                       ])
                       .orderBy('mf.path')
                   ).as('files'),
@@ -215,54 +229,9 @@ export const DbMedia = {
                                     'mf.size',
                                     'mf.format_name',
                                     'mf.duration',
-                                    (eb) =>
-                                      eb
-                                        .exists(
-                                          eb
-                                            .selectFrom('media_keyframes as mk')
-                                            .whereRef(
-                                              'mk.media_file_id',
-                                              '=',
-                                              'mf.id'
-                                            )
-                                            .selectAll()
-                                        )
-                                        .as('has_keyframes'),
-                                    (eb) =>
-                                      eb
-                                        .exists(
-                                          eb
-                                            .selectFrom('media_vad as mv')
-                                            .whereRef(
-                                              'mv.media_file_id',
-                                              '=',
-                                              'mf.id'
-                                            )
-                                            .selectAll()
-                                        )
-                                        .as('has_vad'),
-                                    (eb) =>
-                                      jsonArrayFrom(
-                                        eb
-                                          .selectFrom('media_tracks as mt')
-                                          .whereRef(
-                                            'mt.media_file_id',
-                                            '=',
-                                            'mf.id'
-                                          )
-                                          .select([
-                                            'mt.stream_index',
-                                            'mt.stream_type',
-                                            'mt.codec_name',
-                                            'mt.language',
-                                            'mt.title',
-                                            'mt.is_default',
-                                            'mt.width',
-                                            'mt.height',
-                                            'mt.channel_layout',
-                                          ])
-                                          .orderBy('mt.stream_index')
-                                      ).as('tracks'),
+                                    selectHasKeyframes,
+                                    selectHasVad,
+                                    selectTracks,
                                   ])
                                   .orderBy('mf.path')
                               ).as('files'),
