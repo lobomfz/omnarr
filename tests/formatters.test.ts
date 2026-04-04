@@ -146,7 +146,7 @@ describe('Formatters', () => {
         Formatters.mediaStatus({
           file_count: 2,
           track_count: 4,
-          download_status: null,
+          download: null,
           total_episodes: 20,
           episodes_with_files: 2,
         })
@@ -158,7 +158,7 @@ describe('Formatters', () => {
         Formatters.mediaStatus({
           file_count: 0,
           track_count: 0,
-          download_status: 'downloading',
+          download: { status: 'downloading' },
           total_episodes: 20,
           episodes_with_files: 0,
         })
@@ -170,7 +170,7 @@ describe('Formatters', () => {
         Formatters.mediaStatus({
           file_count: 1,
           track_count: 3,
-          download_status: null,
+          download: null,
           total_episodes: null,
           episodes_with_files: null,
         })
@@ -182,7 +182,7 @@ describe('Formatters', () => {
         Formatters.mediaStatus({
           file_count: 0,
           track_count: 0,
-          download_status: 'downloading',
+          download: { status: 'downloading' },
           total_episodes: null,
           episodes_with_files: null,
         })
@@ -251,6 +251,8 @@ describe('Formatters', () => {
       Formatters.appendDownloads(lines, [
         {
           id: 1,
+          source_id: 'test_hash',
+          source: 'torrent' as const,
           status: 'completed' as const,
           progress: 1,
           speed: 0,

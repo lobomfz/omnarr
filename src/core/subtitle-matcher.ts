@@ -1,20 +1,16 @@
-import { mkdir } from 'fs/promises'
 import { join } from 'path'
 
-import { unzipSync } from 'fflate'
 import { ratio } from 'fuzzball'
-import axios from 'redaxios'
 
+import { PubSub } from '@/api/pubsub'
 import { MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
-import { config } from '@/lib/config'
+import { TrackResolver } from '@/audio/track-resolver'
+import { Releases } from '@/core/releases'
+import { SubtitleDownload } from '@/core/subtitle-download'
 import { db } from '@/db/connection'
-import { DbDownloads } from '@/db/downloads'
-import { DbReleases } from '@/db/releases'
+import { config } from '@/lib/config'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
-import { Releases } from '@/core/releases'
-import { TrackResolver } from '@/audio/track-resolver'
-import { deriveId } from '@/lib/utils'
 
 const FUZZY_THRESHOLD = 90
 const MAX_ATTEMPTS = 5
@@ -32,35 +28,39 @@ type MatchAttempt = {
 }
 
 export class SubtitleMatcher extends TrackResolver {
-  async match(
-    opts: { lang?: string; season?: number; episode?: number },
-    onProgress: (info: MatchAttempt) => void
-  ) {
+  async match(opts: { lang?: string; season?: number; episode?: number }) {
     const vadFileId = await this.resolveVadFileId()
     const referenceName = await this.resolveReferenceName()
     const subtitles = await new Releases().searchSubtitles(this.media.id, opts)
+    const tested: MatchAttempt[] = []
 
     if (subtitles.length === 0) {
-      return {
-        matched: null as MatchAttempt | null,
-        tested: [] as MatchAttempt[],
-      }
+      return { matched: null, tested }
     }
 
     const ranked = this.rank(referenceName, subtitles).slice(0, MAX_ATTEMPTS)
-    const tested: MatchAttempt[] = []
+    const tracksDir = this.resolveTracksDir()
+    const downloader = new SubtitleDownload()
 
     for (const sub of ranked) {
-      onProgress({
+      this.publish({
         name: sub.name,
         confidence: null,
         offset: 0,
         status: 'downloading',
       })
 
-      const srtPath = await this.downloadSubtitle(sub.id)
+      const result = await downloader.download({
+        source_id: sub.source_id,
+        download_url: sub.download_url,
+        media_id: this.media.id,
+        tracks_dir: tracksDir,
+        language: sub.language,
+        season_number: sub.season_number,
+        episode_number: sub.episode_number,
+      })
 
-      if (!srtPath) {
+      if (!result) {
         const attempt: MatchAttempt = {
           name: sub.name,
           confidence: null,
@@ -69,12 +69,12 @@ export class SubtitleMatcher extends TrackResolver {
         }
 
         tested.push(attempt)
-        onProgress(attempt)
+        this.publish(attempt)
 
         continue
       }
 
-      onProgress({
+      this.publish({
         name: sub.name,
         confidence: null,
         offset: 0,
@@ -83,7 +83,7 @@ export class SubtitleMatcher extends TrackResolver {
 
       const { offset, confidence } = await this.correlateSubtitle(
         vadFileId,
-        srtPath
+        result.path
       )
 
       Log.info(
@@ -99,7 +99,7 @@ export class SubtitleMatcher extends TrackResolver {
         }
 
         tested.push(attempt)
-        onProgress(attempt)
+        this.publish(attempt)
 
         return { matched: attempt, tested }
       }
@@ -112,10 +112,17 @@ export class SubtitleMatcher extends TrackResolver {
       }
 
       tested.push(attempt)
-      onProgress(attempt)
+      this.publish(attempt)
     }
 
-    return { matched: null as MatchAttempt | null, tested }
+    return { matched: null, tested }
+  }
+
+  private publish(attempt: MatchAttempt) {
+    PubSub.publish('subtitle_progress', {
+      media_id: this.media.id,
+      ...attempt,
+    })
   }
 
   rank<T extends { name: string }>(
@@ -180,88 +187,14 @@ export class SubtitleMatcher extends TrackResolver {
     return result?.name ?? null
   }
 
-  private async downloadSubtitle(releaseId: string) {
-    const release = await DbReleases.getById(releaseId)
-
-    if (!release) {
-      return null
-    }
-
+  private resolveTracksDir() {
     const tracksRoot = config.root_folders?.tracks
 
     if (!tracksRoot) {
       throw new Error('No tracks root folder configured')
     }
 
-    const tracksDir = join(tracksRoot, this.media.id)
-    const lang = release.language?.toLowerCase() ?? 'und'
-    const sourceHash = deriveId(release.source_id)
-
-    const targetDir =
-      release.season_number != null && release.episode_number != null
-        ? join(
-            tracksDir,
-            `s${String(release.season_number).padStart(2, '0')}e${String(release.episode_number).padStart(2, '0')}`
-          )
-        : tracksDir
-
-    await mkdir(targetDir, { recursive: true })
-
-    const download = await DbDownloads.create({
-      media_id: this.media.id,
-      source_id: release.source_id,
-      download_url: release.download_url,
-      source: 'subtitle',
-      status: 'downloading',
-    })
-
-    try {
-      const { data: zipData } = await axios<ArrayBuffer>({
-        url: release.download_url,
-        responseType: 'arrayBuffer',
-      })
-
-      const files = unzipSync(new Uint8Array(zipData))
-      const srtEntries = Object.keys(files).filter((f) => f.endsWith('.srt'))
-
-      if (srtEntries.length === 0) {
-        await DbDownloads.update(download.id, {
-          status: 'error',
-          error_at: new Date().toISOString(),
-        })
-
-        return null
-      }
-
-      const targetPath = join(targetDir, `sub_${lang}_${sourceHash}.srt`)
-
-      await Bun.write(targetPath, files[srtEntries[0]])
-
-      await DbDownloads.update(download.id, {
-        status: 'completed',
-        progress: 1,
-        content_path: targetPath,
-      })
-
-      Log.info(`auto-match: subtitle saved path=${targetPath}`)
-
-      return targetPath
-    } catch (err) {
-      await DbDownloads.update(download.id, {
-        status: 'error',
-        error_at: new Date().toISOString(),
-      }).catch((err) =>
-        Log.warn(
-          `auto-match: status update failed download=${download.id} error="${err instanceof Error ? err.message : String(err)}"`
-        )
-      )
-
-      Log.warn(
-        `auto-match: download failed release=${releaseId} error="${err instanceof Error ? err.message : String(err)}"`
-      )
-
-      return null
-    }
+    return join(tracksRoot, this.media.id)
   }
 
   private computeTier(

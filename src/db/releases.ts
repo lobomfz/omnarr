@@ -64,6 +64,7 @@ export const DbReleases = {
       )
       .returning([
         'id',
+        'source_id',
         'indexer_source',
         'name',
         'size',
@@ -71,6 +72,7 @@ export const DbReleases = {
         'resolution',
         'codec',
         'hdr',
+        'download_url',
         'language',
         'season_number',
         'episode_number',

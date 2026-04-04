@@ -1,4 +1,7 @@
 import '@/api/arktype'
+import '@/jobs/workers/ripper'
+import '@/jobs/workers/scan'
+import '@/jobs/workers/subtitle-match'
 import { rpcHandler } from '@/api/app'
 import { envVariables } from '@/lib/env'
 import homepage from '@/web/index.html'

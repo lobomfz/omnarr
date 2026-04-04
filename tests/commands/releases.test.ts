@@ -3,6 +3,7 @@ import { describe, expect, test, beforeEach } from 'bun:test'
 import { testCommand } from '@bunli/test'
 import dayjs from 'dayjs'
 
+import '../helpers/api-server'
 import { ReleasesCommand } from '@/commands/releases'
 import { database, db } from '@/db/connection'
 import { DbSearchResults } from '@/db/search-results'

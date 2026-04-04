@@ -19,9 +19,28 @@ export const DbDownloads = {
         'source',
         'status',
         'error_at',
+        'season_number',
+        'episode_number',
         'started_at',
       ])
       .executeTakeFirstOrThrow()
+  },
+
+  async getById(id: number) {
+    return await db
+      .selectFrom('downloads as d')
+      .where('d.id', '=', id)
+      .select([
+        'd.id',
+        'd.media_id',
+        'd.source_id',
+        'd.download_url',
+        'd.source',
+        'd.status',
+        'd.season_number',
+        'd.episode_number',
+      ])
+      .executeTakeFirst()
   },
 
   async getByMediaId(mediaId: string) {
@@ -81,11 +100,38 @@ export const DbDownloads = {
         't.year',
         'r.indexer_source',
         'm.media_type',
-        'r.season_number',
-        'r.episode_number',
+        'd.season_number',
+        'd.episode_number',
       ])
       .orderBy('d.started_at', 'desc')
       .limit(limit)
+      .execute()
+  },
+
+  async listActiveWithMedia() {
+    return await db
+      .selectFrom('downloads as d')
+      .innerJoin('media as m', 'm.id', 'd.media_id')
+      .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
+      .where('d.status', 'in', [
+        'downloading',
+        'seeding',
+        'paused',
+        'pending',
+        'processing',
+      ])
+      .select([
+        'd.id',
+        'd.media_id',
+        'd.progress',
+        'd.speed',
+        'd.eta',
+        'd.status',
+        't.title',
+        't.year',
+        't.poster_path',
+      ])
+      .orderBy('d.started_at', 'desc')
       .execute()
   },
 
@@ -141,14 +187,6 @@ export const DbDownloads = {
       .where('d.content_path', 'is not', null)
       .select(['d.id', 'd.content_path'])
       .$narrowType<{ content_path: string }>()
-      .execute()
-  },
-
-  async deleteIncomplete(sourceId: string) {
-    return await db
-      .deleteFrom('downloads')
-      .where('source_id', '=', sourceId)
-      .where('status', '=', 'downloading')
       .execute()
   },
 

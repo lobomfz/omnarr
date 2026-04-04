@@ -3,19 +3,13 @@ import { resolve } from 'path'
 import { type, type Type } from 'arktype'
 
 import { MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
-import { Downloads } from '@/core/downloads'
+import { client } from '@/cli/client'
+import { connectWs } from '@/cli/ws-client'
 import { Exporter } from '@/core/exporter'
-import { Releases } from '@/core/releases'
-import { Scanner } from '@/core/scanner'
-import { SubtitleMatcher } from '@/core/subtitle-matcher'
-import { TorrentSync } from '@/core/torrent-sync'
-import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
-import { DbMediaFiles } from '@/db/media-files'
 import { DbReleases } from '@/db/releases'
 import { DbSearchResults } from '@/db/search-results'
-import { TmdbClient } from '@/integrations/tmdb/client'
 import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 import { extractSchemaProps } from '@/lib/utils'
@@ -67,11 +61,11 @@ export class Handler {
   async info(opts?: { season?: number; episode?: number }) {
     const { media_id } = this.parseArgs('info', type({ media_id: 'string' }))
 
-    const info = await DbMedia.getInfo(media_id, opts)
-
-    if (!info) {
-      throw new Error(`Media '${media_id}' not found.`)
-    }
+    const info = await client.library.getInfo({
+      id: media_id,
+      season: opts?.season,
+      episode: opts?.episode,
+    })
 
     this.output(info, Formatters.mediaInfo(info))
   }
@@ -81,18 +75,12 @@ export class Handler {
 
     Log.info(`command=search query="${query}"`)
 
-    const tmdbResults = await new TmdbClient().search(query)
+    const results = await client.search.search({ query })
 
-    Log.info(`tmdb returned ${tmdbResults.length} results query="${query}"`)
-
-    if (tmdbResults.length === 0) {
+    if (results.length === 0) {
       console.log('No results found.')
       return
     }
-
-    const results = await DbSearchResults.upsert(tmdbResults)
-
-    Log.info(`search results persisted count=${results.length}`)
 
     this.output(
       results,
@@ -127,20 +115,20 @@ export class Handler {
       )
     }
 
-    const results = await new Releases().search(
-      searchResult.tmdb_id,
-      searchResult.media_type,
-      opts
-    )
+    const releases = await client.releases.search({
+      tmdb_id: searchResult.tmdb_id,
+      media_type: searchResult.media_type,
+      season_number: opts?.season,
+    })
 
-    if (results.length === 0) {
+    if (releases.length === 0) {
       console.log('No releases found.')
       return
     }
 
     this.output(
-      results,
-      results.map((r) => {
+      releases,
+      releases.map((r) => {
         const meta = [r.resolution, r.codec, r.hdr].filter(Boolean).join(' ')
         return {
           ID: r.id,
@@ -154,11 +142,7 @@ export class Handler {
     )
   }
 
-  async download(opts?: {
-    audio_only?: boolean
-    lang?: string
-    concurrency?: number
-  }) {
+  async download(opts?: { audio_only?: boolean }) {
     const { release_id } = this.parseArgs(
       'download',
       type({ release_id: 'string' })
@@ -170,35 +154,23 @@ export class Handler {
 
     if (!release) {
       throw new Error(
-        `Release '${release_id}' not found. Run 'omnarr releases' first.`
+        `Release '${release_id}' not found. Run 'omnarr releases' or 'omnarr subtitles' first.`
       )
     }
 
-    const result = await new Downloads().add(
-      release,
-      (tag, status, progress) => {
-        if (this.json || !process.stdout.isTTY) {
-          return
-        }
+    const result = await client.downloads.add({
+      release_id,
+      audio_only: opts?.audio_only,
+    })
 
-        const pct = Formatters.progress(progress)
-
-        process.stdout.write(`\r${tag}: ${status} ${pct}`)
-
-        if (status === 'completed' || status === 'processing') {
-          process.stdout.write('\n')
-        }
-      },
-      opts
+    this.output(
+      result,
+      `Enqueued: ${result.title}${result.year ? ` (${result.year})` : ''}`
     )
-
-    this.output(result, `Added: ${Formatters.mediaTitle(result)}`)
   }
 
   private async listDownloads(limit: number, clear = false) {
-    await new TorrentSync().sync()
-
-    const downloads = await DbDownloads.list(limit)
+    const downloads = await client.downloads.list({ limit })
 
     if (downloads.length === 0) {
       console.log('No downloads.')
@@ -228,100 +200,26 @@ export class Handler {
       return
     }
 
-    while (true) {
+    await this.listDownloads(limit)
+
+    const wsClient = connectWs()
+
+    for await (const _event of await wsClient.downloadProgress()) {
       await this.listDownloads(limit, true)
-      await Bun.sleep(2000)
     }
   }
 
-  async waitFor() {
-    const { release_id } = this.parseArgs(
-      'wait-for',
-      type({ release_id: 'string' })
-    )
-
-    Log.info(`command=wait-for release_id=${release_id}`)
-
-    const release = await DbReleases.getById(release_id)
-
-    if (!release) {
-      throw new Error(`Release '${release_id}' not found.`)
-    }
-
-    const interval = 5 * 1000
-
-    while (true) {
-      await new TorrentSync().sync()
-
-      const download = await DbDownloads.getBySourceId(release.source_id)
-
-      if (!download) {
-        throw new Error(`No download found for release '${release_id}'`)
-      }
-
-      if (download.status === 'completed') {
-        Log.info(`download completed release_id=${release_id}`)
-        this.output(download, `Done: ${Formatters.mediaTitle(download)}`)
-        return
-      }
-
-      if (download.status === 'error') {
-        Log.warn(`download failed release_id=${release_id}`)
-        throw new Error(`Download failed: ${Formatters.mediaTitle(download)}`)
-      }
-
-      await Bun.sleep(interval)
-    }
-  }
-
-  async scan(opts: { force?: boolean; concurrency?: number }) {
+  async scan(opts: { force?: boolean }) {
     const { media_id } = this.parseArgs('scan', type({ media_id: 'string' }))
 
-    Log.info(`command=scan media_id=${media_id} force=${!!opts.force}`)
+    Log.info(`command=scan media_id=${media_id}`)
 
-    let lastWrite = 0
-    let doneFile = -1
-
-    const files = await new Scanner().scan(
+    await client.library.rescan({
       media_id,
-      (current, total, path, ratio) => {
-        if (this.json || !process.stdout.isTTY) {
-          return
-        }
+      force: opts.force,
+    })
 
-        if (ratio >= 1 && current === doneFile) {
-          return
-        }
-
-        const now = Date.now()
-
-        if (ratio < 1 && now - lastWrite < 100) {
-          return
-        }
-
-        lastWrite = now
-
-        const pct = Formatters.progress(ratio)
-        process.stdout.write(
-          `\rScanning ${current}/${total} (${pct}): ${path.split('/').at(-1)}`
-        )
-
-        if (ratio >= 1) {
-          doneFile = current
-          process.stdout.write('\n')
-        }
-      },
-      opts
-    )
-
-    if (files.length === 0) {
-      console.log('No media files found.')
-      return
-    }
-
-    const result = await DbMediaFiles.getWithScanData(media_id)
-
-    this.output(result, Formatters.scanResult(result))
+    console.log(`Scan enqueued for ${media_id}.`)
   }
 
   async play(opts: {
@@ -417,7 +315,7 @@ export class Handler {
   }
 
   async library() {
-    const media = await DbMedia.list({})
+    const media = await client.library.list({})
 
     if (media.length === 0) {
       console.log('Library is empty.')
@@ -449,10 +347,24 @@ export class Handler {
     Log.info(`command=subtitles media_id=${media_id}`)
 
     if (opts?.auto) {
-      return await this.autoMatchSubtitles(media_id, opts)
+      const result = await client.subtitles.autoMatch({
+        media_id,
+        season: opts.season,
+        episode: opts.episode,
+        lang: opts.lang,
+      })
+
+      this.output(result, `Auto-match enqueued for ${media_id}.`)
+
+      return
     }
 
-    const results = await new Releases().searchSubtitles(media_id, opts)
+    const results = await client.subtitles.search({
+      media_id,
+      season: opts?.season,
+      episode: opts?.episode,
+      lang: opts?.lang,
+    })
 
     if (results.length === 0) {
       console.log('No subtitles found.')
@@ -467,71 +379,6 @@ export class Handler {
         Language: r.language ?? '',
       }))
     )
-  }
-
-  private async autoMatchSubtitles(
-    media_id: string,
-    opts: { season?: number; episode?: number; lang?: string }
-  ) {
-    const media = await DbMedia.getById(media_id)
-
-    if (!media) {
-      throw new Error(`Media '${media_id}' not found.`)
-    }
-
-    const episodeId = await this.resolveEpisodeForTv(
-      media,
-      opts.season,
-      opts.episode
-    )
-
-    const matcher = new SubtitleMatcher({ id: media_id, episode_id: episodeId })
-
-    const result = await matcher.match(opts, (info) => {
-      if (this.json || !process.stdout.isTTY) {
-        return
-      }
-
-      if (info.status === 'downloading') {
-        console.log(`\n  ${info.name}`)
-        process.stdout.write('    downloading...')
-        return
-      }
-
-      if (info.status === 'testing') {
-        process.stdout.write(' testing...')
-        return
-      }
-
-      if (info.status === 'matched') {
-        console.log(` confidence: ${info.confidence!.toFixed(1)} ✓`)
-        return
-      }
-
-      if (info.confidence === null) {
-        console.log(' failed')
-      } else {
-        console.log(` confidence: ${info.confidence.toFixed(1)} ✗`)
-      }
-    })
-
-    if (result.matched) {
-      const lines = [
-        '',
-        `Subtitle synced: ${result.matched.name}`,
-        `offset: ${result.matched.offset.toFixed(3)}s | confidence: ${result.matched.confidence!.toFixed(1)}`,
-      ]
-
-      this.output(result, lines.join('\n'))
-    } else {
-      const lines = [
-        '',
-        `No subtitle matched with sufficient confidence (min: ${MIN_SYNC_CONFIDENCE})`,
-        `${result.tested.length} subtitles saved — use play --sub to try manually`,
-      ]
-
-      this.output(result, lines.join('\n'))
-    }
   }
 
   async export(opts: { video?: number; season?: number; episode?: number }) {

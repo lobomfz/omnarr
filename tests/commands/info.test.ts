@@ -12,7 +12,9 @@ import { join } from 'path'
 
 import { testCommand } from '@bunli/test'
 
+import '../helpers/api-server'
 import { InfoCommand } from '@/commands/info'
+import { Scanner } from '@/core/scanner'
 import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
@@ -21,7 +23,6 @@ import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { Scanner } from '@/core/scanner'
 import { deriveId } from '@/lib/utils'
 
 import { MediaFixtures } from '../fixtures/media'
@@ -75,7 +76,7 @@ describe('info command', () => {
       content_path: join(tmpDir, 'media/The Matrix (1999)'),
     })
 
-    await new Scanner().scan(media.id, () => {})
+    await new Scanner().scan(media.id)
 
     const result = await testCommand(InfoCommand, {
       args: [media.id],
@@ -106,7 +107,7 @@ describe('info command', () => {
       content_path: join(tmpDir, 'media/The Matrix (1999)'),
     })
 
-    await new Scanner().scan(media.id, () => {})
+    await new Scanner().scan(media.id)
 
     const result = await testCommand(InfoCommand, {
       args: [media.id],
@@ -128,7 +129,7 @@ describe('info command', () => {
       content_path: join(tmpDir, 'media/The Matrix (1999)'),
     })
 
-    await new Scanner().scan(media.id, () => {})
+    await new Scanner().scan(media.id)
 
     const result = await testCommand(InfoCommand, {
       args: [media.id],

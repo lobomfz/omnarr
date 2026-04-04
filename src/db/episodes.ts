@@ -3,6 +3,18 @@ import type { Insertable } from '@lobomfz/db'
 import { db, type DB } from '@/db/connection'
 
 export const DbEpisodes = {
+  async listBySeason(tmdbId: number, seasonNumber: number) {
+    return await db
+      .selectFrom('episodes as e')
+      .innerJoin('seasons as s', 's.id', 'e.season_id')
+      .innerJoin('tmdb_media as t', 't.id', 's.tmdb_media_id')
+      .where('t.tmdb_id', '=', tmdbId)
+      .where('s.season_number', '=', seasonNumber)
+      .select(['e.episode_number', 'e.title'])
+      .orderBy('e.episode_number')
+      .execute()
+  },
+
   async getBySeasonEpisode(
     tmdbMediaId: number,
     seasonNumber: number,
