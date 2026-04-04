@@ -3,17 +3,15 @@ import { mkdir, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
+import { Scanner } from '@/core/scanner'
 import { database, db } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbSeasons } from '@/db/seasons'
-import { Scanner } from '@/core/scanner'
 import { deriveId } from '@/lib/utils'
 
 const testDir = join(tmpdir(), 'omnarr-scanner-subtitle-test')
-const noop = () => {}
-
 beforeEach(async () => {
   database.reset()
   await rm(testDir, { recursive: true }).catch(() => {})
@@ -82,7 +80,7 @@ describe('scanner subtitle handling', () => {
     await writeSrt(srtPath)
     await seedDownload(mediaId, testDir)
 
-    await new Scanner().scan(mediaId, noop)
+    await new Scanner().scan(mediaId)
 
     const files = await DbMediaFiles.getByMediaId(mediaId)
 
@@ -108,7 +106,7 @@ describe('scanner subtitle handling', () => {
     await writeSrt(ptPath)
     await seedDownload(mediaId, testDir)
 
-    await new Scanner().scan(mediaId, noop)
+    await new Scanner().scan(mediaId)
 
     const tracks = await DbMediaTracks.getByMediaId(mediaId)
     const languages = tracks.map((t) => t.language).sort()
@@ -123,7 +121,7 @@ describe('scanner subtitle handling', () => {
     await writeSrt(srtPath)
     await seedDownload(mediaId, testDir)
 
-    await new Scanner().scan(mediaId, noop)
+    await new Scanner().scan(mediaId)
 
     const tracks = await DbMediaTracks.getByMediaId(mediaId)
 
@@ -153,7 +151,7 @@ describe('scanner subtitle handling', () => {
     await writeSrt(srtPath)
     await seedDownload(mediaId, testDir)
 
-    await new Scanner().scan(mediaId, noop)
+    await new Scanner().scan(mediaId)
 
     const files = await DbMediaFiles.getByMediaId(mediaId)
 
@@ -168,8 +166,8 @@ describe('scanner subtitle handling', () => {
     await writeSrt(srtPath)
     await seedDownload(mediaId, testDir)
 
-    await new Scanner().scan(mediaId, noop)
-    await new Scanner().scan(mediaId, noop)
+    await new Scanner().scan(mediaId)
+    await new Scanner().scan(mediaId)
 
     const files = await DbMediaFiles.getByMediaId(mediaId)
 

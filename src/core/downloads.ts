@@ -1,28 +1,115 @@
 import { join } from 'path'
 
-import { RipperDownload } from '@/core/ripper-download'
-import { SubtitleDownload } from '@/core/subtitle-download'
-import { TorrentDownload } from '@/core/torrent-download'
+import type { DownloadSchemas, SubtitlesSchemas } from '@/api/schemas'
+import type { download_source } from '@/db/connection'
+import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import type { Release } from '@/db/releases'
+import { DbReleases } from '@/db/releases'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { indexerMap } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
+import { Scheduler } from '@/jobs/scheduler'
 import { config } from '@/lib/config'
+import { Log } from '@/lib/log'
 import { deriveId } from '@/lib/utils'
 
-import type { DownloadData } from './types/download-source'
+import { RipperDownload } from './ripper-download'
+import { SubtitleDownload } from './subtitle-download'
+import { TorrentDownload } from './torrent-download'
+import type { DownloadSource } from './types/download-source'
+
+const sourceMap: Record<download_source, new () => DownloadSource> = {
+  torrent: TorrentDownload,
+  ripper: RipperDownload,
+  subtitle: SubtitleDownload,
+}
 
 export class Downloads {
-  async add(
-    release: Release,
-    onProgress: (tag: string, status: string, progress: number) => void,
-    opts?: {
-      audio_only?: boolean
-      lang?: string
-      concurrency?: number
+  async enqueue(input: typeof DownloadSchemas.add.infer) {
+    const release = await DbReleases.getById(input.release_id)
+
+    if (!release) {
+      throw new Error(`Release '${input.release_id}' not found.`)
     }
+
+    const rootFolder = config.root_folders?.[release.media_type]
+
+    if (!rootFolder) {
+      throw new Error(`No root folder configured for ${release.media_type}.`)
+    }
+
+    const source = indexerMap[release.indexer_source].source
+
+    const resolved = await this.resolveMedia(
+      release,
+      rootFolder,
+      input.media_id
+    )
+
+    Log.info(
+      `download enqueue release_id=${release.id} source_id=${release.source_id} source=${source}`
+    )
+
+    return await new sourceMap[source]().enqueue({
+      source_id: release.source_id,
+      download_url: release.download_url,
+      title: resolved.title,
+      year: resolved.year,
+      imdb_id: resolved.imdb_id,
+      media_id: resolved.mediaId,
+      tracks_dir: this.resolveTracksDir(resolved.mediaId),
+      audio_only: input.audio_only,
+      language: release.language,
+      season_number: release.season_number,
+      episode_number: release.episode_number,
+    })
+  }
+
+  async autoMatchSubtitles(input: typeof SubtitlesSchemas.autoMatch.infer) {
+    const media = await DbMedia.getById(input.media_id)
+
+    if (!media) {
+      throw new Error(`Media '${input.media_id}' not found.`)
+    }
+
+    const episodeId = await this.resolveEpisodeId(
+      media,
+      input.season,
+      input.episode
+    )
+
+    Scheduler.subtitleMatch({
+      media_id: input.media_id,
+      episode_id: episodeId,
+      lang: input.lang,
+      season: input.season,
+      episode: input.episode,
+    })
+
+    return { media_id: input.media_id }
+  }
+
+  private async resolveMedia(
+    release: Release,
+    rootFolder: string,
+    mediaId?: string
   ) {
+    if (mediaId) {
+      const existing = await DbMedia.getById(mediaId)
+
+      if (!existing) {
+        throw new Error(`Media '${mediaId}' not found.`)
+      }
+
+      return {
+        mediaId,
+        title: existing.title,
+        year: existing.year,
+        imdb_id: existing.imdb_id,
+      }
+    }
+
     const details = await new TmdbClient().getDetails(
       release.tmdb_id,
       release.media_type
@@ -33,16 +120,8 @@ export class Downloads {
       media_type: details.media_type,
       title: details.title,
       year: details.year,
-      overview: details.overview,
-      poster_path: details.poster_path,
       imdb_id: details.imdb_id,
     })
-
-    const rootFolder = config.root_folders?.[details.media_type]
-
-    if (!rootFolder) {
-      throw new Error(`No root folder configured for ${details.media_type}`)
-    }
 
     const media = await DbMedia.create({
       id: deriveId(`${details.tmdb_id}:${details.media_type}`),
@@ -51,44 +130,47 @@ export class Downloads {
       root_folder: rootFolder,
     })
 
-    const data: DownloadData = {
-      source_id: release.source_id,
-      download_url: release.download_url,
+    return {
+      mediaId: media.id,
       title: details.title,
       year: details.year,
       imdb_id: details.imdb_id,
-      media_id: media.id,
-      tracksDir: this.resolveTracksDir(media.id),
-      audio_only: opts?.audio_only,
-      lang: opts?.lang,
-      language: release.language,
-      season_number: release.season_number,
-      episode_number: release.episode_number,
-      concurrency: opts?.concurrency,
+    }
+  }
+
+  private async resolveEpisodeId(
+    media: { media_type: string; tmdb_media_id: number },
+    season?: number,
+    episode?: number
+  ) {
+    if (media.media_type !== 'tv') {
+      return
     }
 
-    const source = indexerMap[release.indexer_source].source
-
-    switch (source) {
-      case 'torrent': {
-        return await new TorrentDownload(onProgress).add(data)
-      }
-
-      case 'ripper': {
-        return await new RipperDownload(onProgress).add(data)
-      }
-
-      case 'subtitle': {
-        return await new SubtitleDownload(onProgress).add(data)
-      }
+    if (season === undefined || episode === undefined) {
+      throw new Error('TV shows require season and episode.')
     }
+
+    const ep = await DbEpisodes.getBySeasonEpisode(
+      media.tmdb_media_id,
+      season,
+      episode
+    )
+
+    if (!ep) {
+      throw new Error(
+        `Episode S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} not found.`
+      )
+    }
+
+    return ep.id
   }
 
   private resolveTracksDir(mediaId: string) {
     const tracksRoot = config.root_folders?.tracks
 
     if (!tracksRoot) {
-      throw new Error('No tracks root folder configured')
+      throw new Error('No tracks root folder configured.')
     }
 
     return join(tracksRoot, mediaId)

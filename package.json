@@ -22,6 +22,7 @@
   "devDependencies": {
     "@bunli/core": "^0.9.0",
     "@bunli/test": "^0.6.0",
+    "@lobomfz/bunmq": "link:@lobomfz/bunmq",
     "@lobomfz/db": "link:@lobomfz/db",
     "@lobomfz/ffmpeg": "link:@lobomfz/ffmpeg",
     "@lobomfz/ghostapi": "^0.3.4",
@@ -49,6 +50,7 @@
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@orpc/client": "^1.13.13",
+    "@orpc/experimental-publisher": "^1.13.13",
     "@orpc/server": "^1.13.13",
     "@orpc/tanstack-query": "^1.13.13",
     "@tanstack/react-query": "^5.96.1",

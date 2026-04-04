@@ -168,9 +168,7 @@ export class HlsSession {
         )
       })
       .catch((err) => {
-        Log.error(
-          `process exit handler error=${err instanceof Error ? err.message : String(err)}`
-        )
+        Log.error(`process exit handler error=${err.message}`)
       })
   }
 }

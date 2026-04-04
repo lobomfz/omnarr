@@ -142,7 +142,7 @@ describe('DbMedia.list', () => {
     expect(row.track_count).toBe(2)
   })
 
-  test('returns download_status from latest non-error download', async () => {
+  test('returns download from latest non-error download', async () => {
     const media = await seedMedia()
 
     await DbDownloads.create({
@@ -162,7 +162,7 @@ describe('DbMedia.list', () => {
 
     const [row] = await DbMedia.list({})
 
-    expect(row.download_status).toBe('downloading')
+    expect(row.download?.status).toBe('downloading')
   })
 
   test('returns episode counts for TV', async () => {

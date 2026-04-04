@@ -1,5 +1,5 @@
 import { type Insertable, type ExpressionBuilder, sql } from '@lobomfz/db'
-import { jsonArrayFrom } from 'kysely/helpers/sqlite'
+import { jsonArrayFrom, jsonObjectFrom } from 'kysely/helpers/sqlite'
 
 import { type LibrarySchemas } from '@/api/schemas'
 import { type AliasedDb, db, type DB } from '@/db/connection'
@@ -100,16 +100,25 @@ export const DbMedia = {
         't.year',
         't.poster_path',
         sql<number>`count(distinct mf.id)`.as('file_count'),
-        sql<number>`count(mt.id)`.as('track_count'),
+        (eb) => eb.fn.count<number>('mt.id').as('track_count'),
+        (eb) =>
+          jsonObjectFrom(
+            eb
+              .selectFrom('downloads as d')
+              .whereRef('d.media_id', '=', 'm.id')
+              .where('d.status', '!=', 'error')
+              .orderBy('d.started_at', 'desc')
+              .select(['d.status', 'd.progress', 'd.speed'])
+              .limit(1)
+          ).as('download'),
         (eb) =>
           eb
-            .selectFrom('downloads as d')
-            .whereRef('d.media_id', '=', 'm.id')
-            .where('d.status', '!=', 'error')
-            .orderBy('d.started_at', 'desc')
-            .select('d.status')
-            .limit(1)
-            .as('download_status'),
+            .selectFrom('events as ev')
+            .whereRef('ev.media_id', '=', 'm.id')
+            .where('ev.event_type', '=', 'error')
+            .where('ev.read', '=', false)
+            .select(eb.fn.countAll<number>().as('cnt'))
+            .as('unread_error_count'),
         (eb) =>
           eb
             .selectFrom('seasons as s2')
@@ -143,6 +152,7 @@ export const DbMedia = {
         'm.media_type',
         'm.tmdb_media_id',
         'm.added_at',
+        't.tmdb_id',
         't.title',
         't.year',
         't.poster_path',
@@ -154,6 +164,8 @@ export const DbMedia = {
               .whereRef('d.media_id', '=', 'm.id')
               .select([
                 'd.id',
+                'd.source_id',
+                'd.source',
                 'd.status',
                 'd.progress',
                 'd.speed',
@@ -244,7 +256,7 @@ export const DbMedia = {
             })()
           ).as('seasons'),
       ])
-      .executeTakeFirst()
+      .executeTakeFirstOrThrow()
   },
 
   async delete(id: string) {

@@ -2,38 +2,97 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { testCommand } from '@bunli/test'
 
+import '../helpers/api-server'
 import { LibraryCommand } from '@/commands/library'
-import { Downloads } from '@/core/downloads'
-import { Releases } from '@/core/releases'
-import { database } from '@/db/connection'
+import { database, db } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
-import { DbReleases } from '@/db/releases'
 import { DbSeasons } from '@/db/seasons'
-import { TmdbClient } from '@/integrations/tmdb/client'
+import { deriveId } from '@/lib/utils'
 
-const noop = () => {}
+const MOVIE_ID = deriveId('603:movie')
+const TV_ID = deriveId('1399:tv')
 
-import '../mocks/tmdb'
-import '../mocks/beyond-hd'
-import '../mocks/yts'
-import '../mocks/qbittorrent'
-import { QBittorrentMock } from '../mocks/qbittorrent'
+async function setupMovie() {
+  const tmdb = await db
+    .insertInto('tmdb_media')
+    .values({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      year: 1999,
+      imdb_id: 'tt0133093',
+    })
+    .returning(['id'])
+    .executeTakeFirstOrThrow()
 
-describe('library command', async () => {
-  const results = await new TmdbClient().search('Matrix')
-  const releases = await new Releases().search(
-    results[0].tmdb_id,
-    results[0].media_type
-  )
-  const release = (await DbReleases.getById(releases[0].id))!
+  await db
+    .insertInto('media')
+    .values({
+      id: MOVIE_ID,
+      tmdb_media_id: tmdb.id,
+      media_type: 'movie',
+      root_folder: '/tmp/omnarr-test-movies',
+    })
+    .execute()
 
+  await db
+    .insertInto('downloads')
+    .values({
+      media_id: MOVIE_ID,
+      source_id: 'ABC123',
+      download_url: 'https://beyond-hd.me/dl/abc123',
+      source: 'torrent',
+      status: 'downloading',
+    })
+    .execute()
+
+  return tmdb.id
+}
+
+async function setupTvShow() {
+  const tmdb = await db
+    .insertInto('tmdb_media')
+    .values({
+      tmdb_id: 1399,
+      media_type: 'tv',
+      title: 'Breaking Bad',
+      year: 2008,
+      imdb_id: 'tt0903747',
+    })
+    .returning(['id'])
+    .executeTakeFirstOrThrow()
+
+  await db
+    .insertInto('media')
+    .values({
+      id: TV_ID,
+      tmdb_media_id: tmdb.id,
+      media_type: 'tv',
+      root_folder: '/tmp/tv',
+    })
+    .execute()
+
+  await db
+    .insertInto('downloads')
+    .values({
+      media_id: TV_ID,
+      source_id: 'BB_HASH_S01E01',
+      download_url: 'https://beyond-hd.me/dl/bb_hash_s01e01',
+      source: 'torrent',
+      status: 'downloading',
+    })
+    .execute()
+
+  return tmdb.id
+}
+
+describe('library command', () => {
   beforeEach(() => {
     database.reset()
-    QBittorrentMock.reset()
   })
 
   test('shows downloading status when torrent is active', async () => {
-    await new Downloads().add(release, noop)
+    await setupMovie()
 
     const result = await testCommand(LibraryCommand, {
       args: [],
@@ -43,11 +102,11 @@ describe('library command', async () => {
     const rows = JSON.parse(result.stdout)
 
     expect(rows).toHaveLength(1)
-    expect(rows[0].download_status).toBe('downloading')
+    expect(rows[0].download?.status).toBe('downloading')
   })
 
   test('shows downloaded status when torrent is completed but not scanned', async () => {
-    await new Downloads().add(release, noop)
+    await setupMovie()
 
     await database.kysely
       .updateTable('downloads')
@@ -62,39 +121,20 @@ describe('library command', async () => {
     const rows = JSON.parse(result.stdout)
 
     expect(rows).toHaveLength(1)
-    expect(rows[0].download_status).toBe('completed')
+    expect(rows[0].download?.status).toBe('completed')
   })
 
   test('shows episode progress for TV shows', async () => {
-    await new Downloads().add(
-      {
-        id: 'BBTEST',
-        tmdb_id: 1399,
-        media_type: 'tv',
-        source_id: 'bb_hash_s01e01',
-        indexer_source: 'beyond-hd',
-        download_url: 'https://beyond-hd.me/dl/bb_hash_s01e01',
-        name: 'Breaking Bad S01E01',
-        language: null,
-        season_number: null,
-        episode_number: null,
-      },
-      noop
-    )
-
-    const media = await database.kysely
-      .selectFrom('media')
-      .select(['id', 'tmdb_media_id'])
-      .executeTakeFirstOrThrow()
+    const tmdbMediaId = await setupTvShow()
 
     const seasons = await DbSeasons.upsert([
       {
-        tmdb_media_id: media.tmdb_media_id,
+        tmdb_media_id: tmdbMediaId,
         season_number: 1,
         episode_count: 7,
       },
       {
-        tmdb_media_id: media.tmdb_media_id,
+        tmdb_media_id: tmdbMediaId,
         season_number: 2,
         episode_count: 13,
       },
@@ -115,14 +155,14 @@ describe('library command', async () => {
       .insertInto('media_files')
       .values([
         {
-          media_id: media.id,
+          media_id: TV_ID,
           download_id: download.id,
           episode_id: episodes[0].id,
           path: '/test/s01e01.mkv',
           size: 1000,
         },
         {
-          media_id: media.id,
+          media_id: TV_ID,
           download_id: download.id,
           episode_id: episodes[1].id,
           path: '/test/s01e02.mkv',
@@ -144,7 +184,7 @@ describe('library command', async () => {
   })
 
   test('shows zero total_episodes for movies', async () => {
-    await new Downloads().add(release, noop)
+    await setupMovie()
 
     const result = await testCommand(LibraryCommand, {
       args: [],
