@@ -1,5 +1,5 @@
 import { defineCommand, option } from '@bunli/core'
-import { type } from 'arktype'
+import { type } from '@lobomfz/db'
 
 import { InitWizard } from '@/commands/init-wizard'
 
