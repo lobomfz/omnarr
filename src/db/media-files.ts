@@ -1,5 +1,4 @@
-import type { Insertable } from '@lobomfz/db'
-import { jsonArrayFrom } from 'kysely/helpers/sqlite'
+import { type Insertable, jsonArrayFrom } from '@lobomfz/db'
 
 import { db, type DB } from '@/db/connection'
 
