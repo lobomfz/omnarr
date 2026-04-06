@@ -42,7 +42,7 @@ describe('Releases', () => {
   })
 
   test('continues when one indexer fails', async () => {
-    const releases = await new Releases().search(9998, 'movie')
+    const { releases } = await new Releases().search(9998, 'movie')
 
     expect(releases).toHaveLength(0)
   })

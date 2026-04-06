@@ -1,4 +1,4 @@
-import { type } from 'arktype'
+import { type } from '@lobomfz/db'
 import axios from 'redaxios'
 
 import type { media_type } from '@/db/connection'
@@ -63,7 +63,25 @@ export class BeyondHdAdapter implements Indexer {
     return null
   }
 
+  private formatSeasonTag(params: SearchParams) {
+    if (params.season_number == null) {
+      return ''
+    }
+
+    const season = `S${String(params.season_number).padStart(2, '0')}`
+
+    if (params.episode_number != null) {
+      return `${season}E${String(params.episode_number).padStart(2, '0')}`
+    }
+
+    return season
+  }
+
   async search(params: SearchParams) {
+    const searchParts = [params.query, this.formatSeasonTag(params)].filter(
+      Boolean
+    )
+
     const { data } = await axios<BeyondHdResponse>({
       method: 'POST',
       baseURL: envVariables.BEYOND_HD_API_URL,
@@ -72,7 +90,7 @@ export class BeyondHdAdapter implements Indexer {
         action: 'search',
         rsskey: this.config.rss_key,
         imdb_id: params.imdb_id,
-        search: params.query,
+        search: searchParts.join(' ') || undefined,
       },
     })
 

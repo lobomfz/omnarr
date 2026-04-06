@@ -26,7 +26,7 @@ describe('releases.search', () => {
       media_type: 'movie',
     })
 
-    expect(result.length).toBeGreaterThan(0)
+    expect(result.releases.length).toBeGreaterThan(0)
   })
 
   test('returns releases with expected fields', async () => {
@@ -35,7 +35,7 @@ describe('releases.search', () => {
       media_type: 'movie',
     })
 
-    const release = result[0]
+    const release = result.releases[0]
 
     expect(typeof release.name).toBe('string')
     expect(release.size).toBeGreaterThan(0)

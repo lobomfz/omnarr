@@ -1,5 +1,5 @@
 import { Mock } from '@lobomfz/ghostapi'
-import { type } from 'arktype'
+import { type } from '@lobomfz/db'
 
 import { envVariables } from '@/lib/env'
 
@@ -28,6 +28,12 @@ const BeyondHdMock = new Mock(
 
         if (body?.imdb_id) {
           query = query.where('imdb_id', '=', body.imdb_id)
+        }
+
+        if (body?.search) {
+          for (const term of body.search.split(' ').filter(Boolean)) {
+            query = query.where('name', 'like', `%${term}%`)
+          }
         }
 
         const rows = await query.execute()

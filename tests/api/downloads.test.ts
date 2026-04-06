@@ -36,7 +36,9 @@ describe('downloads.add', async () => {
     results[0].tmdb_id,
     results[0].media_type
   )
-  const torrentRelease = releases.find((r) => r.indexer_source !== 'superflix')!
+  const torrentRelease = releases.releases.find(
+    (r) => r.indexer_source !== 'superflix'
+  )!
   const originalClient = config.download_client
   const originalRootFolders = config.root_folders
 
@@ -207,7 +209,9 @@ describe('downloads.add ripper', async () => {
     results[0].tmdb_id,
     results[0].media_type
   )
-  const ripperRelease = releases.find((r) => r.indexer_source === 'superflix')!
+  const ripperRelease = releases.releases.find(
+    (r) => r.indexer_source === 'superflix'
+  )!
   const originalRootFolders = config.root_folders
 
   beforeEach(() => {
@@ -266,7 +270,7 @@ describe('downloads.add TV ripper', async () => {
     tvResult.media_type,
     { season: 1 }
   )
-  const tvRipperRelease = releases.find(
+  const tvRipperRelease = releases.releases.find(
     (r) => r.indexer_source === 'superflix'
   )!
   const originalRootFolders = config.root_folders

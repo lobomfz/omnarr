@@ -1,6 +1,6 @@
 import { resolve } from 'path'
 
-import { type, type Type } from 'arktype'
+import { type, type Type } from '@lobomfz/db'
 
 import { MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
 import { client } from '@/cli/client'
@@ -75,7 +75,7 @@ export class Handler {
 
     Log.info(`command=search query="${query}"`)
 
-    const results = await client.search.search({ query })
+    const results = await client.tmdb.search({ query })
 
     if (results.length === 0) {
       console.log('No results found.')
@@ -115,7 +115,7 @@ export class Handler {
       )
     }
 
-    const releases = await client.releases.search({
+    const { releases } = await client.releases.search({
       tmdb_id: searchResult.tmdb_id,
       media_type: searchResult.media_type,
       season_number: opts?.season,

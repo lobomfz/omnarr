@@ -21,7 +21,9 @@ describe('download command', async () => {
     results[0].tmdb_id,
     results[0].media_type
   )
-  const torrentRelease = releases.find((r) => r.indexer_source !== 'superflix')!
+  const torrentRelease = releases.releases.find(
+    (r) => r.indexer_source !== 'superflix'
+  )!
 
   beforeEach(() => {
     database.reset('events')
