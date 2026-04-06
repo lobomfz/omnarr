@@ -1,41 +1,19 @@
-import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
-import { rm } from 'fs/promises'
-import { join } from 'path'
+import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { testCommand } from '@bunli/test'
 
+import '../helpers/api-server'
 import { DownloadCommand } from '@/commands/download'
-import { Downloads } from '@/core/downloads'
 import { Releases } from '@/core/releases'
 import { database } from '@/db/connection'
-import { DbReleases } from '@/db/releases'
 import { TmdbClient } from '@/integrations/tmdb/client'
-import { config } from '@/lib/config'
 
 import { QBittorrentMock } from '../mocks/qbittorrent'
 import '../mocks/beyond-hd'
 import '../mocks/superflix'
 import '../mocks/yts'
 import '../mocks/qbittorrent'
-import { TmdbMock } from '../mocks/tmdb'
-
-await TmdbMock.db
-  .insertInto('media')
-  .values({
-    id: 10002,
-    title: 'Ripper All Fail Test',
-    overview: 'test',
-    release_date: '2020-01-01',
-    media_type: 'movie',
-  })
-  .execute()
-
-await TmdbMock.db
-  .insertInto('external_ids')
-  .values({ tmdb_id: 10002, imdb_id: 'tt9999999' })
-  .execute()
-
-const noop = () => {}
+import '../mocks/tmdb'
 
 describe('download command', async () => {
   const results = await new TmdbClient().search('Matrix')
@@ -43,9 +21,10 @@ describe('download command', async () => {
     results[0].tmdb_id,
     results[0].media_type
   )
-  const releaseId = releases[0].id
+  const torrentRelease = releases.find((r) => r.indexer_source !== 'superflix')!
 
   beforeEach(() => {
+    database.reset('events')
     database.reset('media_files')
     database.reset('downloads')
     database.reset('media')
@@ -53,9 +32,9 @@ describe('download command', async () => {
     QBittorrentMock.reset()
   })
 
-  test('downloads release by ID', async () => {
+  test('enqueues download and returns result', async () => {
     const result = await testCommand(DownloadCommand, {
-      args: [releaseId],
+      args: [torrentRelease.id],
       flags: { json: true },
     })
 
@@ -65,11 +44,12 @@ describe('download command', async () => {
     expect(data.title).toBe('The Matrix')
     expect(data.year).toBe(1999)
     expect(data.media_id).toBeDefined()
+    expect(data.download_id).toBeDefined()
   })
 
-  test('stores source_id from indexer', async () => {
+  test('creates download record via enqueue', async () => {
     await testCommand(DownloadCommand, {
-      args: [releaseId],
+      args: [torrentRelease.id],
       flags: {},
     })
 
@@ -81,9 +61,9 @@ describe('download command', async () => {
     expect(download.source_id).toBe('ABC123')
   })
 
-  test('sends torrent to qbittorrent without savepath', async () => {
+  test('sends torrent to qbittorrent', async () => {
     await testCommand(DownloadCommand, {
-      args: [releaseId],
+      args: [torrentRelease.id],
       flags: {},
     })
 
@@ -93,50 +73,12 @@ describe('download command', async () => {
       .execute()
 
     expect(torrents).toHaveLength(1)
-    expect(torrents[0].savepath).toBe('')
     expect(torrents[0].category).toBe('omnarr')
-  })
-
-  test('second download of same TMDB entry reuses media', async () => {
-    await testCommand(DownloadCommand, {
-      args: [releaseId],
-      flags: {},
-    })
-
-    await new Downloads().add(
-      {
-        id: 'SECOND',
-        tmdb_id: results[0].tmdb_id,
-        media_type: results[0].media_type,
-        source_id: 'second_hash',
-        indexer_source: 'beyond-hd',
-        download_url: 'magnet:?xt=urn:btih:second_hash&dn=Matrix2',
-        name: 'The Matrix 2',
-        language: null,
-        season_number: null,
-        episode_number: null,
-      },
-      noop
-    )
-
-    const media = await database.kysely
-      .selectFrom('media')
-      .selectAll()
-      .execute()
-
-    const downloads = await database.kysely
-      .selectFrom('downloads')
-      .selectAll()
-      .execute()
-
-    expect(media).toHaveLength(1)
-    expect(downloads).toHaveLength(2)
-    expect(downloads[0].media_id).toBe(downloads[1].media_id)
   })
 
   test('caches tmdb media in database', async () => {
     await testCommand(DownloadCommand, {
-      args: [releaseId],
+      args: [torrentRelease.id],
       flags: {},
     })
 
@@ -151,438 +93,13 @@ describe('download command', async () => {
     expect(tmdb?.imdb_id).toBe('tt0133093')
   })
 
-  test('rejects download when same source_id is already active', async () => {
-    const release = (await DbReleases.getById(releaseId))!
-
-    await new Downloads().add(release, noop)
-
-    await expect(() => new Downloads().add(release, noop)).toThrow()
-
-    const downloads = await database.kysely
-      .selectFrom('downloads')
-      .selectAll()
-      .execute()
-
-    expect(downloads).toHaveLength(1)
-  })
-
-  test('does not persist download record when qbittorrent rejects', async () => {
-    const release = (await DbReleases.getById(releaseId))!
-
-    await QBittorrentMock.db
-      .insertInto('torrents')
-      .values({
-        hash: release.source_id.toLowerCase(),
-        url: release.download_url,
-        savepath: '',
-        category: 'omnarr',
-        progress: 1,
-        dlspeed: 0,
-        eta: 0,
-        state: 'stalledUP',
-        content_path: `/dl/${release.source_id}`,
-      })
-      .execute()
-
-    await expect(() => new Downloads().add(release, noop)).toThrow()
-
-    const downloads = await database.kysely
-      .selectFrom('downloads')
-      .selectAll()
-      .execute()
-
-    expect(downloads).toHaveLength(0)
-  })
-
-  test('prints confirmation message', async () => {
+  test('prints enqueue confirmation', async () => {
     const result = await testCommand(DownloadCommand, {
-      args: [releaseId],
+      args: [torrentRelease.id],
       flags: {},
     })
 
     expect(result.exitCode).toBe(0)
-    expect(result.stdout).toContain('Added: The Matrix (1999)')
-  })
-})
-
-describe('superflix download', async () => {
-  const tracksDir = config.root_folders!.tracks!
-  const results = await new TmdbClient().search('Matrix')
-  const releases = await new Releases().search(
-    results[0].tmdb_id,
-    results[0].media_type
-  )
-  const superflixReleaseId = releases.find(
-    (r) => r.indexer_source === 'superflix'
-  )!.id
-
-  beforeEach(async () => {
-    database.reset('media_keyframes')
-    database.reset('media_tracks')
-    database.reset('media_files')
-    database.reset('downloads')
-    database.reset('media')
-    database.reset('tmdb_media')
-    await rm(tracksDir, { recursive: true }).catch(() => {})
-  })
-
-  afterAll(async () => {
-    await rm(tracksDir, { recursive: true }).catch(() => {})
-  })
-
-  test('produces all files in tracks dir', async () => {
-    const result = await testCommand(DownloadCommand, {
-      args: [superflixReleaseId],
-      flags: { json: true },
-    })
-
-    expect(result.exitCode).toBe(0)
-
-    const data = JSON.parse(result.stdout)
-    const mediaId = data.media_id
-
-    expect(data.ripped).toBe(3)
-    expect(data.total).toBe(3)
-
-    expect(await Bun.file(join(tracksDir, mediaId, 'video.mkv')).exists()).toBe(
-      true
-    )
-    expect(
-      await Bun.file(join(tracksDir, mediaId, 'audio_pt.mka')).exists()
-    ).toBe(true)
-    expect(
-      await Bun.file(join(tracksDir, mediaId, 'audio_en.mka')).exists()
-    ).toBe(true)
-  })
-
-  test('creates single download with source ripper', async () => {
-    await testCommand(DownloadCommand, {
-      args: [superflixReleaseId],
-      flags: {},
-    })
-
-    const downloads = await database.kysely
-      .selectFrom('downloads')
-      .selectAll()
-      .execute()
-
-    expect(downloads).toHaveLength(1)
-
-    expect(downloads[0].source).toBe('ripper')
-    expect(downloads[0].status).toBe('completed')
-    expect(downloads[0].progress).toBe(1)
-    expect(downloads[0].source_id).toBe('SUPERFLIX:TT0133093')
-  })
-
-  test('--lang filters to single audio language', async () => {
-    const result = await testCommand(DownloadCommand, {
-      args: [superflixReleaseId],
-      flags: { json: true, lang: 'pt' },
-    })
-
-    expect(result.exitCode).toBe(0)
-
-    const data = JSON.parse(result.stdout)
-    const mediaId = data.media_id
-
-    expect(data.ripped).toBe(2)
-    expect(data.total).toBe(2)
-
-    expect(await Bun.file(join(tracksDir, mediaId, 'video.mkv')).exists()).toBe(
-      true
-    )
-    expect(
-      await Bun.file(join(tracksDir, mediaId, 'audio_pt.mka')).exists()
-    ).toBe(true)
-    expect(
-      await Bun.file(join(tracksDir, mediaId, 'audio_en.mka')).exists()
-    ).toBe(false)
-  })
-
-  test('retries download after incomplete', async () => {
-    const release = (await DbReleases.getById(superflixReleaseId))!
-
-    await new Downloads().add(release, noop)
-
-    await database.kysely
-      .updateTable('downloads')
-      .set({ status: 'downloading', progress: 0.5 })
-      .execute()
-
-    const result = await new Downloads().add(release, noop)
-
-    expect(result).toHaveProperty('ripped')
-
-    const downloads = await database.kysely
-      .selectFrom('downloads')
-      .selectAll()
-      .execute()
-
-    expect(downloads).toHaveLength(1)
-    expect(downloads[0].status).toBe('completed')
-  })
-})
-
-describe('superflix error handling', () => {
-  const tracksDir = config.root_folders!.tracks!
-
-  beforeEach(async () => {
-    database.reset('media_keyframes')
-    database.reset('media_tracks')
-    database.reset('media_files')
-    database.reset('downloads')
-    database.reset('media')
-    database.reset('tmdb_media')
-    await rm(tracksDir, { recursive: true }).catch(() => {})
-  })
-
-  afterAll(async () => {
-    await rm(tracksDir, { recursive: true }).catch(() => {})
-  })
-
-  test('completes download when some streams fail', async () => {
-    const result = await new Downloads().add(
-      {
-        id: 'SFAIL1',
-        tmdb_id: 10001,
-        media_type: 'movie',
-        source_id: 'SUPERFLIX:TT0000001',
-        indexer_source: 'superflix',
-        download_url: 'imdb:tt0000001',
-        name: 'Test Partial Fail',
-        language: null,
-        season_number: null,
-        episode_number: null,
-      },
-      noop
-    )
-
-    expect(result).toHaveProperty('ripped', 1)
-    expect(result).toHaveProperty('total', 2)
-
-    const downloads = await database.kysely
-      .selectFrom('downloads')
-      .selectAll()
-      .execute()
-
-    expect(downloads).toHaveLength(1)
-    expect(downloads[0].status).toBe('completed')
-  })
-
-  test('marks download as error when all streams fail', async () => {
-    const result = await new Downloads().add(
-      {
-        id: 'SFAIL2',
-        tmdb_id: 10002,
-        media_type: 'movie',
-        source_id: 'SUPERFLIX:TT9999999',
-        indexer_source: 'superflix',
-        download_url: 'imdb:tt9999999',
-        name: 'Test All Fail',
-        language: null,
-        season_number: null,
-        episode_number: null,
-      },
-      noop
-    )
-
-    expect(result).toHaveProperty('ripped', 0)
-    expect(result).toHaveProperty('total', 0)
-
-    const downloads = await database.kysely
-      .selectFrom('downloads')
-      .selectAll()
-      .execute()
-
-    expect(downloads).toHaveLength(1)
-    expect(downloads[0].status).toBe('error')
-    expect(downloads[0].error_at).not.toBeNull()
-  })
-})
-
-describe('superflix audio-only download', async () => {
-  const tracksDir = config.root_folders!.tracks!
-  const results = await new TmdbClient().search('Matrix')
-  const releases = await new Releases().search(
-    results[0].tmdb_id,
-    results[0].media_type
-  )
-  const superflixReleaseId = releases.find(
-    (r) => r.indexer_source === 'superflix'
-  )!.id
-
-  beforeEach(async () => {
-    database.reset('media_keyframes')
-    database.reset('media_tracks')
-    database.reset('media_files')
-    database.reset('downloads')
-    database.reset('media')
-    database.reset('tmdb_media')
-    await rm(tracksDir, { recursive: true }).catch(() => {})
-  })
-
-  afterAll(async () => {
-    await rm(tracksDir, { recursive: true }).catch(() => {})
-  })
-
-  test('produces .mka files in tracks dir', async () => {
-    const result = await testCommand(DownloadCommand, {
-      args: [superflixReleaseId],
-      flags: { json: true, 'audio-only': true },
-    })
-
-    expect(result.exitCode).toBe(0)
-
-    const data = JSON.parse(result.stdout)
-
-    expect(data.ripped).toBe(2)
-    expect(data.total).toBe(2)
-
-    const mediaId = data.media_id
-
-    expect(
-      await Bun.file(join(tracksDir, mediaId, 'audio_pt.mka')).exists()
-    ).toBe(true)
-
-    expect(
-      await Bun.file(join(tracksDir, mediaId, 'audio_en.mka')).exists()
-    ).toBe(true)
-  })
-
-  test('creates single download for audio-only', async () => {
-    await testCommand(DownloadCommand, {
-      args: [superflixReleaseId],
-      flags: { 'audio-only': true },
-    })
-
-    const downloads = await database.kysely
-      .selectFrom('downloads')
-      .selectAll()
-      .execute()
-
-    expect(downloads).toHaveLength(1)
-
-    expect(downloads[0].source).toBe('ripper')
-    expect(downloads[0].status).toBe('completed')
-    expect(downloads[0].source_id).toBe('SUPERFLIX:TT0133093')
-  })
-
-  test('rejects duplicate source_id', async () => {
-    await testCommand(DownloadCommand, {
-      args: [superflixReleaseId],
-      flags: { 'audio-only': true },
-    })
-
-    const result = await testCommand(DownloadCommand, {
-      args: [superflixReleaseId],
-      flags: { 'audio-only': true },
-    })
-
-    expect(result.exitCode).not.toBe(0)
-
-    const downloads = await database.kysely
-      .selectFrom('downloads')
-      .selectAll()
-      .execute()
-
-    expect(downloads).toHaveLength(1)
-  })
-})
-
-describe('superflix TV season download', async () => {
-  const tracksDir = config.root_folders!.tracks!
-  const results = await new TmdbClient().search('Breaking Bad')
-  const releases = await new Releases().search(
-    results[0].tmdb_id,
-    results[0].media_type,
-    { season: 1 }
-  )
-  const superflixReleaseId = releases.find(
-    (r) => r.indexer_source === 'superflix'
-  )!.id
-
-  beforeEach(async () => {
-    database.reset('media_keyframes')
-    database.reset('media_tracks')
-    database.reset('media_files')
-    database.reset('downloads')
-    database.reset('media')
-    database.reset('tmdb_media')
-    await rm(tracksDir, { recursive: true }).catch(() => {})
-  })
-
-  afterAll(async () => {
-    await rm(tracksDir, { recursive: true }).catch(() => {})
-  })
-
-  test('produces per-episode files in subdirectories', async () => {
-    const result = await testCommand(DownloadCommand, {
-      args: [superflixReleaseId],
-      flags: { json: true },
-    })
-
-    expect(result.exitCode).toBe(0)
-
-    const data = JSON.parse(result.stdout)
-    const mediaId = data.media_id
-
-    expect(data.ripped).toBe(9)
-    expect(data.total).toBe(9)
-
-    for (const ep of ['s01e01', 's01e02', 's01e03']) {
-      expect(
-        await Bun.file(join(tracksDir, mediaId, ep, 'video.mkv')).exists()
-      ).toBe(true)
-      expect(
-        await Bun.file(join(tracksDir, mediaId, ep, 'audio_pt.mka')).exists()
-      ).toBe(true)
-      expect(
-        await Bun.file(join(tracksDir, mediaId, ep, 'audio_en.mka')).exists()
-      ).toBe(true)
-    }
-  })
-
-  test('creates single download record for season', async () => {
-    await testCommand(DownloadCommand, {
-      args: [superflixReleaseId],
-      flags: {},
-    })
-
-    const downloads = await database.kysely
-      .selectFrom('downloads')
-      .selectAll()
-      .execute()
-
-    expect(downloads).toHaveLength(1)
-    expect(downloads[0].source).toBe('ripper')
-    expect(downloads[0].status).toBe('completed')
-    expect(downloads[0].progress).toBe(1)
-  })
-
-  test('--lang filters audio per episode', async () => {
-    const result = await testCommand(DownloadCommand, {
-      args: [superflixReleaseId],
-      flags: { json: true, lang: 'pt' },
-    })
-
-    expect(result.exitCode).toBe(0)
-
-    const data = JSON.parse(result.stdout)
-    const mediaId = data.media_id
-
-    expect(data.ripped).toBe(6)
-    expect(data.total).toBe(6)
-
-    for (const ep of ['s01e01', 's01e02', 's01e03']) {
-      expect(
-        await Bun.file(join(tracksDir, mediaId, ep, 'video.mkv')).exists()
-      ).toBe(true)
-      expect(
-        await Bun.file(join(tracksDir, mediaId, ep, 'audio_pt.mka')).exists()
-      ).toBe(true)
-      expect(
-        await Bun.file(join(tracksDir, mediaId, ep, 'audio_en.mka')).exists()
-      ).toBe(false)
-    }
+    expect(result.stdout).toContain('Enqueued: The Matrix (1999)')
   })
 })

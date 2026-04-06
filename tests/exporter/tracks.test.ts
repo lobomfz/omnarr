@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
-import { database } from '@/db/connection'
 import { Exporter } from '@/core/exporter'
+import { database } from '@/db/connection'
 
 import { seedMedia, seedDownloadWithTracks } from '../player/seed'
 
@@ -195,7 +195,7 @@ describe('Exporter — video selection', () => {
     try {
       await exporter.resolveTracks({})
       expect.unreachable('should have thrown')
-    } catch (err) {
+    } catch (err: any) {
       const msg = (err as Error).message
 
       expect(msg).toMatch(/--video/i)

@@ -1,20 +1,25 @@
 import dayjs from 'dayjs'
 
-import { config } from '@/lib/config'
-import type { media_type } from '@/db/connection';
+import type { indexer_source, media_type } from '@/db/connection'
 import { db } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import { DbReleases } from '@/db/releases'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { Formatters } from '@/lib/formatters'
 import { indexerMap } from '@/integrations/indexers/registry'
+import type { IndexerRelease } from '@/integrations/indexers/types'
 import { TmdbClient } from '@/integrations/tmdb/client'
+import { config } from '@/lib/config'
+import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
 
 const SEASONS_TTL_DAYS = 7
+
+interface SourcedRelease extends IndexerRelease {
+  indexer_source: indexer_source
+}
 
 export class Releases {
   private tmdb = new TmdbClient()
@@ -121,16 +126,22 @@ export class Releases {
           })
           .then((r) => {
             Log.info(`indexer=${c.type} returned ${r.length} results`)
-            return r.map((release) => ({ ...release, indexer_source: c.type }))
+            return r.map((release) => ({
+              ...release,
+              indexer_source: c.type,
+            }))
           })
-          .catch((err) => {
+          .catch((err: Error) => {
             Log.warn(`indexer=${c.type} failed error="${err.message}"`)
-            return []
+            return [] as SourcedRelease[]
           })
       })
     )
 
-    return { releases: results.flat(), label: Formatters.mediaTitle(details) }
+    return {
+      releases: results.flat(),
+      label: Formatters.mediaTitle(details),
+    }
   }
 
   async search(

@@ -13,13 +13,9 @@ export const ScanCommand = defineCommand({
     force: option(type('boolean | undefined'), {
       description: 'Force re-scan of all files',
     }),
-    concurrency: option(type('string.numeric.parse | undefined'), {
-      description: 'Number of files to probe in parallel',
-    }),
   },
   handler: ({ positional, flags }) =>
     new Handler(positional, flags.json).scan({
       force: flags.force,
-      concurrency: flags.concurrency,
     }),
 })

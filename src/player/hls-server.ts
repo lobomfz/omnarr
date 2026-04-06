@@ -312,10 +312,8 @@ export class HlsServer extends HlsSession {
           'Access-Control-Allow-Origin': '*',
         },
       })
-    } catch (err) {
-      Log.error(
-        `serve segment=${index} status=404 error=${err instanceof Error ? err.message : String(err)}`
-      )
+    } catch (err: any) {
+      Log.error(`serve segment=${index} status=404 error=${err.message}`)
 
       return new Response('Not Found', { status: 404 })
     }

@@ -168,7 +168,7 @@ export const Formatters = {
   mediaStatus(media: {
     file_count: number
     track_count: number
-    download_status: download_status | null
+    download: { status: download_status } | null
     total_episodes: number | null
     episodes_with_files: number | null
   }) {
@@ -180,8 +180,8 @@ export const Formatters = {
       return 'scanned'
     }
 
-    if (media.download_status) {
-      return DOWNLOAD_STATUS_MAP[media.download_status]
+    if (media.download) {
+      return DOWNLOAD_STATUS_MAP[media.download.status]
     }
 
     return '—'

@@ -1,10 +1,16 @@
-import { describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { testCommand } from '@bunli/test'
 
+import '../helpers/api-server'
 import { SearchCommand } from '@/commands/search'
+import { database } from '@/db/connection'
 
 import '../mocks/tmdb'
+
+beforeEach(() => {
+  database.reset('search_results')
+})
 
 describe('search command', () => {
   test('returns results with short ID, type, year, title', async () => {

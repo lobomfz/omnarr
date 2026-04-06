@@ -4,17 +4,20 @@ import { basename, dirname, extname, join } from 'path'
 import { FFmpegBuilder, type Stream } from '@lobomfz/ffmpeg'
 import PQueue from 'p-queue'
 
+import { PubSub } from '@/api/pubsub'
+import { VadExtractor } from '@/audio/vad-extractor'
 import { db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
+import { DbEvents } from '@/db/events'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'
+import { Scheduler } from '@/jobs/scheduler'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
-import { VadExtractor } from '@/audio/vad-extractor'
 
 const VALID_EXTENSIONS = new Set(['mkv', 'mp4', 'avi', 'ts', 'mka', 'srt'])
 
@@ -24,15 +27,24 @@ const SUBTITLE_CODEC: Record<string, string> = { srt: 'subrip' }
 const MEDIA_GLOB = new Bun.Glob(`**/*.{${[...VALID_EXTENSIONS].join(',')}}`)
 
 export class Scanner {
+  async rescan(mediaId: string, force?: boolean) {
+    const media = await DbMedia.getById(mediaId)
+
+    if (!media) {
+      throw new Error(`Media '${mediaId}' not found.`)
+    }
+
+    Scheduler.scan(mediaId, force)
+
+    return { media_id: mediaId }
+  }
+
   async scan(
     mediaId: string,
-    onProgress: (
-      current: number,
-      total: number,
-      path: string,
-      ratio: number
-    ) => void,
-    opts?: { force?: boolean; concurrency?: number }
+    opts?: {
+      force?: boolean
+      concurrency?: number
+    }
   ) {
     const media = await DbMedia.getById(mediaId)
 
@@ -62,7 +74,6 @@ export class Scanner {
       { id: mediaId, tmdb_media_id: media.tmdb_media_id },
       diskFiles,
       resolvedIds,
-      onProgress,
       opts?.concurrency
     )
   }
@@ -71,12 +82,6 @@ export class Scanner {
     media: { id: string; tmdb_media_id: number },
     diskFiles: Map<string, number>,
     resolvedIds: Set<number>,
-    onProgress: (
-      current: number,
-      total: number,
-      path: string,
-      ratio: number
-    ) => void,
     concurrency?: number
   ) {
     const existingFiles = await DbMediaFiles.getByMediaId(media.id)
@@ -107,15 +112,30 @@ export class Scanner {
       const fileIndex = ++nextIndex
 
       queue.add(async () => {
+        PubSub.publish('scan_progress', {
+          media_id: media.id,
+          current: fileIndex,
+          total: newFiles.length,
+          path,
+        })
+
         const success = await this.probeAndPersist(
           media,
           downloadId,
-          path,
-          (ratio) => onProgress(fileIndex, newFiles.length, path, ratio)
-        ).catch((err) => {
-          Log.warn(
-            `probe failed file="${path}" error="${err instanceof Error ? err.message : String(err)}"`
-          )
+          path
+        ).catch(async (err) => {
+          const message = err.message
+
+          Log.warn(`probe failed file="${path}" error="${message}"`)
+
+          await DbEvents.create({
+            media_id: media.id,
+            entity_type: 'scan',
+            entity_id: path,
+            event_type: 'file_error',
+            message,
+          })
+
           return false
         })
 
@@ -217,8 +237,7 @@ export class Scanner {
   private async probeAndPersist(
     media: { id: string; tmdb_media_id: number },
     downloadId: number,
-    fullPath: string,
-    onProgress: (ratio: number) => void
+    fullPath: string
   ) {
     Log.info(`probing file="${fullPath}"`)
 
@@ -262,8 +281,6 @@ export class Scanner {
         )
       })
 
-      onProgress(1)
-
       Log.info(
         `subtitle registered file="${fullPath}" lang=${language ?? 'unknown'}`
       )
@@ -274,39 +291,19 @@ export class Scanner {
     const probe = await new FFmpegBuilder().input(fullPath).probe()
     const episodeId = await this.resolveEpisodeId(media.tmdb_media_id, fullPath)
 
-    const hasVideo = probe.streams.some((s) => s.codec_type === 'video')
-    const hasAudio = probe.streams.some((s) => s.codec_type === 'audio')
-    const keyframeWeight = hasVideo && hasAudio ? 0.5 : hasVideo ? 1 : 0
-    const vadWeight = 1 - keyframeWeight
-
     const videoStream = probe.streams.find((s) => s.codec_type === 'video')
-
-    let keyframeRatio = 0
-    let vadRatio = 0
-
-    const reportProgress = () => {
-      onProgress(keyframeRatio * keyframeWeight + vadRatio * vadWeight)
-    }
+    const hasAudio = probe.streams.some((s) => s.codec_type === 'audio')
 
     const [keyframeTimes, vadTimestamps] = await Promise.all([
       videoStream
         ? new FFmpegBuilder().input(fullPath).probeKeyframes({
             duration: probe.format.duration,
-            onProgress: (r) => {
-              keyframeRatio = r
-              reportProgress()
-            },
           })
         : undefined,
       hasAudio
-        ? new VadExtractor().extract(
-            fullPath,
-            (r) => {
-              vadRatio = r
-              reportProgress()
-            },
-            { duration: probe.format.duration }
-          )
+        ? new VadExtractor().extract(fullPath, () => {}, {
+            duration: probe.format.duration,
+          })
         : undefined,
     ])
 
@@ -378,8 +375,6 @@ export class Scanner {
         )
       }
     })
-
-    onProgress(1)
 
     Log.info(
       `probe complete file="${fullPath}" streams=${probe.streams.length} duration=${probe.format.duration} format=${probe.format.format_name}`

@@ -14,7 +14,6 @@ import { ScanCommand } from '@/commands/scan'
 import { SearchCommand } from '@/commands/search'
 import { StatusCommand } from '@/commands/status'
 import { SubtitlesCommand } from '@/commands/subtitles'
-import { WaitForCommand } from '@/commands/wait-for'
 
 import pkg from '../package.json'
 
@@ -36,6 +35,5 @@ cli.command(DownloadCommand)
 cli.command(ExportCommand)
 cli.command(StatusCommand)
 cli.command(SubtitlesCommand)
-cli.command(WaitForCommand)
 
 await cli.run()

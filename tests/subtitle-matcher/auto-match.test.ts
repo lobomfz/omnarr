@@ -1,7 +1,8 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { rm } from 'fs/promises'
 
-import { config } from '@/lib/config'
+import { PubSub } from '@/api/pubsub'
+import { SubtitleMatcher } from '@/core/subtitle-matcher'
 import { database, db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
@@ -10,7 +11,7 @@ import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'
 import { DbReleases } from '@/db/releases'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { SubtitleMatcher } from '@/core/subtitle-matcher'
+import { config } from '@/lib/config'
 import { deriveId } from '@/lib/utils'
 
 import { SubdlMock } from '../mocks/subdl'
@@ -152,7 +153,7 @@ describe('SubtitleMatcher.match', () => {
 
     const matcher = new SubtitleMatcher({ id: media.id })
 
-    const result = await matcher.match({}, () => {})
+    const result = await matcher.match({})
 
     expect(result.matched).not.toBeNull()
     expect(result.matched!.confidence).toBeGreaterThanOrEqual(15)
@@ -190,7 +191,7 @@ describe('SubtitleMatcher.match', () => {
 
     const matcher = new SubtitleMatcher({ id: media.id })
 
-    const result = await matcher.match({}, () => {})
+    const result = await matcher.match({})
 
     expect(result.matched).not.toBeNull()
     expect(result.matched!.name).toBe('The.Matrix.1999.1080p.BluRay.DTS-GROUP')
@@ -203,7 +204,7 @@ describe('SubtitleMatcher.match', () => {
 
     const matcher = new SubtitleMatcher({ id: media.id })
 
-    await matcher.match({}, () => {})
+    await matcher.match({})
 
     const downloads = await db
       .selectFrom('downloads')
@@ -222,7 +223,7 @@ describe('SubtitleMatcher.match', () => {
 
     const matcher = new SubtitleMatcher({ id: media.id })
 
-    await matcher.match({}, () => {})
+    await matcher.match({})
 
     const srtFiles = await Array.fromAsync(
       new Bun.Glob('**/*.srt').scan({ cwd: tracksDir })
@@ -231,16 +232,26 @@ describe('SubtitleMatcher.match', () => {
     expect(srtFiles.length).toBeGreaterThanOrEqual(1)
   })
 
-  test('calls onProgress for each attempt', async () => {
+  test('publishes progress to PubSub', async () => {
     const media = await setupMedia()
     await seedSubtitles()
 
-    const matcher = new SubtitleMatcher({ id: media.id })
     const events: { name: string; status: string }[] = []
+    const ac = new AbortController()
+    const subscription = PubSub.subscribe('subtitle_progress', ac.signal)
 
-    await matcher.match({}, (info) => {
-      events.push({ name: info.name, status: info.status })
-    })
+    const collectEvents = (async () => {
+      for await (const event of subscription) {
+        events.push({ name: event.name, status: event.status })
+      }
+    })()
+
+    const matcher = new SubtitleMatcher({ id: media.id })
+
+    await matcher.match({})
+
+    ac.abort()
+    await collectEvents.catch(() => {})
 
     expect(events.some((e) => e.status === 'downloading')).toBe(true)
     expect(
@@ -269,7 +280,7 @@ describe('SubtitleMatcher.match', () => {
 
     const matcher = new SubtitleMatcher({ id: media.id })
 
-    const result = await matcher.match({}, () => {})
+    const result = await matcher.match({})
 
     expect(result.tested.length).toBeLessThanOrEqual(5)
   })
@@ -325,7 +336,7 @@ describe('SubtitleMatcher.match', () => {
 
     const matcher = new SubtitleMatcher({ id: media2.id })
 
-    const result = await matcher.match({}, () => {})
+    const result = await matcher.match({})
 
     expect(result.matched).toBeNull()
     expect(result.tested).toHaveLength(0)
@@ -378,7 +389,7 @@ describe('SubtitleMatcher.match edge cases', () => {
 
     const matcher = new SubtitleMatcher({ id: media.id })
 
-    await expect(() => matcher.match({}, () => {})).toThrow(/No VAD data found/)
+    await expect(() => matcher.match({})).toThrow(/No VAD data found/)
   })
 
   test('returns all tested attempts with confidence on exhaustion', async () => {
@@ -401,7 +412,7 @@ describe('SubtitleMatcher.match edge cases', () => {
       .execute()
 
     const matcher = new SubtitleMatcher({ id: media.id })
-    const result = await matcher.match({}, () => {})
+    const result = await matcher.match({})
 
     expect(result.matched).toBeNull()
     expect(result.tested).toHaveLength(5)
@@ -480,7 +491,7 @@ describe('SubtitleMatcher.match edge cases', () => {
       .execute()
 
     const matcher = new SubtitleMatcher({ id: media.id })
-    const result = await matcher.match({}, () => {})
+    const result = await matcher.match({})
 
     expect(result.tested.length).toBeGreaterThanOrEqual(1)
     expect(result.matched).not.toBeNull()

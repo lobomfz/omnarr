@@ -21,6 +21,22 @@ const download_status = type.enumerated(
 )
 const download_source = type.enumerated('torrent', 'ripper', 'subtitle')
 const indexer_source = type.enumerated('beyond-hd', 'yts', 'superflix', 'subdl')
+const event_entity_type = type.enumerated(
+  'download',
+  'scan',
+  'media',
+  'indexer',
+  'sync',
+  'subtitle'
+)
+const event_type = type.enumerated(
+  'created',
+  'completed',
+  'error',
+  'file_error',
+  'indexer_error',
+  'recovered'
+)
 
 export const database = new Database({
   path: envVariables.OMNARR_DB_PATH,
@@ -114,6 +130,8 @@ export const database = new Database({
         status: download_status.default('downloading'),
         content_path: 'string | null',
         error_at: 'string | null',
+        'season_number?': 'number.integer',
+        'episode_number?': 'number.integer',
         started_at: generated('now'),
       }),
 
@@ -157,6 +175,21 @@ export const database = new Database({
         stream_index: 'number.integer',
         pts_time: 'number',
         duration: 'number',
+      }),
+
+      events: type({
+        id: generated('autoincrement'),
+        'media_id?': type('string').configure({
+          references: 'media.id',
+          onDelete: 'cascade',
+        }),
+        entity_type: event_entity_type,
+        entity_id: 'string',
+        event_type,
+        message: 'string',
+        'metadata?': 'string',
+        read: type('boolean').default(false),
+        created_at: generated('now'),
       }),
 
       media_tracks: type({
@@ -219,9 +252,14 @@ export const database = new Database({
       ],
       downloads: [
         {
-          columns: ['source_id'],
+          columns: ['source_id', 'season_number', 'episode_number'],
           unique: true,
         },
+      ],
+      events: [
+        { columns: ['media_id'] },
+        { columns: ['entity_type', 'entity_id'] },
+        { columns: ['read'] },
       ],
     },
   },

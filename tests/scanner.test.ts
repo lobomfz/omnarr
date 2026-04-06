@@ -10,6 +10,7 @@ import { mkdir, mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
+import { Scanner } from '@/core/scanner'
 import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
@@ -20,10 +21,7 @@ import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { Scanner } from '@/core/scanner'
 import { deriveId } from '@/lib/utils'
-
-const noop = () => {}
 
 import { MediaFixtures } from './fixtures/media'
 
@@ -240,7 +238,7 @@ async function seedTvMedia(contentPath: string) {
 describe('new Scanner().scan — file discovery', () => {
   test('finds media files in content_path directory', async () => {
     const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
-    const files = await new Scanner().scan(media.id, noop)
+    const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(1)
     expect(files[0].path).toBe(
@@ -251,21 +249,21 @@ describe('new Scanner().scan — file discovery', () => {
 
   test('finds files recursively in subfolders', async () => {
     const media = await seedMedia(join(tmpDir, 'recursive/The Matrix (1999)'))
-    const files = await new Scanner().scan(media.id, noop)
+    const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(2)
   })
 
   test('only considers valid extensions (.mkv, .mp4, .avi, .ts)', async () => {
     const media = await seedMedia(join(tmpDir, 'extensions/The Matrix (1999)'))
-    const files = await new Scanner().scan(media.id, noop)
+    const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(4)
   })
 
   test('ignores non-media files (.nfo, .jpg, .txt)', async () => {
     const media = await seedMedia(join(tmpDir, 'ignore/The Matrix (1999)'))
-    const files = await new Scanner().scan(media.id, noop)
+    const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(2)
 
@@ -277,7 +275,7 @@ describe('new Scanner().scan — file discovery', () => {
 
   test('persists each file in media_files with path and size', async () => {
     const media = await seedMedia(join(tmpDir, 'persist/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const persisted = await DbMediaFiles.getByMediaId(media.id)
 
@@ -291,18 +289,18 @@ describe('new Scanner().scan — file discovery', () => {
 
   test('returns empty array when no valid files found', async () => {
     const media = await seedMedia(join(tmpDir, 'empty/The Matrix (1999)'))
-    const files = await new Scanner().scan(media.id, noop)
+    const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(0)
   })
 
   test('throws when media_id does not exist', async () => {
-    await expect(() => new Scanner().scan('NONEXISTENT', noop)).toThrow()
+    await expect(() => new Scanner().scan('NONEXISTENT')).toThrow()
   })
 
   test('probes single file when content_path is a file', async () => {
     const media = await seedMedia(join(tmpDir, 'single-file/movie.mkv'))
-    const files = await new Scanner().scan(media.id, noop)
+    const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(1)
     expect(files[0].path).toBe(join(tmpDir, 'single-file/movie.mkv'))
@@ -319,7 +317,7 @@ describe('new Scanner().scan — file discovery', () => {
       content_path: join(tmpDir, 'multi/dl2'),
     })
 
-    const files = await new Scanner().scan(media.id, noop)
+    const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(2)
   })
@@ -328,7 +326,7 @@ describe('new Scanner().scan — file discovery', () => {
 describe('new Scanner().scan — probe + tracks', () => {
   test('fills format_name and duration on media_file', async () => {
     const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
 
@@ -338,7 +336,7 @@ describe('new Scanner().scan — probe + tracks', () => {
 
   test('creates tracks for each stream in the file', async () => {
     const media = await seedMedia(join(tmpDir, 'probe/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
     const tracks = await DbMediaTracks.getByMediaFileId(files[0].id)
@@ -354,7 +352,7 @@ describe('new Scanner().scan — probe + tracks', () => {
 
   test('video track has type-specific fields', async () => {
     const media = await seedMedia(join(tmpDir, 'probe/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
     const video = tracks.find((t) => t.stream_type === 'video')!
@@ -368,7 +366,7 @@ describe('new Scanner().scan — probe + tracks', () => {
 
   test('audio track has type-specific fields', async () => {
     const media = await seedMedia(join(tmpDir, 'probe/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
     const audio = tracks.find((t) => t.stream_type === 'audio')!
@@ -383,7 +381,7 @@ describe('new Scanner().scan — probe + tracks', () => {
 
   test('subtitle track has codec and language', async () => {
     const media = await seedMedia(join(tmpDir, 'probe/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const tracks = await DbMediaTracks.getByMediaId(media.id)
     const sub = tracks.find((t) => t.stream_type === 'subtitle')!
@@ -396,7 +394,7 @@ describe('new Scanner().scan — probe + tracks', () => {
 describe('new Scanner().scan — keyframe probing', () => {
   test('persists keyframes for video stream after scan', async () => {
     const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
     const keyframes = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
@@ -408,7 +406,7 @@ describe('new Scanner().scan — keyframe probing', () => {
 
   test('keyframes have valid pts_time positions', async () => {
     const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
     const keyframes = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
@@ -423,14 +421,14 @@ describe('new Scanner().scan — keyframe probing', () => {
 
   test('re-scan does not duplicate keyframes', async () => {
     const media = await seedMedia(join(tmpDir, 'recon-keep/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
     const first = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
 
     expect(first.length).toBeGreaterThan(0)
 
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const second = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
 
@@ -443,11 +441,11 @@ describe('new Scanner().scan — reconciliation', () => {
     const contentPath = join(tmpDir, 'recon-new/The Matrix (1999)')
     const media = await seedMedia(contentPath)
 
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     await MediaFixtures.copy(refMkv, join(contentPath, 'bonus.mkv'))
 
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
 
@@ -467,11 +465,11 @@ describe('new Scanner().scan — reconciliation', () => {
     const contentPath = join(tmpDir, 'recon-del/The Matrix (1999)')
     const media = await seedMedia(contentPath)
 
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     await rm(join(contentPath, 'bonus.mkv'))
 
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
 
@@ -483,7 +481,7 @@ describe('new Scanner().scan — reconciliation', () => {
     const contentPath = join(tmpDir, 'recon-cascade/The Matrix (1999)')
     const media = await seedMedia(contentPath)
 
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const filesBefore = await DbMediaFiles.getByMediaId(media.id)
     const bonus = filesBefore.find((f) => f.path.includes('bonus.mkv'))!
@@ -493,7 +491,7 @@ describe('new Scanner().scan — reconciliation', () => {
 
     await rm(join(contentPath, 'bonus.mkv'))
 
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const tracksAfter = await DbMediaTracks.getByMediaFileId(bonus.id)
 
@@ -503,11 +501,11 @@ describe('new Scanner().scan — reconciliation', () => {
   test('keeps existing file intact on re-scan', async () => {
     const media = await seedMedia(join(tmpDir, 'recon-keep/The Matrix (1999)'))
 
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const filesBefore = await DbMediaFiles.getByMediaId(media.id)
 
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const filesAfter = await DbMediaFiles.getByMediaId(media.id)
 
@@ -519,11 +517,11 @@ describe('new Scanner().scan — reconciliation', () => {
   test('force re-scan deletes all files and re-probes from scratch', async () => {
     const media = await seedMedia(join(tmpDir, 'force/The Matrix (1999)'))
 
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const filesBefore = await DbMediaFiles.getByMediaId(media.id)
 
-    await new Scanner().scan(media.id, noop, { force: true })
+    await new Scanner().scan(media.id, { force: true })
 
     const filesAfter = await DbMediaFiles.getByMediaId(media.id)
 
@@ -535,7 +533,7 @@ describe('new Scanner().scan — reconciliation', () => {
 describe('new Scanner().scan — TV episode association', () => {
   test('sets episode_id on files matching S/E pattern for TV media', async () => {
     const media = await seedTvMedia(join(tmpDir, 'tv-basic'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
 
@@ -551,7 +549,7 @@ describe('new Scanner().scan — TV episode association', () => {
 
   test('leaves episode_id null for files without S/E pattern', async () => {
     const media = await seedTvMedia(join(tmpDir, 'tv-orphan'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
 
@@ -561,7 +559,7 @@ describe('new Scanner().scan — TV episode association', () => {
 
   test('leaves episode_id null for nonexistent episode numbers', async () => {
     const media = await seedTvMedia(join(tmpDir, 'tv-nonexistent'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
 
@@ -571,7 +569,7 @@ describe('new Scanner().scan — TV episode association', () => {
 
   test('associates multi-episode files with first episode', async () => {
     const media = await seedTvMedia(join(tmpDir, 'tv-multi-ep'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
 
@@ -585,13 +583,13 @@ describe('new Scanner().scan — TV episode association', () => {
 
   test('force re-scan re-associates files to episodes', async () => {
     const media = await seedTvMedia(join(tmpDir, 'tv-force'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const filesBefore = await DbMediaFiles.getByMediaId(media.id)
 
     expect(filesBefore[0].episode_id).not.toBeNull()
 
-    await new Scanner().scan(media.id, noop, { force: true })
+    await new Scanner().scan(media.id, { force: true })
 
     const filesAfter = await DbMediaFiles.getByMediaId(media.id)
 
@@ -601,7 +599,7 @@ describe('new Scanner().scan — TV episode association', () => {
 
   test('does not set episode_id for movie media', async () => {
     const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
 
@@ -609,55 +607,10 @@ describe('new Scanner().scan — TV episode association', () => {
   })
 })
 
-describe('new Scanner().scan — progress callback', () => {
-  test('calls onProgress for each new file', async () => {
-    const media = await seedMedia(join(tmpDir, 'recursive/The Matrix (1999)'))
-    const seen = new Set<number>()
-
-    await new Scanner().scan(media.id, (current, total) => {
-      seen.add(current)
-      expect(total).toBe(2)
-    })
-
-    expect(seen.has(1)).toBe(true)
-    expect(seen.has(2)).toBe(true)
-  })
-
-  test('reports sub-file progress ratio during probe', async () => {
-    const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
-    const ratios: number[] = []
-
-    await new Scanner().scan(media.id, (_current, _total, _path, ratio) => {
-      ratios.push(ratio)
-    })
-
-    expect(ratios.length).toBeGreaterThan(1)
-    expect(ratios[0]).toBe(0)
-    expect(ratios.at(-1)).toBe(1)
-
-    for (let i = 1; i < ratios.length; i++) {
-      expect(ratios[i]).toBeGreaterThanOrEqual(ratios[i - 1])
-    }
-  })
-
-  test('does not call onProgress when no new files', async () => {
-    const media = await seedMedia(join(tmpDir, 'recon-keep/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
-
-    const progress: { current: number; total: number }[] = []
-
-    await new Scanner().scan(media.id, (current, total) => {
-      progress.push({ current, total })
-    })
-
-    expect(progress).toHaveLength(0)
-  })
-})
-
 describe('new Scanner().scan — external subtitle files', () => {
   test('discovers .srt files in content paths', async () => {
     const media = await seedMedia(join(tmpDir, 'sub-discover'))
-    const files = await new Scanner().scan(media.id, noop)
+    const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(1)
     expect(files[0].path).toContain('sub_en.srt')
@@ -665,7 +618,7 @@ describe('new Scanner().scan — external subtitle files', () => {
 
   test('creates media_files without format_name or duration', async () => {
     const media = await seedMedia(join(tmpDir, 'sub-discover'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
 
@@ -677,7 +630,7 @@ describe('new Scanner().scan — external subtitle files', () => {
 
   test('creates subtitle track with correct metadata and language', async () => {
     const media = await seedMedia(join(tmpDir, 'sub-discover'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
     const tracks = await DbMediaTracks.getByMediaFileId(files[0].id)
@@ -692,7 +645,7 @@ describe('new Scanner().scan — external subtitle files', () => {
 
   test('handles mixed video and subtitle files', async () => {
     const media = await seedMedia(join(tmpDir, 'mixed-srt'))
-    const files = await new Scanner().scan(media.id, noop)
+    const files = await new Scanner().scan(media.id)
 
     expect(files).toHaveLength(2)
 
@@ -707,7 +660,7 @@ describe('new Scanner().scan — external subtitle files', () => {
 
   test('does not create keyframes or vad data for subtitle files', async () => {
     const media = await seedMedia(join(tmpDir, 'sub-discover'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
     const keyframes = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
@@ -721,7 +674,7 @@ describe('new Scanner().scan — external subtitle files', () => {
 describe('new Scanner().scan — VAD extraction', () => {
   test('scanning a media file produces vad data in media_vad', async () => {
     const media = await seedMedia(join(tmpDir, 'basic/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
     const vad = await DbMediaVad.getByMediaFileId(files[0].id)
@@ -732,14 +685,14 @@ describe('new Scanner().scan — VAD extraction', () => {
 
   test('force-rescan recomputes vad data', async () => {
     const media = await seedMedia(join(tmpDir, 'force/The Matrix (1999)'))
-    await new Scanner().scan(media.id, noop)
+    await new Scanner().scan(media.id)
 
     const filesBefore = await DbMediaFiles.getByMediaId(media.id)
     const vadBefore = await DbMediaVad.getByMediaFileId(filesBefore[0].id)
 
     expect(vadBefore).toBeDefined()
 
-    await new Scanner().scan(media.id, noop, { force: true })
+    await new Scanner().scan(media.id, { force: true })
 
     const filesAfter = await DbMediaFiles.getByMediaId(media.id)
     const vadAfter = await DbMediaVad.getByMediaFileId(filesAfter[0].id)

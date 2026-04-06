@@ -3,49 +3,217 @@ import { rm } from 'fs/promises'
 
 import { testCommand } from '@bunli/test'
 
+import '../helpers/api-server'
 import { StatusCommand } from '@/commands/status'
-import { Downloads } from '@/core/downloads'
-import { Releases } from '@/core/releases'
-import { database } from '@/db/connection'
-import { DbReleases } from '@/db/releases'
-import { TmdbClient } from '@/integrations/tmdb/client'
+import { TorrentSync } from '@/core/torrent-sync'
+import { database, db } from '@/db/connection'
 import { envVariables } from '@/lib/env'
+import { deriveId } from '@/lib/utils'
 
-const noop = () => {}
-
-import '../mocks/tmdb'
-import '../mocks/beyond-hd'
-import '../mocks/yts'
 import '../mocks/qbittorrent'
 import { QBittorrentMock } from '../mocks/qbittorrent'
 
-describe('status command', async () => {
-  const results = await new TmdbClient().search('Matrix')
-  const releases = await new Releases().search(
-    results[0].tmdb_id,
-    results[0].media_type
-  )
-  const release = (await DbReleases.getById(releases[0].id))!
+const MOVIE_ID = deriveId('603:movie')
+const TV_ID = deriveId('1399:tv')
+const MOVIE_SOURCE_ID = 'ABC123'
+const TV_EP_SOURCE_ID = 'BB_HASH_S01E01'
+const TV_PACK_SOURCE_ID = 'BB_HASH_S01'
+const MOVIE_DL_URL = 'https://beyond-hd.me/dl/abc123'
+const TV_EP_DL_URL = 'https://beyond-hd.me/dl/bb_s01e01'
+const TV_PACK_DL_URL = 'https://beyond-hd.me/dl/bb_s01'
 
-  const tvResults = await new TmdbClient().search('Breaking Bad')
-  const tvReleases = await new Releases().search(
-    tvResults[0].tmdb_id,
-    tvResults[0].media_type
-  )
-  const tvEpisodeRelease = (await DbReleases.getById(tvReleases[0].id))!
-  const tvSeasonPackRelease = (await DbReleases.getById(tvReleases[1].id))!
+async function setupMovieDownload() {
+  const tmdb = await db
+    .insertInto('tmdb_media')
+    .values({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      year: 1999,
+      imdb_id: 'tt0133093',
+    })
+    .returning(['id'])
+    .executeTakeFirstOrThrow()
 
+  await db
+    .insertInto('media')
+    .values({
+      id: MOVIE_ID,
+      tmdb_media_id: tmdb.id,
+      media_type: 'movie',
+      root_folder: '/tmp/omnarr-test-movies',
+    })
+    .execute()
+
+  await db
+    .insertInto('releases')
+    .values({
+      id: deriveId(MOVIE_SOURCE_ID),
+      tmdb_id: 603,
+      media_type: 'movie',
+      source_id: MOVIE_SOURCE_ID,
+      indexer_source: 'beyond-hd',
+      name: 'The.Matrix.1999.2160p.UHD.BluRay.x265-GROUP',
+      size: 50_000_000_000,
+      hdr: 'DV/HDR10',
+      download_url: MOVIE_DL_URL,
+    })
+    .execute()
+
+  await db
+    .insertInto('downloads')
+    .values({
+      media_id: MOVIE_ID,
+      source_id: MOVIE_SOURCE_ID,
+      download_url: MOVIE_DL_URL,
+      source: 'torrent',
+      status: 'downloading',
+    })
+    .execute()
+
+  await QBittorrentMock.db
+    .insertInto('torrents')
+    .values({
+      hash: 'abc123',
+      url: MOVIE_DL_URL,
+      savepath: '',
+      category: 'omnarr',
+      progress: 0,
+      dlspeed: 0,
+      eta: 0,
+      state: 'downloading',
+      content_path: '/abc123',
+    })
+    .execute()
+}
+
+async function setupTvDownload() {
+  const tmdb = await db
+    .insertInto('tmdb_media')
+    .values({
+      tmdb_id: 1399,
+      media_type: 'tv',
+      title: 'Breaking Bad',
+      year: 2008,
+      imdb_id: 'tt0903747',
+    })
+    .returning(['id'])
+    .executeTakeFirstOrThrow()
+
+  await db
+    .insertInto('media')
+    .values({
+      id: TV_ID,
+      tmdb_media_id: tmdb.id,
+      media_type: 'tv',
+      root_folder: '/tmp/tv',
+    })
+    .execute()
+
+  await db
+    .insertInto('releases')
+    .values([
+      {
+        id: deriveId(TV_EP_SOURCE_ID),
+        tmdb_id: 1399,
+        media_type: 'tv',
+        source_id: TV_EP_SOURCE_ID,
+        indexer_source: 'beyond-hd',
+        name: 'Breaking.Bad.S01E01.720p.BluRay.x264-GROUP',
+        size: 1_000_000_000,
+        hdr: '',
+        download_url: TV_EP_DL_URL,
+        season_number: 1,
+        episode_number: 1,
+      },
+      {
+        id: deriveId(TV_PACK_SOURCE_ID),
+        tmdb_id: 1399,
+        media_type: 'tv',
+        source_id: TV_PACK_SOURCE_ID,
+        indexer_source: 'beyond-hd',
+        name: 'Breaking.Bad.S01.COMPLETE.1080p.BluRay.x265-OTHER',
+        size: 30_000_000_000,
+        hdr: '',
+        download_url: TV_PACK_DL_URL,
+        season_number: 1,
+      },
+    ])
+    .execute()
+}
+
+async function insertTvEpisodeDownload() {
+  await db
+    .insertInto('downloads')
+    .values({
+      media_id: TV_ID,
+      source_id: TV_EP_SOURCE_ID,
+      download_url: TV_EP_DL_URL,
+      source: 'torrent',
+      status: 'downloading',
+      season_number: 1,
+      episode_number: 1,
+    })
+    .execute()
+
+  await QBittorrentMock.db
+    .insertInto('torrents')
+    .values({
+      hash: 'bb_hash_s01e01',
+      url: TV_EP_DL_URL,
+      savepath: '',
+      category: 'omnarr',
+      progress: 0,
+      dlspeed: 0,
+      eta: 0,
+      state: 'downloading',
+      content_path: '/bb_s01e01',
+    })
+    .execute()
+}
+
+async function insertTvSeasonPackDownload() {
+  await db
+    .insertInto('downloads')
+    .values({
+      media_id: TV_ID,
+      source_id: TV_PACK_SOURCE_ID,
+      download_url: TV_PACK_DL_URL,
+      source: 'torrent',
+      status: 'downloading',
+      season_number: 1,
+    })
+    .execute()
+
+  await QBittorrentMock.db
+    .insertInto('torrents')
+    .values({
+      hash: 'bb_hash_s01',
+      url: TV_PACK_DL_URL,
+      savepath: '',
+      category: 'omnarr',
+      progress: 0,
+      dlspeed: 0,
+      eta: 0,
+      state: 'downloading',
+      content_path: '/bb_s01',
+    })
+    .execute()
+}
+
+describe('status command', () => {
   beforeEach(() => {
     database.reset('media_tracks')
     database.reset('media_files')
     database.reset('downloads')
+    database.reset('releases')
     database.reset('media')
     database.reset('tmdb_media')
     QBittorrentMock.reset()
   })
 
   test('syncs progress from qbittorrent', async () => {
-    await new Downloads().add(release, noop)
+    await setupMovieDownload()
 
     await QBittorrentMock.db
       .updateTable('torrents')
@@ -57,6 +225,8 @@ describe('status command', async () => {
       })
       .where('hash', '=', 'abc123')
       .execute()
+
+    await new TorrentSync().sync()
 
     const result = await testCommand(StatusCommand, {
       args: [],
@@ -73,7 +243,7 @@ describe('status command', async () => {
   })
 
   test('marks download as error when torrent removed from qbittorrent', async () => {
-    await new Downloads().add(release, noop)
+    await setupMovieDownload()
 
     await QBittorrentMock.db
       .updateTable('torrents')
@@ -86,15 +256,14 @@ describe('status command', async () => {
       .where('hash', '=', 'abc123')
       .execute()
 
-    await testCommand(StatusCommand, {
-      args: [],
-      flags: { json: true },
-    })
+    await new TorrentSync().sync()
 
     await QBittorrentMock.db
       .deleteFrom('torrents')
       .where('hash', '=', 'abc123')
       .execute()
+
+    await new TorrentSync().sync()
 
     const result = await testCommand(StatusCommand, {
       args: [],
@@ -107,12 +276,14 @@ describe('status command', async () => {
   })
 
   test('recovers download status when torrent reappears in qbittorrent', async () => {
-    await new Downloads().add(release, noop)
+    await setupMovieDownload()
 
     await QBittorrentMock.db
       .deleteFrom('torrents')
       .where('hash', '=', 'abc123')
       .execute()
+
+    await new TorrentSync().sync()
 
     const missingResult = await testCommand(StatusCommand, {
       args: [],
@@ -127,7 +298,7 @@ describe('status command', async () => {
       .insertInto('torrents')
       .values({
         hash: 'abc123',
-        url: release.download_url,
+        url: MOVIE_DL_URL,
         savepath: '/downloads/The Matrix (1999)',
         category: 'omnarr',
         progress: 1,
@@ -137,6 +308,8 @@ describe('status command', async () => {
         content_path: '/downloads/The Matrix (1999)/abc123',
       })
       .execute()
+
+    await new TorrentSync().sync()
 
     const recoveredResult = await testCommand(StatusCommand, {
       args: [],
@@ -149,7 +322,7 @@ describe('status command', async () => {
   })
 
   test('syncs content_path from qbittorrent', async () => {
-    await new Downloads().add(release, noop)
+    await setupMovieDownload()
 
     const contentPath = '/downloads/The.Matrix.1999.1080p'
 
@@ -159,10 +332,7 @@ describe('status command', async () => {
       .where('hash', '=', 'abc123')
       .execute()
 
-    await testCommand(StatusCommand, {
-      args: [],
-      flags: { json: true },
-    })
+    await new TorrentSync().sync()
 
     const download = await database.kysely
       .selectFrom('downloads')
@@ -173,16 +343,16 @@ describe('status command', async () => {
   })
 
   test('logs entered error only on first transition to error', async () => {
-    await new Downloads().add(release, noop)
+    await setupMovieDownload()
 
     await QBittorrentMock.db
       .deleteFrom('torrents')
-      .where('hash', '=', release.source_id.toLowerCase())
+      .where('hash', '=', 'abc123')
       .execute()
 
     await rm(envVariables.OMNARR_LOG_PATH, { force: true })
 
-    await testCommand(StatusCommand, { args: [], flags: { json: true } })
+    await new TorrentSync().sync()
 
     const afterFirst = await Bun.file(envVariables.OMNARR_LOG_PATH).text()
     const firstCount = afterFirst
@@ -193,7 +363,7 @@ describe('status command', async () => {
 
     await rm(envVariables.OMNARR_LOG_PATH, { force: true })
 
-    await testCommand(StatusCommand, { args: [], flags: { json: true } })
+    await new TorrentSync().sync()
 
     const afterSecond = await Bun.file(envVariables.OMNARR_LOG_PATH).text()
     const secondCount = afterSecond
@@ -204,18 +374,18 @@ describe('status command', async () => {
   })
 
   test('does not log exited error while download remains in error', async () => {
-    await new Downloads().add(release, noop)
+    await setupMovieDownload()
 
     await QBittorrentMock.db
       .deleteFrom('torrents')
-      .where('hash', '=', release.source_id.toLowerCase())
+      .where('hash', '=', 'abc123')
       .execute()
 
-    await testCommand(StatusCommand, { args: [], flags: { json: true } })
+    await new TorrentSync().sync()
 
     await rm(envVariables.OMNARR_LOG_PATH, { force: true })
 
-    await testCommand(StatusCommand, { args: [], flags: { json: true } })
+    await new TorrentSync().sync()
 
     const log = await Bun.file(envVariables.OMNARR_LOG_PATH).text()
     const exitedCount = log
@@ -236,7 +406,10 @@ describe('status command', async () => {
   })
 
   test('shows S/E context for TV episode download', async () => {
-    await new Downloads().add(tvEpisodeRelease, noop)
+    await setupTvDownload()
+    await insertTvEpisodeDownload()
+
+    await new TorrentSync().sync()
 
     const result = await testCommand(StatusCommand, {
       args: [],
@@ -250,7 +423,10 @@ describe('status command', async () => {
   })
 
   test('shows season-only for TV season pack download', async () => {
-    await new Downloads().add(tvSeasonPackRelease, noop)
+    await setupTvDownload()
+    await insertTvSeasonPackDownload()
+
+    await new TorrentSync().sync()
 
     const result = await testCommand(StatusCommand, {
       args: [],
@@ -265,7 +441,9 @@ describe('status command', async () => {
   })
 
   test('shows no S/E for movie download', async () => {
-    await new Downloads().add(release, noop)
+    await setupMovieDownload()
+
+    await new TorrentSync().sync()
 
     const result = await testCommand(StatusCommand, {
       args: [],

@@ -5,17 +5,20 @@ export interface DownloadData {
   year: number | null
   imdb_id: string
   media_id: string
-  tracksDir: string
+  tracks_dir: string
   audio_only?: boolean
-  lang?: string
   language?: string | null
   season_number?: number | null
   episode_number?: number | null
-  concurrency?: number | null
+}
+
+export interface DownloadResult {
+  media_id: string
+  download_id: number
+  title: string
+  year: number | null
 }
 
 export interface DownloadSource {
-  onProgress: (tag: string, status: string, progress: number) => void
-
-  add(data: DownloadData): Promise<{ title: string; year: number | null }>
+  enqueue(data: DownloadData): Promise<DownloadResult>
 }
