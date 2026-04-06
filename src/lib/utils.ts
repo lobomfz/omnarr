@@ -1,4 +1,4 @@
-import { type Type } from 'arktype'
+import { type Type } from '@lobomfz/db'
 
 // TODO: maybe find a better way to do this
 export function extractSchemaProps(schema: Type) {

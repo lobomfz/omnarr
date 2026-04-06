@@ -1,7 +1,7 @@
-import { type } from 'arktype'
+import { type } from '@lobomfz/db'
 
-import { envVariables } from '@/lib/env'
 import { indexerSchema } from '@/integrations/indexers/registry'
+import { envVariables } from '@/lib/env'
 import { Log } from '@/lib/log'
 
 const qbittorrentClient = type({
