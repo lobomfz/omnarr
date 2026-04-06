@@ -3,7 +3,7 @@ import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 import { Mock } from '@lobomfz/ghostapi'
-import { type } from 'arktype'
+import { type } from '@lobomfz/db'
 
 import { envVariables } from '@/lib/env'
 

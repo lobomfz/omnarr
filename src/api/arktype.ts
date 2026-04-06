@@ -1,4 +1,4 @@
-import { configure } from 'arktype/config'
+import { configure } from '@lobomfz/db'
 
 configure({
   onUndeclaredKey: 'delete',

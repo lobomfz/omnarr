@@ -1,5 +1,5 @@
 import { Mock } from '@lobomfz/ghostapi'
-import { type } from 'arktype'
+import { type } from '@lobomfz/db'
 
 import { envVariables } from '@/lib/env'
 

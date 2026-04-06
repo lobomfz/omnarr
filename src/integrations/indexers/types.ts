@@ -1,5 +1,4 @@
-import type { DbFieldMeta } from '@lobomfz/db'
-import type { Type } from 'arktype'
+import type { DbFieldMeta, Type } from '@lobomfz/db'
 
 import type { download_source, media_type } from '@/db/connection'
 

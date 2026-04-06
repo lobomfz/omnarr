@@ -2,7 +2,7 @@ import { mkdir } from 'fs/promises'
 import { dirname, join } from 'path'
 
 import type { PromptApi } from '@bunli/core'
-import type { Type } from 'arktype'
+import type { Type } from '@lobomfz/db'
 
 import type { Config, ConfigInput } from '@/lib/config'
 import { configJsonSchema } from '@/lib/config'

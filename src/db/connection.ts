@@ -9,7 +9,7 @@ import { Log } from '@/lib/log'
 mkdirSync(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
 
 export const media_type = type.enumerated('movie', 'tv')
-const stream_type = type.enumerated('video', 'audio', 'subtitle')
+export const stream_type = type.enumerated('video', 'audio', 'subtitle')
 const download_status = type.enumerated(
   'pending',
   'downloading',
@@ -277,6 +277,7 @@ export type media_type = typeof media_type.infer
 export type download_status = typeof download_status.infer
 export type download_source = typeof download_source.infer
 export type indexer_source = typeof indexer_source.infer
+export type stream_type = typeof stream_type.infer
 
 export interface AliasedDb extends DB {
   mf: DB['media_files']
