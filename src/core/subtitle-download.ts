@@ -72,7 +72,7 @@ export class SubtitleDownload implements DownloadSource {
       )
 
       return { path: targetPath, download_id: download.id }
-    } catch (err) {
+    } catch (err: any) {
       await DbDownloads.update(download.id, {
         status: 'error',
         error_at: new Date().toISOString(),
@@ -191,7 +191,7 @@ export class SubtitleDownload implements DownloadSource {
         title: data.title,
         year: data.year,
       }
-    } catch (err) {
+    } catch (err: any) {
       await DbDownloads.update(download.id, {
         status: 'error',
         error_at: new Date().toISOString(),

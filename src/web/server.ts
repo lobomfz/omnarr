@@ -3,6 +3,7 @@ import '@/jobs/workers/ripper'
 import '@/jobs/workers/scan'
 import '@/jobs/workers/subtitle-match'
 import { rpcHandler } from '@/api/app'
+import { wsHandler } from '@/api/ws-app'
 import { envVariables } from '@/lib/env'
 import homepage from '@/web/index.html'
 
@@ -22,6 +23,23 @@ Bun.serve({
       return response ?? new Response('Not Found', { status: 404 })
     },
     '/*': homepage,
+  },
+  fetch(request, server) {
+    if (new URL(request.url).pathname === '/ws') {
+      if (server.upgrade(request)) {
+        return
+      }
+
+      return new Response('Upgrade failed', { status: 500 })
+    }
+  },
+  websocket: {
+    message(ws, message) {
+      wsHandler.message(ws, message, { context: {} })
+    },
+    close(ws) {
+      wsHandler.close(ws)
+    },
   },
 })
 

@@ -38,7 +38,7 @@ export class TorrentSync {
 
     try {
       statuses = await this.client.getTorrentStatuses()
-    } catch (err) {
+    } catch (err: any) {
       await this.handleSyncError(err)
       throw err
     }
@@ -101,7 +101,7 @@ export class TorrentSync {
     return { updated: updatedCount, completed: completedMediaIds }
   }
 
-  private async handleSyncError(err: unknown) {
+  private async handleSyncError(err: any) {
     if (this.syncFailed) {
       return
     }

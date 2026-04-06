@@ -59,7 +59,7 @@ const _worker = new Worker<RipperJobData>('ripper', async (job) => {
     Log.info(
       `ripper job completed media_id=${data.media_id} ripped=${result.ripped}/${result.total}`
     )
-  } catch (err) {
+  } catch (err: any) {
     const message = err.message
 
     await DbDownloads.update(data.download_id, {

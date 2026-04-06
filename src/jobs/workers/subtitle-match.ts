@@ -44,7 +44,7 @@ const _worker = new Worker<SubtitleMatchJobData>(
       Log.info(
         `subtitle-match job completed media_id=${data.media_id} matched=${!!result.matched}`
       )
-    } catch (err) {
+    } catch (err: any) {
       const message = err.message
 
       await DbEvents.create({

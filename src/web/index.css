@@ -46,6 +46,38 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
+/* Animations */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in-from-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-in {
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  animation-name: fade-in;
+}
+
+.slide-in-from-right {
+  animation-name: slide-in-from-right;
+}
+
+.duration-200 {
+  animation-duration: 200ms;
+}
+
+.duration-300 {
+  animation-duration: 300ms;
+}
+
 /* Shadow system */
 
 @utility shadow-elevation-1 {
