@@ -1,4 +1,4 @@
-import { type } from 'arktype'
+import { type } from '@lobomfz/db'
 import axios from 'redaxios'
 
 import type { media_type } from '@/db/connection'
