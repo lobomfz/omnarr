@@ -1,7 +1,7 @@
 import { homedir } from 'os'
 import { join } from 'path'
 
-import { type } from 'arktype'
+import { type } from '@lobomfz/db'
 
 const xdgConfigHome = process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config')
 const xdgDataHome = process.env.XDG_DATA_HOME ?? join(homedir(), '.local/share')
