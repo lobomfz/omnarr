@@ -1,4 +1,4 @@
-import { type } from 'arktype'
+import { type } from '@lobomfz/db'
 
 import { media_type } from '@/db/connection'
 
@@ -13,9 +13,12 @@ export const LibrarySchemas = {
   }),
 }
 
-export const SearchSchemas = {
+export const TmdbSchemas = {
   search: type({
     query: 'string >= 3',
+  }),
+  getInfo: type({
+    id: 'string',
   }),
 }
 

@@ -14,9 +14,9 @@ beforeEach(() => {
   database.reset()
 })
 
-describe('search.search', () => {
+describe('tmdb.search', () => {
   test('returns search results with poster_path and overview from TMDB', async () => {
-    const results = await client.search.search({ query: 'Matrix' })
+    const results = await client.tmdb.search({ query: 'Matrix' })
 
     expect(results).toHaveLength(1)
     expect(results[0].title).toBe('The Matrix')
@@ -27,7 +27,7 @@ describe('search.search', () => {
   })
 
   test('returns empty array for query with no TMDB matches', async () => {
-    const results = await client.search.search({
+    const results = await client.tmdb.search({
       query: 'nonexistent movie xyz',
     })
 
