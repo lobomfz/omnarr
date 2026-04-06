@@ -1,5 +1,5 @@
+import { type } from '@lobomfz/db'
 import { Mock } from '@lobomfz/ghostapi'
-import { type } from 'arktype'
 import { strToU8, zipSync } from 'fflate'
 
 import { envVariables } from '@/lib/env'

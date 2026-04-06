@@ -1,9 +1,9 @@
 import { tmpdir } from 'os'
 import { join } from 'path'
 
+import { type } from '@lobomfz/db'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 import { Mock } from '@lobomfz/ghostapi'
-import { type } from 'arktype'
 
 import { envVariables } from '@/lib/env'
 
