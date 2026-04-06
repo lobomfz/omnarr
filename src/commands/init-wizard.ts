@@ -2,12 +2,12 @@ import { mkdir } from 'fs/promises'
 import { dirname, join } from 'path'
 
 import type { PromptApi } from '@bunli/core'
-import type { Type } from 'arktype'
+import type { Type } from '@lobomfz/db'
 
+import { indexerMap } from '@/integrations/indexers/registry'
 import type { Config, ConfigInput } from '@/lib/config'
 import { configJsonSchema } from '@/lib/config'
 import { envVariables } from '@/lib/env'
-import { indexerMap } from '@/integrations/indexers/registry'
 import { Log } from '@/lib/log'
 
 interface SchemaProp {

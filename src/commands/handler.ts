@@ -1,6 +1,6 @@
 import { resolve } from 'path'
 
-import { type, type Type } from 'arktype'
+import { type, type Type } from '@lobomfz/db'
 
 import { MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
 import { Downloads } from '@/core/downloads'
