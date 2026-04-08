@@ -4,12 +4,11 @@ import { join } from 'path'
 import { unzipSync } from 'fflate'
 import axios from 'redaxios'
 
+import type { DownloadData, DownloadSource } from '@/core/types/download-source'
 import { DbDownloads } from '@/db/downloads'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
 import { deriveId } from '@/lib/utils'
-
-import type { DownloadData, DownloadSource } from './types/download-source'
 
 export class SubtitleDownload implements DownloadSource {
   async download(input: {
@@ -86,7 +85,7 @@ export class SubtitleDownload implements DownloadSource {
         `subtitle download failed source_id=${input.source_id} error="${err.message}"`
       )
 
-      return null
+      throw err
     }
   }
 

@@ -55,11 +55,11 @@ export class Ripper {
   }
 
   private resolveUnits(): RipperUnit[] {
-    if (this.ctx.season_number == null) {
+    if (this.ctx.season_number == null || this.ctx.episode_number == null) {
       return [{ tag: '', dir: this.ctx.tracks_dir }]
     }
 
-    const seTag = `S${String(this.ctx.season_number).padStart(2, '0')}E${String(this.ctx.episode_number!).padStart(2, '0')}`
+    const seTag = `S${String(this.ctx.season_number).padStart(2, '0')}E${String(this.ctx.episode_number).padStart(2, '0')}`
 
     return [
       {
@@ -67,7 +67,7 @@ export class Ripper {
         dir: join(this.ctx.tracks_dir, seTag.toLowerCase()),
         episode: {
           season: this.ctx.season_number,
-          episode: this.ctx.episode_number!,
+          episode: this.ctx.episode_number,
         },
       },
     ]
@@ -140,7 +140,7 @@ export class Ripper {
 
     const queue = new PQueue({ concurrency: 1 })
 
-    this.publishProgress(0)
+    await this.publishProgress(0)
 
     for (const entry of entries) {
       queue.add(() =>
@@ -156,7 +156,7 @@ export class Ripper {
 
             const progress = completed / entries.length
 
-            this.publishProgress(progress)
+            await this.publishProgress(progress)
 
             await DbDownloads.update(this.ctx.download_id, { progress })
           })
@@ -165,13 +165,13 @@ export class Ripper {
 
     await queue.onIdle()
 
-    this.publishProgress(1)
+    await this.publishProgress(1)
 
     return { ripped, total: entries.length }
   }
 
-  private publishProgress(progress: number) {
-    PubSub.publish('download_progress', {
+  private async publishProgress(progress: number) {
+    await PubSub.publish('download_progress', {
       id: this.ctx.download_id,
       media_id: this.ctx.media_id,
       source_id: this.ctx.source_id,

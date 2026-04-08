@@ -5,6 +5,10 @@ import { Suspense } from 'react'
 import { orpc } from '@/web/client'
 import { EmptyState } from '@/web/components/empty-state'
 import { MediaCard } from '@/web/components/media-card'
+import type { MediaItem } from '@/web/types/library'
+
+import { HeroSpotlight } from './-components/hero-spotlight'
+import { PageSkeleton } from './-components/page-skeleton'
 
 export const Route = createFileRoute('/')({
   component: LibraryPage,
@@ -16,15 +20,13 @@ function useLibrary() {
 
 function LibraryPage() {
   return (
-    <div className="pt-8 md:pt-12">
-      <Suspense fallback={<GridSkeleton />}>
-        <LibraryGrid />
-      </Suspense>
-    </div>
+    <Suspense fallback={<PageSkeleton />}>
+      <LibraryContent />
+    </Suspense>
   )
 }
 
-function LibraryGrid() {
+function LibraryContent() {
   const { data } = useLibrary()
 
   if (data.length === 0) {
@@ -32,22 +34,20 @@ function LibraryGrid() {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
-      {data.map((media) => (
-        <MediaCard key={media.id} media={media} />
-      ))}
-    </div>
+    <>
+      <HeroSpotlight />
+      <div className="pt-8 md:pt-12">
+        <LibraryGrid items={data} />
+      </div>
+    </>
   )
 }
 
-function GridSkeleton() {
+function LibraryGrid(props: { items: MediaItem[] }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
-      {Array.from({ length: 12 }, (_, i) => (
-        <div
-          key={i}
-          className="aspect-[2/3] rounded-xl bg-white/5 animate-pulse"
-        />
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4 sm:gap-6">
+      {props.items.map((media) => (
+        <MediaCard key={media.id} media={media} />
       ))}
     </div>
   )

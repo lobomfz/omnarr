@@ -104,6 +104,8 @@ export const DbMedia = {
         't.title',
         't.year',
         't.poster_path',
+        't.backdrop_path',
+        't.overview',
         sql<number>`count(distinct mf.id)`.as('file_count'),
         (eb) => eb.fn.count<number>('mt.id').as('track_count'),
         (eb) =>
@@ -139,12 +141,26 @@ export const DbMedia = {
             .as('episodes_with_files'),
       ])
       .groupBy('m.id')
+      .orderBy('m.added_at', 'desc')
 
     if (filters.media_type) {
       query = query.where('m.media_type', '=', filters.media_type)
     }
 
     return await query.execute()
+  },
+
+  async spotlight() {
+    const row = await db
+      .selectFrom('media as m')
+      .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
+      .where('t.backdrop_path', 'is not', null)
+      .select(['m.id', 't.title', 't.overview', 't.backdrop_path'])
+      .orderBy(sql`random()`)
+      .limit(1)
+      .executeTakeFirst()
+
+    return { row }
   },
 
   async getInfo(id: string, filters?: { season?: number; episode?: number }) {
@@ -161,7 +177,11 @@ export const DbMedia = {
         't.title',
         't.year',
         't.poster_path',
+        't.backdrop_path',
         't.overview',
+        't.runtime',
+        't.vote_average',
+        't.genres',
         (eb) =>
           jsonArrayFrom(
             eb
@@ -177,6 +197,8 @@ export const DbMedia = {
                 'd.eta',
                 'd.content_path',
                 'd.error_at',
+                'd.season_number',
+                'd.episode_number',
                 'd.started_at',
                 (eb) =>
                   jsonArrayFrom(

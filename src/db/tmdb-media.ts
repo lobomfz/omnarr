@@ -1,6 +1,6 @@
 import type { Insertable } from '@lobomfz/db'
 
-import type { media_type} from '@/db/connection';
+import type { media_type } from '@/db/connection'
 import { db, type DB } from '@/db/connection'
 
 type InsertExecutor = Pick<typeof db, 'insertInto'>
@@ -19,6 +19,10 @@ export const DbTmdbMedia = {
           year: data.year,
           overview: data.overview,
           poster_path: data.poster_path,
+          backdrop_path: data.backdrop_path,
+          runtime: data.runtime,
+          vote_average: data.vote_average,
+          genres: data.genres,
           imdb_id: data.imdb_id,
         })
       )
@@ -30,6 +34,10 @@ export const DbTmdbMedia = {
         'year',
         'overview',
         'poster_path',
+        'backdrop_path',
+        'runtime',
+        'vote_average',
+        'genres',
         'imdb_id',
         'fetched_at',
       ])

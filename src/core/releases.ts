@@ -110,7 +110,10 @@ export class Releases {
 
     Log.info(`releases persisted count=${persisted.length}`)
 
-    return { releases: persisted, indexer_status }
+    return {
+      releases: persisted.sort((a, b) => (b.seeders ?? 0) - (a.seeders ?? 0)),
+      indexer_status,
+    }
   }
 
   async searchSubtitles(

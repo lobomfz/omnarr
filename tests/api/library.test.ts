@@ -24,6 +24,8 @@ async function seedMovie() {
     imdb_id: 'tt0133093',
     year: 1999,
     poster_path: '/abc123.jpg',
+    backdrop_path: '/backdrop.jpg',
+    overview: 'A computer hacker learns about reality.',
   })
 
   return await DbMedia.create({
@@ -43,6 +45,8 @@ describe('library.list', () => {
     expect(result).toHaveLength(1)
     expect(result[0].title).toBe('The Matrix')
     expect(result[0].poster_path).toBe('/abc123.jpg')
+    expect(result[0].backdrop_path).toBe('/backdrop.jpg')
+    expect(result[0].overview).toBe('A computer hacker learns about reality.')
   })
 
   test('passes media_type filter to db layer', async () => {

@@ -1,7 +1,6 @@
 import { PubSub } from '@/api/pubsub'
 import { DbDownloads } from '@/db/downloads'
 import { DbEvents } from '@/db/events'
-import type { TorrentStatus } from '@/integrations/download-client'
 import { QBittorrentClient } from '@/integrations/qbittorrent/client'
 import { config } from '@/lib/config'
 import { Log } from '@/lib/log'
@@ -34,14 +33,7 @@ export class TorrentSync {
       return { updated: 0, completed: [] }
     }
 
-    let statuses: TorrentStatus[]
-
-    try {
-      statuses = await this.client.getTorrentStatuses()
-    } catch (err: any) {
-      await this.handleSyncError(err)
-      throw err
-    }
+    const statuses = await this.fetchStatuses()
 
     if (this.syncFailed) {
       await this.handleSyncRecovery()
@@ -101,6 +93,13 @@ export class TorrentSync {
     return { updated: updatedCount, completed: completedMediaIds }
   }
 
+  private async fetchStatuses() {
+    return await this.client!.getTorrentStatuses().catch(async (err) => {
+      await this.handleSyncError(err)
+      throw err
+    })
+  }
+
   private async handleSyncError(err: any) {
     if (this.syncFailed) {
       return
@@ -118,8 +117,6 @@ export class TorrentSync {
       event_type: 'error',
       message,
     })
-
-    await PubSub.publish('sync_state', { connected: false, error: message })
   }
 
   private async handleSyncRecovery() {
@@ -133,7 +130,5 @@ export class TorrentSync {
       event_type: 'recovered',
       message: 'Torrent sync reconnected',
     })
-
-    await PubSub.publish('sync_state', { connected: true })
   }
 }

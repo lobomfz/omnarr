@@ -30,6 +30,10 @@ const DOWNLOAD_STATUS_MAP: Record<download_status, string> = {
 }
 
 export const Formatters = {
+  episodeLabel(episodeNumber: number) {
+    return `E${String(episodeNumber).padStart(2, '0')}`
+  },
+
   seasonEpisodeTag(
     seasonNumber: number | null | undefined,
     episodeNumber: number | null | undefined
@@ -44,7 +48,7 @@ export const Formatters = {
       return s
     }
 
-    return `${s}E${String(episodeNumber).padStart(2, '0')}`
+    return `${s}${Formatters.episodeLabel(episodeNumber)}`
   },
 
   mediaTitle(media: {
@@ -128,6 +132,17 @@ export const Formatters = {
     }
 
     return lines.join('\n')
+  },
+
+  duration(seconds: number) {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+
+    if (h > 0) {
+      return `${h}h ${m}m`
+    }
+
+    return `${m}m`
   },
 
   eta(seconds: number) {
@@ -260,7 +275,7 @@ export const Formatters = {
       lines.push(seasonLabel)
 
       for (const e of downloaded) {
-        const epNum = `E${String(e.episode_number).padStart(2, '0')}`
+        const epNum = Formatters.episodeLabel(e.episode_number)
         const epTitle = e.title ? `  ${e.title}` : ''
 
         lines.push(`  ${epNum}${epTitle}`)

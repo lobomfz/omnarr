@@ -1,5 +1,5 @@
-import { Mock } from '@lobomfz/ghostapi'
 import { type } from '@lobomfz/db'
+import { Mock } from '@lobomfz/ghostapi'
 
 import { envVariables } from '@/lib/env'
 
@@ -11,9 +11,14 @@ export const TmdbMock = new Mock(
       'name?': 'string',
       overview: 'string',
       'poster_path?': 'string',
+      'backdrop_path?': 'string',
       'release_date?': 'string',
       'first_air_date?': 'string',
       media_type: "'movie' | 'tv'",
+      'runtime?': 'number',
+      'episode_run_time?': type('number').array(),
+      'vote_average?': 'number',
+      'genres?': type({ id: 'number', name: 'string' }).array(),
     }),
     external_ids: type({
       tmdb_id: 'number',
@@ -149,7 +154,14 @@ await TmdbMock.db
       overview: 'A computer hacker learns about the true nature of reality.',
       release_date: '1999-03-31',
       poster_path: '/poster.jpg',
+      backdrop_path: '/backdrop.jpg',
       media_type: 'movie',
+      runtime: 136,
+      vote_average: 8.7,
+      genres: [
+        { id: 28, name: 'Action' },
+        { id: 878, name: 'Science Fiction' },
+      ],
     },
     {
       id: 1399,
@@ -157,6 +169,9 @@ await TmdbMock.db
       overview: 'A chemistry teacher diagnosed with cancer.',
       first_air_date: '2008-01-20',
       media_type: 'tv',
+      episode_run_time: [45, 47],
+      vote_average: 9.5,
+      genres: [{ id: 18, name: 'Drama' }],
     },
     {
       id: 9998,
@@ -172,6 +187,20 @@ await TmdbMock.db
       release_date: '2020-01-01',
       media_type: 'movie',
     },
+    {
+      id: 7777,
+      title: 'No IMDB Movie',
+      overview: 'Movie missing external imdb id.',
+      release_date: '2021-06-01',
+      media_type: 'movie',
+    },
+    {
+      id: 8888,
+      name: 'Empty Runtime Show',
+      overview: 'TV show without runtime fields.',
+      first_air_date: '2015-09-10',
+      media_type: 'tv',
+    },
   ])
   .execute()
 
@@ -182,6 +211,8 @@ await TmdbMock.db
     { tmdb_id: 1399, imdb_id: 'tt0903747' },
     { tmdb_id: 9998, imdb_id: 'tt0000003' },
     { tmdb_id: 10001, imdb_id: 'tt0000001' },
+    { tmdb_id: 7777 },
+    { tmdb_id: 8888, imdb_id: 'tt0000008' },
   ])
   .execute()
 
@@ -190,6 +221,7 @@ await TmdbMock.db
   .values([
     { tmdb_id: 1399, season_number: 1, name: 'Season 1', episode_count: 7 },
     { tmdb_id: 1399, season_number: 2, name: 'Season 2', episode_count: 13 },
+    { tmdb_id: 8888, season_number: 1, name: 'Season 1', episode_count: 1 },
   ])
   .execute()
 
@@ -216,5 +248,6 @@ await TmdbMock.db
       name: 'Seven Thirty-Seven',
     },
     { tmdb_id: 1399, season_number: 2, episode_number: 2, name: 'Grilled' },
+    { tmdb_id: 8888, season_number: 1, episode_number: 1, name: 'First' },
   ])
   .execute()

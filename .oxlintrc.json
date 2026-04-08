@@ -21,7 +21,8 @@
     "max-nested-callbacks": ["warn", { "max": 4 }],
     "no-map-spread": "off",
     "no-shadow": "off",
-    "typescript/consistent-type-imports": "error"
+    "typescript/consistent-type-imports": "error",
+    "no-new": "off"
   },
   "categories": {
     "correctness": "error",

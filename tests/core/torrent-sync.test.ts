@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { PubSub } from '@/api/pubsub'
 import { TorrentSync } from '@/core/torrent-sync'
 import { database, db } from '@/db/connection'
 import { config } from '@/lib/config'
@@ -185,6 +186,44 @@ describe('TorrentSync', () => {
 
     expect(events).toHaveLength(1)
     expect(events[0].event_type).toBe('error')
+  })
+
+  test('publishes download_progress events for active downloads', async () => {
+    await setupDownload()
+
+    await QBittorrentMock.db
+      .updateTable('torrents')
+      .set({ progress: 0.5, dlspeed: 2_000_000, eta: 300 })
+      .where('hash', '=', 'abc123')
+      .execute()
+
+    const events: unknown[] = []
+    const controller = new AbortController()
+
+    const collecting = (async () => {
+      for await (const event of PubSub.subscribe(
+        'download_progress',
+        controller.signal
+      )) {
+        events.push(event)
+      }
+    })().catch(() => {})
+
+    await new TorrentSync().sync()
+
+    await Bun.sleep(10)
+    controller.abort()
+    await collecting
+
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({
+      media_id: MEDIA_ID,
+      source_id: SOURCE_ID,
+      progress: 0.5,
+      speed: 2_000_000,
+      eta: 300,
+      status: 'downloading',
+    })
   })
 
   test('creates sync.recovered event after reconnection', async () => {

@@ -39,24 +39,6 @@ export const DbEvents = {
       .execute()
   },
 
-  async getUnreadByMediaId(mediaId: string) {
-    return await db
-      .selectFrom('events as e')
-      .where('e.media_id', '=', mediaId)
-      .where('e.read', '=', false)
-      .select([
-        'e.id',
-        'e.entity_type',
-        'e.entity_id',
-        'e.event_type',
-        'e.message',
-        'e.metadata',
-        'e.created_at',
-      ])
-      .orderBy('e.id', 'desc')
-      .execute()
-  },
-
   async markRead(ids: number[]) {
     if (ids.length === 0) {
       return 0

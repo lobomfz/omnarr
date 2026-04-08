@@ -7,8 +7,6 @@ export const wsRouter = {
     PubSub.subscribe('download_progress', signal)
   ),
 
-  syncState: os.handler(({ signal }) => PubSub.subscribe('sync_state', signal)),
-
   scanProgress: os.handler(({ signal }) =>
     PubSub.subscribe('scan_progress', signal)
   ),

@@ -28,6 +28,8 @@ const stateMap: Record<string, TorrentStatus['status']> = {
   checkingUP: 'seeding',
   pausedDL: 'paused',
   pausedUP: 'paused',
+  stoppedDL: 'paused',
+  stoppedUP: 'paused',
   error: 'error',
   missingFiles: 'error',
 }
@@ -92,9 +94,7 @@ export class QBittorrentClient implements DownloadClient {
     })
 
     if (data === 'Fails.') {
-      Log.error(
-        `qbittorrent request rejected ${options.method} ${options.url}`
-      )
+      Log.error(`qbittorrent request rejected ${options.method} ${options.url}`)
 
       throw new Error(`qBittorrent rejected: ${options.method} ${options.url}`)
     }
@@ -109,14 +109,22 @@ export class QBittorrentClient implements DownloadClient {
       params: { category: this.config.category },
     })
 
-    return torrents.map((t) => ({
-      hash: t.hash.toLowerCase(),
-      progress: t.progress,
-      speed: t.dlspeed,
-      eta: t.eta,
-      status: stateMap[t.state] ?? 'error',
-      content_path: t.content_path,
-    }))
+    return torrents.map((t) => {
+      const status = stateMap[t.state]
+
+      if (!status) {
+        Log.warn(`qbittorrent unknown state="${t.state}" hash=${t.hash}`)
+      }
+
+      return {
+        hash: t.hash.toLowerCase(),
+        progress: t.progress,
+        speed: t.dlspeed,
+        eta: t.eta,
+        status: status ?? 'error',
+        content_path: t.content_path,
+      }
+    })
   }
 
   addTorrent: DownloadClient['addTorrent'] = async (params) => {

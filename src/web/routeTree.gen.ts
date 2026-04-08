@@ -9,11 +9,13 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SearchRouteImport } from './routes/search'
+import { Route as SearchRouteRouteImport } from './routes/search/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as MediaIdRouteImport } from './routes/media.$id'
+import { Route as SearchIndexRouteImport } from './routes/search/index'
+import { Route as SearchIdRouteRouteImport } from './routes/search/$id/route'
+import { Route as MediaIdRouteRouteImport } from './routes/media.$id/route'
 
-const SearchRoute = SearchRouteImport.update({
+const SearchRouteRoute = SearchRouteRouteImport.update({
   id: '/search',
   path: '/search',
   getParentRoute: () => rootRouteImport,
@@ -23,7 +25,17 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MediaIdRoute = MediaIdRouteImport.update({
+const SearchIndexRoute = SearchIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SearchRouteRoute,
+} as any)
+const SearchIdRouteRoute = SearchIdRouteRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => SearchRouteRoute,
+} as any)
+const MediaIdRouteRoute = MediaIdRouteRouteImport.update({
   id: '/media/$id',
   path: '/media/$id',
   getParentRoute: () => rootRouteImport,
@@ -31,32 +43,37 @@ const MediaIdRoute = MediaIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/search': typeof SearchRoute
-  '/media/$id': typeof MediaIdRoute
+  '/search': typeof SearchRouteRouteWithChildren
+  '/media/$id': typeof MediaIdRouteRoute
+  '/search/$id': typeof SearchIdRouteRoute
+  '/search/': typeof SearchIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/search': typeof SearchRoute
-  '/media/$id': typeof MediaIdRoute
+  '/media/$id': typeof MediaIdRouteRoute
+  '/search/$id': typeof SearchIdRouteRoute
+  '/search': typeof SearchIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/search': typeof SearchRoute
-  '/media/$id': typeof MediaIdRoute
+  '/search': typeof SearchRouteRouteWithChildren
+  '/media/$id': typeof MediaIdRouteRoute
+  '/search/$id': typeof SearchIdRouteRoute
+  '/search/': typeof SearchIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/search' | '/media/$id'
+  fullPaths: '/' | '/search' | '/media/$id' | '/search/$id' | '/search/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/search' | '/media/$id'
-  id: '__root__' | '/' | '/search' | '/media/$id'
+  to: '/' | '/media/$id' | '/search/$id' | '/search'
+  id: '__root__' | '/' | '/search' | '/media/$id' | '/search/$id' | '/search/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  SearchRoute: typeof SearchRoute
-  MediaIdRoute: typeof MediaIdRoute
+  SearchRouteRoute: typeof SearchRouteRouteWithChildren
+  MediaIdRouteRoute: typeof MediaIdRouteRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,7 +82,7 @@ declare module '@tanstack/react-router' {
       id: '/search'
       path: '/search'
       fullPath: '/search'
-      preLoaderRoute: typeof SearchRouteImport
+      preLoaderRoute: typeof SearchRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -75,20 +92,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/search/': {
+      id: '/search/'
+      path: '/'
+      fullPath: '/search/'
+      preLoaderRoute: typeof SearchIndexRouteImport
+      parentRoute: typeof SearchRouteRoute
+    }
+    '/search/$id': {
+      id: '/search/$id'
+      path: '/$id'
+      fullPath: '/search/$id'
+      preLoaderRoute: typeof SearchIdRouteRouteImport
+      parentRoute: typeof SearchRouteRoute
+    }
     '/media/$id': {
       id: '/media/$id'
       path: '/media/$id'
       fullPath: '/media/$id'
-      preLoaderRoute: typeof MediaIdRouteImport
+      preLoaderRoute: typeof MediaIdRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
+interface SearchRouteRouteChildren {
+  SearchIdRouteRoute: typeof SearchIdRouteRoute
+  SearchIndexRoute: typeof SearchIndexRoute
+}
+
+const SearchRouteRouteChildren: SearchRouteRouteChildren = {
+  SearchIdRouteRoute: SearchIdRouteRoute,
+  SearchIndexRoute: SearchIndexRoute,
+}
+
+const SearchRouteRouteWithChildren = SearchRouteRoute._addFileChildren(
+  SearchRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  SearchRoute: SearchRoute,
-  MediaIdRoute: MediaIdRoute,
+  SearchRouteRoute: SearchRouteRouteWithChildren,
+  MediaIdRouteRoute: MediaIdRouteRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

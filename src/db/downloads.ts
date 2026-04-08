@@ -135,6 +135,28 @@ export const DbDownloads = {
       .execute()
   },
 
+  async createBatch(data: Insertable<DB['downloads']>[]) {
+    return await db
+      .insertInto('downloads')
+      .values(data)
+      .returning([
+        'id',
+        'media_id',
+        'source_id',
+        'download_url',
+        'progress',
+        'speed',
+        'eta',
+        'source',
+        'status',
+        'error_at',
+        'season_number',
+        'episode_number',
+        'started_at',
+      ])
+      .execute()
+  },
+
   async update(id: number, data: Updateable<DB['downloads']>) {
     return await db
       .updateTable('downloads')

@@ -4,7 +4,10 @@ import {
   createRootRouteWithContext,
   Link,
 } from '@tanstack/react-router'
-import { Film } from 'lucide-react'
+import { Film, Search } from 'lucide-react'
+
+import { DownloadPill } from '@/web/components/download-pill'
+import { ConfigProvider } from '@/web/providers/config-provider'
 
 interface RouterContext {
   queryClient: QueryClient
@@ -16,12 +19,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function RootComponent() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Nav />
-      <main className="px-4 sm:px-6 md:px-8 pb-20">
-        <Outlet />
-      </main>
-    </div>
+    <ConfigProvider>
+      <div className="min-h-screen bg-background text-foreground">
+        <Nav />
+        <main className="px-4 sm:px-6 md:px-8 pb-20">
+          <Outlet />
+        </main>
+      </div>
+    </ConfigProvider>
   )
 }
 
@@ -43,9 +48,17 @@ function Nav() {
         >
           Library
         </Link>
+        <Link
+          to="/search"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full transition-all duration-[var(--duration-fast)] [&.active]:bg-white/15 [&.active]:text-white text-muted-foreground hover:text-white hover:bg-white/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <Search className="size-3.5" />
+          Search
+        </Link>
+        <DownloadPill />
       </nav>
 
-      <nav className="sticky top-0 z-50 flex md:hidden items-center h-14 px-4 glass-liquid border-b border-white/10">
+      <nav className="sticky top-0 z-50 flex md:hidden items-center justify-between h-14 px-4 glass-liquid border-b border-white/10">
         <Link
           to="/"
           className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -53,6 +66,15 @@ function Nav() {
           <Film className="size-5 text-primary" />
           <span className="font-semibold tracking-tight">Omnarr</span>
         </Link>
+        <div className="flex items-center gap-1">
+          <DownloadPill />
+          <Link
+            to="/search"
+            className="p-2 rounded-full text-muted-foreground hover:text-white transition-colors duration-[var(--duration-fast)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <Search className="size-5" />
+          </Link>
+        </div>
       </nav>
     </>
   )

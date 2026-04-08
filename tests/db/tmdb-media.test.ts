@@ -74,3 +74,72 @@ describe('DbTmdbMedia.getByTmdbId', () => {
     expect(result).toBeUndefined()
   })
 })
+
+describe('DbTmdbMedia.upsert', () => {
+  test('partial upsert preserves existing metadata', async () => {
+    await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      imdb_id: 'tt0133093',
+      year: 1999,
+      overview: 'A computer hacker learns about the true nature of reality.',
+      poster_path: '/poster.jpg',
+      backdrop_path: '/backdrop.jpg',
+      runtime: 136,
+      vote_average: 8.7,
+      genres: 'Action,Sci-Fi',
+    })
+
+    await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      imdb_id: 'tt0133093',
+      year: 1999,
+    })
+
+    const row = await db
+      .selectFrom('tmdb_media')
+      .where('tmdb_id', '=', 603)
+      .where('media_type', '=', 'movie')
+      .select([
+        'overview',
+        'poster_path',
+        'backdrop_path',
+        'runtime',
+        'vote_average',
+        'genres',
+      ])
+      .executeTakeFirstOrThrow()
+
+    expect(row.overview).toBe(
+      'A computer hacker learns about the true nature of reality.'
+    )
+    expect(row.poster_path).toBe('/poster.jpg')
+    expect(row.backdrop_path).toBe('/backdrop.jpg')
+    expect(row.runtime).toBe(136)
+    expect(row.vote_average).toBe(8.7)
+    expect(row.genres).toBe('Action,Sci-Fi')
+  })
+
+  test('round-trips backdrop_path', async () => {
+    await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      imdb_id: 'tt0133093',
+      year: 1999,
+      backdrop_path: '/test.jpg',
+    })
+
+    const row = await db
+      .selectFrom('tmdb_media')
+      .where('tmdb_id', '=', 603)
+      .where('media_type', '=', 'movie')
+      .select(['backdrop_path'])
+      .executeTakeFirstOrThrow()
+
+    expect(row.backdrop_path).toBe('/test.jpg')
+  })
+})

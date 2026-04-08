@@ -1,10 +1,9 @@
+import type { DownloadData, DownloadSource } from '@/core/types/download-source'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
 import { DbEvents } from '@/db/events'
 import { DbMedia } from '@/db/media'
 import { Scheduler } from '@/jobs/scheduler'
-
-import type { DownloadData, DownloadSource } from './types/download-source'
 
 export class RipperDownload implements DownloadSource {
   enqueue: DownloadSource['enqueue'] = async (data) => {
@@ -66,19 +65,19 @@ export class RipperDownload implements DownloadSource {
       throw new Error(`No episodes found for season ${data.season_number}.`)
     }
 
-    const downloads = []
-
-    for (const ep of episodes) {
-      const download = await DbDownloads.create({
+    const downloads = await DbDownloads.createBatch(
+      episodes.map((ep) => ({
         media_id: data.media_id,
         source_id: data.source_id,
         download_url: data.download_url,
-        source: 'ripper',
-        status: 'pending',
+        source: 'ripper' as const,
+        status: 'pending' as const,
         season_number: data.season_number,
         episode_number: ep.episode_number,
-      })
+      }))
+    )
 
+    for (const download of downloads) {
       Scheduler.ripper({
         media_id: data.media_id,
         download_id: download.id,
@@ -88,10 +87,8 @@ export class RipperDownload implements DownloadSource {
         tracks_dir: data.tracks_dir,
         audio_only: data.audio_only,
         season_number: data.season_number,
-        episode_number: ep.episode_number,
+        episode_number: download.episode_number,
       })
-
-      downloads.push(download)
     }
 
     await DbEvents.create({

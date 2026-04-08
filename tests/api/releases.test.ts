@@ -29,6 +29,19 @@ describe('releases.search', () => {
     expect(result.releases.length).toBeGreaterThan(0)
   })
 
+  test('returns releases sorted by seeders descending', async () => {
+    const result = await client.releases.search({
+      tmdb_id: 603,
+      media_type: 'movie',
+    })
+
+    const seeders = result.releases.map((r) => r.seeders ?? 0)
+
+    for (let i = 1; i < seeders.length; i++) {
+      expect(seeders[i]).toBeLessThanOrEqual(seeders[i - 1])
+    }
+  })
+
   test('returns releases with expected fields', async () => {
     const result = await client.releases.search({
       tmdb_id: 603,

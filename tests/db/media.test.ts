@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import dayjs from 'dayjs'
+
 import { database, db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
@@ -202,5 +204,105 @@ describe('DbMedia.list', () => {
     expect(tv).toHaveLength(1)
     expect(tv[0].media_type).toBe('tv')
     expect(all).toHaveLength(2)
+  })
+
+  test('filters out rows without backdrop in spotlight', async () => {
+    const tmdbNoBackdrop = await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      imdb_id: 'tt0133093',
+      year: 1999,
+    })
+
+    await DbMedia.create({
+      id: deriveId('603:movie'),
+      tmdb_media_id: tmdbNoBackdrop.id,
+      media_type: 'movie',
+      root_folder: '/movies',
+    })
+
+    const result = await DbMedia.spotlight()
+
+    expect(result.row).toBeUndefined()
+  })
+
+  test('returns trimmed shape for row with backdrop', async () => {
+    const tmdb = await DbTmdbMedia.upsert({
+      tmdb_id: 1399,
+      media_type: 'tv',
+      title: 'Breaking Bad',
+      imdb_id: 'tt0903747',
+      year: 2008,
+      overview: 'A chemistry teacher diagnosed with cancer.',
+      backdrop_path: '/backdrop.jpg',
+    })
+
+    const media = await DbMedia.create({
+      id: deriveId('1399:tv'),
+      tmdb_media_id: tmdb.id,
+      media_type: 'tv',
+      root_folder: '/tv',
+    })
+
+    const result = await DbMedia.spotlight()
+
+    expect(result.row).toBeDefined()
+    expect(result.row?.id).toBe(media.id)
+    expect(result.row?.title).toBe('Breaking Bad')
+    expect(result.row?.overview).toBe(
+      'A chemistry teacher diagnosed with cancer.'
+    )
+    expect(result.row?.backdrop_path).toBe('/backdrop.jpg')
+  })
+
+  test('returns undefined row when library is empty', async () => {
+    const result = await DbMedia.spotlight()
+
+    expect(result.row).toBeUndefined()
+  })
+
+  test('returns rows ordered by added_at desc', async () => {
+    const oldTmdb = await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      imdb_id: 'tt0133093',
+      year: 1999,
+    })
+
+    const oldMedia = await DbMedia.create({
+      id: deriveId('603:movie'),
+      tmdb_media_id: oldTmdb.id,
+      media_type: 'movie',
+      root_folder: '/movies',
+    })
+
+    await db
+      .updateTable('media')
+      .set({ added_at: dayjs().subtract(1, 'day').toDate() })
+      .where('id', '=', oldMedia.id)
+      .execute()
+
+    const newTmdb = await DbTmdbMedia.upsert({
+      tmdb_id: 1399,
+      media_type: 'tv',
+      title: 'Breaking Bad',
+      imdb_id: 'tt0903747',
+      year: 2008,
+    })
+
+    const newMedia = await DbMedia.create({
+      id: deriveId('1399:tv'),
+      tmdb_media_id: newTmdb.id,
+      media_type: 'tv',
+      root_folder: '/tv',
+    })
+
+    const rows = await DbMedia.list({})
+
+    expect(rows).toHaveLength(2)
+    expect(rows[0].id).toBe(newMedia.id)
+    expect(rows[1].id).toBe(oldMedia.id)
   })
 })

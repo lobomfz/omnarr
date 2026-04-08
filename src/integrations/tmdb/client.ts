@@ -29,6 +29,14 @@ export class TmdbClient {
     return data
   }
 
+  private averageRuntime(times: number[] | undefined) {
+    if (!times || times.length === 0) {
+      return null
+    }
+
+    return Math.round(times.reduce((a, b) => a + b, 0) / times.length)
+  }
+
   private parse(raw: TmdbTypes['raw_media'], defaultType: media_type) {
     const date = raw.release_date ?? raw.first_air_date
 
@@ -39,6 +47,10 @@ export class TmdbClient {
       year: date ? dayjs(date).year() : null,
       overview: raw.overview,
       poster_path: raw.poster_path,
+      backdrop_path: raw.backdrop_path,
+      runtime: raw.runtime ?? this.averageRuntime(raw.episode_run_time),
+      vote_average: raw.vote_average ?? null,
+      genres: raw.genres?.map((g) => g.name) ?? [],
     }
   }
 

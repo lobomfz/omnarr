@@ -1,5 +1,6 @@
 import { MemoryPublisher } from '@orpc/experimental-publisher/memory'
 
+import type { download_status } from '@/db/connection'
 import { Log } from '@/lib/log'
 
 type PubSubChannels = {
@@ -10,11 +11,7 @@ type PubSubChannels = {
     progress: number
     speed: number
     eta: number
-    status: string
-  }
-  sync_state: {
-    connected: boolean
-    error?: string
+    status: download_status
   }
   scan_progress: {
     media_id: string

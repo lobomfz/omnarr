@@ -91,12 +91,34 @@ describe('QBittorrentClient', () => {
           state: 'missingFiles',
           content_path: '/dl/ddd',
         },
+        {
+          hash: 'eee',
+          url: '',
+          savepath: '',
+          category: 'omnarr',
+          progress: 0.4,
+          dlspeed: 0,
+          eta: 0,
+          state: 'stoppedDL',
+          content_path: '/dl/eee',
+        },
+        {
+          hash: 'fff',
+          url: '',
+          savepath: '',
+          category: 'omnarr',
+          progress: 1,
+          dlspeed: 0,
+          eta: 0,
+          state: 'stoppedUP',
+          content_path: '/dl/fff',
+        },
       ])
       .execute()
 
     const statuses = await qbt.getTorrentStatuses()
 
-    expect(statuses).toHaveLength(4)
+    expect(statuses).toHaveLength(6)
     expect(statuses[0]).toEqual({
       hash: 'aaa',
       progress: 0.5,
@@ -128,6 +150,22 @@ describe('QBittorrentClient', () => {
       eta: 0,
       status: 'error',
       content_path: '/dl/ddd',
+    })
+    expect(statuses[4]).toEqual({
+      hash: 'eee',
+      progress: 0.4,
+      speed: 0,
+      eta: 0,
+      status: 'paused',
+      content_path: '/dl/eee',
+    })
+    expect(statuses[5]).toEqual({
+      hash: 'fff',
+      progress: 1,
+      speed: 0,
+      eta: 0,
+      status: 'paused',
+      content_path: '/dl/fff',
     })
   })
 

@@ -60,7 +60,7 @@ describe('download command', async () => {
       .selectAll()
       .executeTakeFirstOrThrow()
 
-    expect(download.source_id).toBe('ABC123')
+    expect(download.source_id).toBe(torrentRelease.source_id)
   })
 
   test('sends torrent to qbittorrent', async () => {

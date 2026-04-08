@@ -103,18 +103,18 @@ async function seedSubdlEntries(
     imdb_id: string
   }[]
 ) {
-  for (const entry of entries) {
-    await SubdlMock.db
-      .insertInto('subtitles')
-      .values({
+  await SubdlMock.db
+    .insertInto('subtitles')
+    .values(
+      entries.map((entry) => ({
         ...entry,
         name: `SUBDL::${entry.release_name}`,
         lang: 'english',
         language: 'EN',
         author: 'testuser',
-      })
-      .execute()
-  }
+      }))
+    )
+    .execute()
 }
 
 describe('SubtitleMatcher.rank', () => {

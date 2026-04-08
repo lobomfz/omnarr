@@ -52,6 +52,10 @@ export const Tmdb = {
       year: details.year,
       overview: details.overview,
       poster_path: details.poster_path,
+      backdrop_path: details.backdrop_path,
+      runtime: details.runtime,
+      vote_average: details.vote_average,
+      genres: details.genres.join(','),
       imdb_id: details.imdb_id,
     })
 
@@ -70,7 +74,11 @@ export const Tmdb = {
       title: tmdbMedia.title,
       year: tmdbMedia.year,
       poster_path: tmdbMedia.poster_path,
+      backdrop_path: tmdbMedia.backdrop_path,
       overview: tmdbMedia.overview,
+      runtime: tmdbMedia.runtime,
+      vote_average: tmdbMedia.vote_average,
+      genres: tmdbMedia.genres?.split(',').filter(Boolean) ?? [],
       seasons,
     }
   },
@@ -110,6 +118,10 @@ export const Tmdb = {
           year: showData.year,
           overview: showData.overview,
           poster_path: showData.poster_path,
+          backdrop_path: showData.backdrop_path,
+          runtime: showData.runtime,
+          vote_average: showData.vote_average,
+          genres: showData.genres.join(','),
           imdb_id: externalIds.imdb_id!,
         },
         trx

@@ -9,6 +9,8 @@ export const libraryRouter = {
     .input(LibrarySchemas.list)
     .handler(({ input }) => DbMedia.list(input)),
 
+  spotlight: os.handler(() => DbMedia.spotlight()),
+
   getInfo: os
     .input(LibrarySchemas.getInfo)
     .handler(({ input }) => DbMedia.getInfo(input.id, input)),

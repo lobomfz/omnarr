@@ -4,7 +4,7 @@ import { Worker } from '@/jobs/index'
 import { type ScanJobData } from '@/jobs/queues'
 import { Log } from '@/lib/log'
 
-const _worker = new Worker<ScanJobData>('scan', async (job) => {
+new Worker<ScanJobData>('scan', async (job) => {
   const { media_id, force } = job.data
 
   Log.info(`scan job started media_id=${media_id}`)

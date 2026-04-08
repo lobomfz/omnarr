@@ -6,7 +6,7 @@ import type { RipperJobData } from '@/jobs/queues'
 import { Scheduler } from '@/jobs/scheduler'
 import { Log } from '@/lib/log'
 
-const _worker = new Worker<RipperJobData>('ripper', async (job) => {
+new Worker<RipperJobData>('ripper', async (job) => {
   const data = job.data
 
   Log.info(

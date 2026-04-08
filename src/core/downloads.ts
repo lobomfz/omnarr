@@ -1,6 +1,10 @@
 import { join } from 'path'
 
 import type { DownloadSchemas, SubtitlesSchemas } from '@/api/schemas'
+import { RipperDownload } from '@/core/ripper-download'
+import { SubtitleDownload } from '@/core/subtitle-download'
+import { TorrentDownload } from '@/core/torrent-download'
+import type { DownloadSource } from '@/core/types/download-source'
 import type { download_source } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
@@ -13,11 +17,6 @@ import { Scheduler } from '@/jobs/scheduler'
 import { config } from '@/lib/config'
 import { Log } from '@/lib/log'
 import { deriveId } from '@/lib/utils'
-
-import { RipperDownload } from './ripper-download'
-import { SubtitleDownload } from './subtitle-download'
-import { TorrentDownload } from './torrent-download'
-import type { DownloadSource } from './types/download-source'
 
 const sourceMap: Record<download_source, new () => DownloadSource> = {
   torrent: TorrentDownload,

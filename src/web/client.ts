@@ -7,21 +7,20 @@ import { createTanstackQueryUtils } from '@orpc/tanstack-query'
 import type { API } from '@/api/app'
 import type { WsAPI } from '@/api/ws-router'
 
-const client: RouterClient<API> = createORPCClient(
+const httpClient: RouterClient<API> = createORPCClient(
   new RPCLink({
     url: new URL('/rpc', window.location.origin).href,
   })
 )
 
-export const orpc = createTanstackQueryUtils(client)
+const wsUrl = new URL('/ws', window.location.origin)
+wsUrl.protocol = wsUrl.protocol.replace('http', 'ws')
 
-const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-const wsUrl = `${wsProtocol}//${window.location.host}/ws`
-
-const websocket = new WebSocket(wsUrl)
-
-export const wsClient: RouterClient<WsAPI> = createORPCClient(
-  new WsRPCLink({ websocket })
+const wsClient: RouterClient<WsAPI> = createORPCClient(
+  new WsRPCLink({ websocket: new WebSocket(wsUrl) })
 )
+
+export const orpc = createTanstackQueryUtils(httpClient)
+export const orpcWs = createTanstackQueryUtils(wsClient)
 
 export type RouterOutputs = InferRouterOutputs<API>

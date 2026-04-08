@@ -110,35 +110,6 @@ describe('DbEvents.getByMediaId', () => {
   })
 })
 
-describe('DbEvents.getUnreadByMediaId', () => {
-  test('returns only unread events', async () => {
-    const media = await seedMedia()
-
-    const e1 = await DbEvents.create({
-      media_id: media.id,
-      entity_type: 'download',
-      entity_id: 'HASH1',
-      event_type: 'error',
-      message: 'unread event',
-    })
-
-    await DbEvents.create({
-      media_id: media.id,
-      entity_type: 'download',
-      entity_id: 'HASH2',
-      event_type: 'created',
-      message: 'another unread',
-    })
-
-    await DbEvents.markRead([e1.id])
-
-    const unread = await DbEvents.getUnreadByMediaId(media.id)
-
-    expect(unread).toHaveLength(1)
-    expect(unread[0].message).toBe('another unread')
-  })
-})
-
 describe('DbEvents.markRead', () => {
   test('marks specified events as read', async () => {
     const media = await seedMedia()
@@ -163,7 +134,9 @@ describe('DbEvents.markRead', () => {
 
     expect(updated).toBe(2)
 
-    const unread = await DbEvents.getUnreadByMediaId(media.id)
+    const unread = (await DbEvents.getByMediaId(media.id)).filter(
+      (e) => !e.read
+    )
 
     expect(unread).toHaveLength(0)
   })
@@ -195,7 +168,9 @@ describe('DbEvents.markRead', () => {
 
     await DbEvents.markRead([e1.id])
 
-    const unread = await DbEvents.getUnreadByMediaId(media.id)
+    const unread = (await DbEvents.getByMediaId(media.id)).filter(
+      (e) => !e.read
+    )
 
     expect(unread).toHaveLength(1)
     expect(unread[0].message).toBe('to keep')

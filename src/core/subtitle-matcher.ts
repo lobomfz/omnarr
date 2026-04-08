@@ -43,7 +43,7 @@ export class SubtitleMatcher extends TrackResolver {
     const downloader = new SubtitleDownload()
 
     for (const sub of ranked) {
-      this.publish({
+      await this.publish({
         name: sub.name,
         confidence: null,
         offset: 0,
@@ -69,12 +69,12 @@ export class SubtitleMatcher extends TrackResolver {
         }
 
         tested.push(attempt)
-        this.publish(attempt)
+        await this.publish(attempt)
 
         continue
       }
 
-      this.publish({
+      await this.publish({
         name: sub.name,
         confidence: null,
         offset: 0,
@@ -99,7 +99,7 @@ export class SubtitleMatcher extends TrackResolver {
         }
 
         tested.push(attempt)
-        this.publish(attempt)
+        await this.publish(attempt)
 
         return { matched: attempt, tested }
       }
@@ -112,14 +112,14 @@ export class SubtitleMatcher extends TrackResolver {
       }
 
       tested.push(attempt)
-      this.publish(attempt)
+      await this.publish(attempt)
     }
 
     return { matched: null, tested }
   }
 
-  private publish(attempt: MatchAttempt) {
-    PubSub.publish('subtitle_progress', {
+  private async publish(attempt: MatchAttempt) {
+    await PubSub.publish('subtitle_progress', {
       media_id: this.media.id,
       ...attempt,
     })

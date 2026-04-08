@@ -112,7 +112,7 @@ export class Scanner {
       const fileIndex = ++nextIndex
 
       queue.add(async () => {
-        PubSub.publish('scan_progress', {
+        await PubSub.publish('scan_progress', {
           media_id: media.id,
           current: fileIndex,
           total: newFiles.length,

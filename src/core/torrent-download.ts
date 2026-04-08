@@ -1,10 +1,9 @@
+import type { DownloadSource } from '@/core/types/download-source'
 import { DbDownloads } from '@/db/downloads'
 import { DbEvents } from '@/db/events'
 import { QBittorrentClient } from '@/integrations/qbittorrent/client'
 import { config } from '@/lib/config'
 import { Log } from '@/lib/log'
-
-import type { DownloadSource } from './types/download-source'
 
 export class TorrentDownload implements DownloadSource {
   enqueue: DownloadSource['enqueue'] = async (data) => {
@@ -31,7 +30,7 @@ export class TorrentDownload implements DownloadSource {
           message: err.message,
         })
 
-        throw new Error(err.message, { cause: err })
+        throw err
       })
 
     const download = await DbDownloads.create({
