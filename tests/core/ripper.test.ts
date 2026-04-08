@@ -5,6 +5,7 @@ import { join } from 'path'
 import { Ripper } from '@/core/ripper'
 import { database, db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
+import { ripperQueue } from '@/jobs/queues'
 import { config } from '@/lib/config'
 import { deriveId } from '@/lib/utils'
 
@@ -14,6 +15,7 @@ const tracksDir = config.root_folders!.tracks!
 
 beforeEach(async () => {
   database.reset()
+  ripperQueue.clear()
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })
 

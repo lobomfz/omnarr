@@ -1,3 +1,6 @@
+import { ORPCError } from '@orpc/server'
+
+import { DownloadEvents } from '@/core/download-events'
 import type { DownloadData, DownloadSource } from '@/core/types/download-source'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
@@ -41,6 +44,8 @@ export class RipperDownload implements DownloadSource {
       message: `Download started: ${data.title}`,
     })
 
+    await DownloadEvents.publish(download.id)
+
     return {
       media_id: data.media_id,
       download_id: download.id,
@@ -62,7 +67,7 @@ export class RipperDownload implements DownloadSource {
     )
 
     if (episodes.length === 0) {
-      throw new Error(`No episodes found for season ${data.season_number}.`)
+      throw new ORPCError('NO_EPISODES')
     }
 
     const downloads = await DbDownloads.createBatch(
@@ -98,6 +103,8 @@ export class RipperDownload implements DownloadSource {
       event_type: 'created',
       message: `Download started: ${data.title} S${String(data.season_number).padStart(2, '0')} (${episodes.length} episodes)`,
     })
+
+    await DownloadEvents.publishMany(downloads.map((d) => d.id))
 
     return {
       media_id: data.media_id,

@@ -3,11 +3,11 @@ import { tmpdir } from 'os'
 import { dirname, join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
-import PQueue from 'p-queue'
 
-import { PubSub } from '@/api/pubsub'
+import { DownloadEvents } from '@/core/download-events'
 import { DbDownloads } from '@/db/downloads'
 import { SuperflixAdapter } from '@/integrations/indexers/superflix'
+import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 
 interface RipperUnit {
@@ -59,7 +59,10 @@ export class Ripper {
       return [{ tag: '', dir: this.ctx.tracks_dir }]
     }
 
-    const seTag = `S${String(this.ctx.season_number).padStart(2, '0')}E${String(this.ctx.episode_number).padStart(2, '0')}`
+    const seTag = Formatters.seasonEpisodeTag(
+      this.ctx.season_number,
+      this.ctx.episode_number
+    )
 
     return [
       {
@@ -76,19 +79,14 @@ export class Ripper {
   private async gatherEntries() {
     const units = this.resolveUnits()
     const entries: RipperEntry[] = []
-    const queue = new PQueue({ concurrency: 1 })
 
     for (const unit of units) {
-      queue.add(() =>
-        this.gatherUnit(unit, entries).catch((err) =>
-          Log.warn(
-            `ripper failed unit=${unit.tag || 'movie'} error="${err.message}"`
-          )
+      await this.gatherUnit(unit, entries).catch((err) =>
+        Log.warn(
+          `ripper failed unit=${unit.tag || 'movie'} error="${err.message}"`
         )
       )
     }
-
-    await queue.onIdle()
 
     return entries
   }
@@ -138,32 +136,23 @@ export class Ripper {
     let ripped = 0
     let completed = 0
 
-    const queue = new PQueue({ concurrency: 1 })
-
     await this.publishProgress(0)
 
     for (const entry of entries) {
-      queue.add(() =>
-        this.ripEntry(entry, tmpPath)
-          .then(() => {
-            ripped++
-          })
-          .catch((err) =>
-            Log.warn(`ripper failed tag=${entry.tag} error="${err.message}"`)
-          )
-          .then(async () => {
-            completed++
+      await this.ripEntry(entry, tmpPath)
+        .then(() => {
+          ripped++
+        })
+        .catch((err) =>
+          Log.warn(`ripper failed tag=${entry.tag} error="${err.message}"`)
+        )
 
-            const progress = completed / entries.length
+      completed++
 
-            await this.publishProgress(progress)
+      const progress = completed / entries.length
 
-            await DbDownloads.update(this.ctx.download_id, { progress })
-          })
-      )
+      await this.publishProgress(progress)
     }
-
-    await queue.onIdle()
 
     await this.publishProgress(1)
 
@@ -171,15 +160,9 @@ export class Ripper {
   }
 
   private async publishProgress(progress: number) {
-    await PubSub.publish('download_progress', {
-      id: this.ctx.download_id,
-      media_id: this.ctx.media_id,
-      source_id: this.ctx.source_id,
-      progress,
-      speed: 0,
-      eta: 0,
-      status: 'downloading',
-    })
+    await DbDownloads.update(this.ctx.download_id, { progress })
+
+    await DownloadEvents.publish(this.ctx.download_id)
   }
 
   private async ripEntry(entry: RipperEntry, tmpPath: string) {

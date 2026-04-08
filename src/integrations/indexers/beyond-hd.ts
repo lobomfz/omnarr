@@ -3,6 +3,7 @@ import axios from 'redaxios'
 
 import type { media_type } from '@/db/connection'
 import { envVariables } from '@/lib/env'
+import { Formatters } from '@/lib/formatters'
 
 import type { Indexer, IndexerRelease, SearchParams } from './types'
 
@@ -63,24 +64,11 @@ export class BeyondHdAdapter implements Indexer {
     return null
   }
 
-  private formatSeasonTag(params: SearchParams) {
-    if (params.season_number == null) {
-      return ''
-    }
-
-    const season = `S${String(params.season_number).padStart(2, '0')}`
-
-    if (params.episode_number != null) {
-      return `${season}E${String(params.episode_number).padStart(2, '0')}`
-    }
-
-    return season
-  }
-
   async search(params: SearchParams) {
-    const searchParts = [params.query, this.formatSeasonTag(params)].filter(
-      Boolean
-    )
+    const searchParts = [
+      params.query,
+      Formatters.seasonEpisodeTag(params.season_number, params.episode_number),
+    ].filter(Boolean)
 
     const { data } = await axios<BeyondHdResponse>({
       method: 'POST',

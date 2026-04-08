@@ -1,7 +1,8 @@
-import { PubSub } from '@/api/pubsub'
+import { DownloadEvents } from '@/core/download-events'
 import { DbDownloads } from '@/db/downloads'
 import { DbEvents } from '@/db/events'
 import { QBittorrentClient } from '@/integrations/qbittorrent/client'
+import { Scheduler } from '@/jobs/scheduler'
 import { config } from '@/lib/config'
 import { Log } from '@/lib/log'
 
@@ -26,7 +27,7 @@ export class TorrentSync {
       Log.info(`stale errors deleted count=${deleted}`)
     }
 
-    const active = await DbDownloads.listActive()
+    const active = await DbDownloads.listForSync()
 
     if (active.length === 0) {
       Log.info('sync no-op: no active downloads')
@@ -43,6 +44,7 @@ export class TorrentSync {
     const now = new Date().toISOString()
 
     const completedMediaIds: string[] = []
+    const errorTransitions: { media_id: string; source_id: string }[] = []
 
     const updates = active.map((d) => {
       const s = statusByHash.get(d.source_id)
@@ -54,6 +56,10 @@ export class TorrentSync {
 
       if (status === 'error' && !d.error_at) {
         Log.warn(`download entered error status source_id=${d.source_id}`)
+        errorTransitions.push({
+          media_id: d.media_id,
+          source_id: d.source_id,
+        })
       } else if (status !== 'error' && d.error_at) {
         Log.info(`download exited error status source_id=${d.source_id}`)
       }
@@ -74,19 +80,21 @@ export class TorrentSync {
 
     const updatedCount = await DbDownloads.batchUpdate(updates)
 
-    await Promise.all(
-      updates.map((u) =>
-        PubSub.publish('download_progress', {
-          id: u.id,
-          media_id: u.media_id,
-          source_id: u.source_id,
-          progress: u.progress,
-          speed: u.speed,
-          eta: u.eta,
-          status: u.status,
-        })
-      )
+    await DbEvents.createBatch(
+      errorTransitions.map((t) => ({
+        media_id: t.media_id,
+        entity_type: 'download' as const,
+        entity_id: t.source_id,
+        event_type: 'error' as const,
+        message: 'Torrent removed from client',
+      }))
     )
+
+    await DownloadEvents.publishMany(updates.map((u) => u.id))
+
+    for (const mediaId of completedMediaIds) {
+      Scheduler.scan(mediaId)
+    }
 
     Log.info(`sync complete active=${active.length} updated=${updatedCount}`)
 

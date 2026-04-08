@@ -1,3 +1,5 @@
+import { join } from 'path'
+
 import { type } from '@lobomfz/db'
 
 import { indexerSchema } from '@/integrations/indexers/registry'
@@ -54,4 +56,14 @@ async function getConfig() {
   const json = await Bun.file(envVariables.OMNARR_CONFIG_PATH).json()
 
   return configSchema.assert(json)
+}
+
+export function resolveTracksDir(mediaId: string) {
+  const tracksRoot = config.root_folders?.tracks
+
+  if (!tracksRoot) {
+    throw new Error('No tracks root folder configured')
+  }
+
+  return join(tracksRoot, mediaId)
 }

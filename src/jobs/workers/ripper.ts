@@ -1,3 +1,4 @@
+import { DownloadEvents } from '@/core/download-events'
 import { Ripper } from '@/core/ripper'
 import { DbDownloads } from '@/db/downloads'
 import { DbEvents } from '@/db/events'
@@ -40,6 +41,8 @@ new Worker<RipperJobData>('ripper', async (job) => {
         message: `Rip completed: ${data.title}`,
       })
 
+      await DownloadEvents.publish(data.download_id)
+
       Scheduler.scan(data.media_id)
     } else {
       await DbDownloads.update(data.download_id, {
@@ -54,6 +57,8 @@ new Worker<RipperJobData>('ripper', async (job) => {
         event_type: 'error',
         message: 'All streams failed to rip',
       })
+
+      await DownloadEvents.publish(data.download_id)
     }
 
     Log.info(
@@ -74,6 +79,8 @@ new Worker<RipperJobData>('ripper', async (job) => {
       event_type: 'error',
       message,
     })
+
+    await DownloadEvents.publish(data.download_id)
 
     Log.error(`ripper job failed media_id=${data.media_id} error="${message}"`)
   }

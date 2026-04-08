@@ -1,3 +1,4 @@
+import { DownloadEvents } from '@/core/download-events'
 import type { DownloadSource } from '@/core/types/download-source'
 import { DbDownloads } from '@/db/downloads'
 import { DbEvents } from '@/db/events'
@@ -17,18 +18,10 @@ export class TorrentDownload implements DownloadSource {
       .addTorrent({
         url: data.download_url,
       })
-      .catch(async (err) => {
+      .catch((err) => {
         Log.warn(
-          `download failed source_id=${data.source_id} error="${err.message}"`
+          `download failed source_id=${data.source_id} error="${err.code ?? err.message}"`
         )
-
-        await DbEvents.create({
-          media_id: data.media_id,
-          entity_type: 'download',
-          entity_id: data.source_id,
-          event_type: 'error',
-          message: err.message,
-        })
 
         throw err
       })
@@ -46,6 +39,8 @@ export class TorrentDownload implements DownloadSource {
       event_type: 'created',
       message: `Download started: ${data.title}`,
     })
+
+    await DownloadEvents.publish(download.id)
 
     Log.info(`torrent sent source_id=${data.source_id}`)
 

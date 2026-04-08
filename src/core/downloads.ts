@@ -1,4 +1,4 @@
-import { join } from 'path'
+import { ORPCError } from '@orpc/server'
 
 import type { DownloadSchemas, SubtitlesSchemas } from '@/api/schemas'
 import { RipperDownload } from '@/core/ripper-download'
@@ -6,7 +6,9 @@ import { SubtitleDownload } from '@/core/subtitle-download'
 import { TorrentDownload } from '@/core/torrent-download'
 import type { DownloadSource } from '@/core/types/download-source'
 import type { download_source } from '@/db/connection'
+import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
+import { DbEvents } from '@/db/events'
 import { DbMedia } from '@/db/media'
 import type { Release } from '@/db/releases'
 import { DbReleases } from '@/db/releases'
@@ -14,7 +16,8 @@ import { DbTmdbMedia } from '@/db/tmdb-media'
 import { indexerMap } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Scheduler } from '@/jobs/scheduler'
-import { config } from '@/lib/config'
+import { config, resolveTracksDir } from '@/lib/config'
+import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 import { deriveId } from '@/lib/utils'
 
@@ -38,6 +41,12 @@ export class Downloads {
       throw new Error(`No root folder configured for ${release.media_type}.`)
     }
 
+    const existing = await DbDownloads.getBySourceId(release.source_id)
+
+    if (existing) {
+      throw new ORPCError('DUPLICATE_DOWNLOAD')
+    }
+
     const source = indexerMap[release.indexer_source].source
 
     const resolved = await this.resolveMedia(
@@ -50,19 +59,35 @@ export class Downloads {
       `download enqueue release_id=${release.id} source_id=${release.source_id} source=${source}`
     )
 
-    return await new sourceMap[source]().enqueue({
-      source_id: release.source_id,
-      download_url: release.download_url,
-      title: resolved.title,
-      year: resolved.year,
-      imdb_id: resolved.imdb_id,
-      media_id: resolved.mediaId,
-      tracks_dir: this.resolveTracksDir(resolved.mediaId),
-      audio_only: input.audio_only,
-      language: release.language,
-      season_number: release.season_number,
-      episode_number: release.episode_number,
-    })
+    try {
+      return await new sourceMap[source]().enqueue({
+        source_id: release.source_id,
+        download_url: release.download_url,
+        title: resolved.title,
+        year: resolved.year,
+        imdb_id: resolved.imdb_id,
+        media_id: resolved.mediaId,
+        tracks_dir: resolveTracksDir(resolved.mediaId),
+        audio_only: input.audio_only,
+        language: release.language,
+        season_number: release.season_number,
+        episode_number: release.episode_number,
+      })
+    } catch (err) {
+      if (resolved.created) {
+        await DbMedia.delete(resolved.mediaId)
+      } else {
+        await DbEvents.create({
+          media_id: resolved.mediaId,
+          entity_type: 'download',
+          entity_id: release.source_id,
+          event_type: 'error',
+          message: 'Download failed to start',
+        })
+      }
+
+      throw err
+    }
   }
 
   async autoMatchSubtitles(input: typeof SubtitlesSchemas.autoMatch.infer) {
@@ -106,6 +131,7 @@ export class Downloads {
         title: existing.title,
         year: existing.year,
         imdb_id: existing.imdb_id,
+        created: false,
       }
     }
 
@@ -134,6 +160,7 @@ export class Downloads {
       title: details.title,
       year: details.year,
       imdb_id: details.imdb_id,
+      created: true,
     }
   }
 
@@ -158,20 +185,10 @@ export class Downloads {
 
     if (!ep) {
       throw new Error(
-        `Episode S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')} not found.`
+        `Episode ${Formatters.seasonEpisodeTag(season, episode)} not found.`
       )
     }
 
     return ep.id
-  }
-
-  private resolveTracksDir(mediaId: string) {
-    const tracksRoot = config.root_folders?.tracks
-
-    if (!tracksRoot) {
-      throw new Error('No tracks root folder configured.')
-    }
-
-    return join(tracksRoot, mediaId)
   }
 }

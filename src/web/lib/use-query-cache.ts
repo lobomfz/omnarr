@@ -32,6 +32,7 @@ type QueryOptions = {
 
 type HasQueryKey = { queryKey: readonly unknown[] }
 
+// @human: all updates from sockets MUST pass through here
 export function useQueryCache() {
   const qc = useQueryClient()
 
@@ -39,6 +40,62 @@ export function useQueryCache() {
     () => ({
       invalidate(options: HasQueryKey) {
         qc.invalidateQueries({ queryKey: options.queryKey })
+      },
+
+      upsert<T extends QueryOptions, M extends MatcherFor<InferData<T>>>(
+        options: T,
+        matcher: M,
+        entry: TargetOf<InferData<T>, M>
+      ) {
+        type Data = InferData<T>
+        type Target = TargetOf<Data, M>
+
+        qc.setQueryData(options.queryKey, (old: Data | undefined) => {
+          if (!old || !Array.isArray(old)) {
+            return old
+          }
+
+          const entries = Object.entries(matcher)
+          const idx = old.findIndex((item: Target) =>
+            entries.every(([key, value]) => item[key as keyof Target] === value)
+          )
+
+          if (idx === -1) {
+            return [...old, entry] as Data
+          }
+
+          return old.map((item: Target, i: number) =>
+            i === idx
+              ? {
+                  ...(item as Record<string, unknown>),
+                  ...(entry as Record<string, unknown>),
+                }
+              : item
+          ) as Data
+        })
+      },
+
+      remove<T extends QueryOptions, M extends MatcherFor<InferData<T>>>(
+        options: T,
+        matcher: M
+      ) {
+        type Data = InferData<T>
+        type Target = TargetOf<Data, M>
+
+        qc.setQueryData(options.queryKey, (old: Data | undefined) => {
+          if (!old || !Array.isArray(old)) {
+            return old
+          }
+
+          const entries = Object.entries(matcher)
+
+          return old.filter(
+            (item: Target) =>
+              !entries.every(
+                ([key, value]) => item[key as keyof Target] === value
+              )
+          ) as Data
+        })
       },
 
       patch<T extends QueryOptions, M extends MatcherFor<InferData<T>>>(

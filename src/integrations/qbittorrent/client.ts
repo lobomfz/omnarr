@@ -1,3 +1,4 @@
+import { ORPCError } from '@orpc/server'
 import axios from 'redaxios'
 
 import type {
@@ -142,7 +143,7 @@ export class QBittorrentClient implements DownloadClient {
         `qbittorrent addTorrent failed url=${params.url} reason="${e.message}"`
       )
 
-      throw new Error('Torrent rejected by qBittorrent', { cause: e })
+      throw new ORPCError('TORRENT_REJECTED', { cause: e })
     })
   }
 }

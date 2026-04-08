@@ -1,3 +1,4 @@
+import dayjs from 'dayjs'
 import { Download, Film } from 'lucide-react'
 
 import { Formatters } from '@/lib/formatters'
@@ -17,6 +18,7 @@ export function DownloadGroup(props: {
   const pct = Math.round(props.download.progress * 100)
   const name = props.download.content_path?.split('/').at(-1)
   const isDownloading = props.download.status === 'downloading'
+  const isError = props.download.status === 'error'
 
   return (
     <div className="rounded-xl glass-liquid overflow-hidden border border-white/5">
@@ -61,6 +63,12 @@ export function DownloadGroup(props: {
                       {Formatters.speed(props.download.speed)}
                     </span>
                   )}
+                </span>
+              )}
+
+              {isError && props.download.error_at && (
+                <span className="text-[10px] text-muted-foreground">
+                  {dayjs(props.download.error_at).format('YYYY-MM-DD')}
                 </span>
               )}
             </div>

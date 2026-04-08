@@ -8,7 +8,7 @@ import { DbDownloads } from '@/db/downloads'
 import { DbEvents } from '@/db/events'
 import { DbMedia } from '@/db/media'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { scanQueue } from '@/jobs/queues'
+import { ripperQueue, scanQueue } from '@/jobs/queues'
 import { Scheduler } from '@/jobs/scheduler'
 import { config } from '@/lib/config'
 import { deriveId } from '@/lib/utils'
@@ -19,6 +19,7 @@ const tracksDir = config.root_folders!.tracks!
 
 beforeEach(async () => {
   scanQueue.clear()
+  ripperQueue.clear()
   database.reset()
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })

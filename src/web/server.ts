@@ -23,16 +23,14 @@ Bun.serve({
 
       return response ?? new Response('Not Found', { status: 404 })
     },
-    '/*': homepage,
-  },
-  fetch(request, server) {
-    if (new URL(request.url).pathname === '/ws') {
+    '/ws': (request, server) => {
       if (server.upgrade(request)) {
-        return
+        return new Response(null)
       }
 
       return new Response('Upgrade failed', { status: 500 })
-    }
+    },
+    '/*': homepage,
   },
   websocket: {
     message(ws, message) {

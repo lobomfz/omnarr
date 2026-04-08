@@ -4,6 +4,7 @@ import { cn } from '@/web/lib/cn'
 
 export const Popover = PopoverPrimitive.Root
 export const PopoverTrigger = PopoverPrimitive.Trigger
+export const PopoverClose = PopoverPrimitive.Close
 
 export function PopoverContent(props: {
   children: React.ReactNode

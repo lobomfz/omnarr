@@ -1,18 +1,10 @@
 import { MemoryPublisher } from '@orpc/experimental-publisher/memory'
 
-import type { download_status } from '@/db/connection'
+import type { DownloadWithMedia } from '@/db/downloads'
 import { Log } from '@/lib/log'
 
 type PubSubChannels = {
-  download_progress: {
-    id: number
-    media_id: string
-    source_id: string
-    progress: number
-    speed: number
-    eta: number
-    status: download_status
-  }
+  download_progress: DownloadWithMedia
   scan_progress: {
     media_id: string
     current: number

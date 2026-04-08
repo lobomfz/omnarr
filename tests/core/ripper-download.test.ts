@@ -5,11 +5,13 @@ import { database, db } from '@/db/connection'
 import { DbEvents } from '@/db/events'
 import { DbMedia } from '@/db/media'
 import { DbTmdbMedia } from '@/db/tmdb-media'
+import { ripperQueue } from '@/jobs/queues'
 import { config } from '@/lib/config'
 import { deriveId } from '@/lib/utils'
 
 beforeEach(() => {
   database.reset()
+  ripperQueue.clear()
 })
 
 async function seedMedia(tmdbId: number, imdbId: string) {
@@ -156,6 +158,6 @@ describe('RipperDownload.enqueueSeason', () => {
         tracks_dir: `${config.root_folders!.tracks!}/${media.id}`,
         season_number: 2,
       })
-    ).toThrow('No episodes found for season 2')
+    ).toThrow('NO_EPISODES')
   })
 })

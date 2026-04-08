@@ -419,7 +419,7 @@ describe('schema - downloads', () => {
     expect(found).toBeUndefined()
   })
 
-  test('listActive excludes stale completed downloads', async () => {
+  test('listForSync excludes stale completed downloads', async () => {
     const { media } = await seedMediaWithTmdb()
 
     await DbDownloads.create({
@@ -454,13 +454,13 @@ describe('schema - downloads', () => {
       started_at: dayjs().subtract(2, 'day').toDate(),
     })
 
-    const active = await DbDownloads.listActive()
+    const active = await DbDownloads.listForSync()
 
     expect(active).toHaveLength(1)
     expect(active[0].source_id).toBe('active1')
   })
 
-  test('listActive includes seeding and paused', async () => {
+  test('listForSync includes seeding and paused', async () => {
     const { media } = await seedMediaWithTmdb()
 
     const dl1 = await DbDownloads.create({
@@ -493,12 +493,12 @@ describe('schema - downloads', () => {
 
     await DbDownloads.update(dl2.id, { status: 'paused' })
 
-    const active = await DbDownloads.listActive()
+    const active = await DbDownloads.listForSync()
 
     expect(active).toHaveLength(2)
   })
 
-  test('listActive includes recent error downloads', async () => {
+  test('listForSync includes recent error downloads', async () => {
     const { media } = await seedMediaWithTmdb()
 
     const download = await DbDownloads.create({
@@ -509,7 +509,7 @@ describe('schema - downloads', () => {
 
     await DbDownloads.update(download.id, { status: 'error' })
 
-    const active = await DbDownloads.listActive()
+    const active = await DbDownloads.listForSync()
 
     expect(active).toHaveLength(1)
     expect(active[0].source_id).toBe('error1')

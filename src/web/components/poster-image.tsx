@@ -41,7 +41,7 @@ export function PosterImage(props: {
         onLoad={() => setStatus('loaded')}
         onError={() => setStatus('error')}
         className={cn(
-          'h-full w-full object-cover transition-opacity duration-300',
+          'size-full object-cover transition-opacity duration-300',
           status === 'loaded' ? 'opacity-100' : 'opacity-0'
         )}
       />

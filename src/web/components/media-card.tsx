@@ -14,7 +14,7 @@ export function MediaCard(props: { media: MediaItem }) {
         <PosterImage
           posterPath={props.media.poster_path ?? null}
           title={props.media.title}
-          className="h-full w-full"
+          className="size-full"
         />
 
         <StatusDot media={props.media} />

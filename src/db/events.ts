@@ -21,6 +21,14 @@ export const DbEvents = {
       .executeTakeFirstOrThrow()
   },
 
+  async createBatch(data: Insertable<DB['events']>[]) {
+    if (data.length === 0) {
+      return
+    }
+
+    await db.insertInto('events').values(data).execute()
+  },
+
   async getByMediaId(mediaId: string) {
     return await db
       .selectFrom('events as e')

@@ -1,5 +1,3 @@
-import { join } from 'path'
-
 import { ratio } from 'fuzzball'
 
 import { PubSub } from '@/api/pubsub'
@@ -8,7 +6,7 @@ import { TrackResolver } from '@/audio/track-resolver'
 import { Releases } from '@/core/releases'
 import { SubtitleDownload } from '@/core/subtitle-download'
 import { db } from '@/db/connection'
-import { config } from '@/lib/config'
+import { resolveTracksDir } from '@/lib/config'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
 
@@ -39,7 +37,7 @@ export class SubtitleMatcher extends TrackResolver {
     }
 
     const ranked = this.rank(referenceName, subtitles).slice(0, MAX_ATTEMPTS)
-    const tracksDir = this.resolveTracksDir()
+    const tracksDir = resolveTracksDir(this.media.id)
     const downloader = new SubtitleDownload()
 
     for (const sub of ranked) {
@@ -185,16 +183,6 @@ export class SubtitleMatcher extends TrackResolver {
     const result = await query.executeTakeFirst()
 
     return result?.name ?? null
-  }
-
-  private resolveTracksDir() {
-    const tracksRoot = config.root_folders?.tracks
-
-    if (!tracksRoot) {
-      throw new Error('No tracks root folder configured')
-    }
-
-    return join(tracksRoot, this.media.id)
   }
 
   private computeTier(

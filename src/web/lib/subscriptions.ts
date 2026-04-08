@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { orpc, orpcWs } from '@/web/client'
 import { useQueryCache } from '@/web/lib/use-query-cache'
 
 export function useDownloadProgressSubscription() {
   const cache = useQueryCache()
+  const cursorRef = useRef(0)
 
   const { data } = useQuery(
     orpcWs.downloadProgress.experimental_streamedOptions({
@@ -13,42 +14,47 @@ export function useDownloadProgressSubscription() {
     })
   )
 
-  const latest = data?.at(-1)
-
   useEffect(() => {
-    if (!latest) {
+    if (!data) {
       return
     }
 
-    const progressUpdate = {
-      progress: latest.progress,
-      speed: latest.speed,
-      eta: latest.eta,
-      status: latest.status,
-    }
+    const newEvents = data.slice(cursorRef.current)
+    cursorRef.current = data.length
 
-    cache.patch(
-      orpc.downloads.listActive.queryOptions({}),
-      { id: latest.id },
-      progressUpdate
-    )
+    const listInProgress = orpc.downloads.listInProgress.queryOptions({})
 
-    cache.patch(
-      orpc.library.getInfo.queryOptions({ input: { id: latest.media_id } }),
-      { downloads: { id: latest.id } },
-      progressUpdate
-    )
-
-    cache.patch(
-      orpc.library.list.queryOptions({ input: {} }),
-      { id: latest.media_id },
-      {
-        download: {
-          status: latest.status,
-          progress: latest.progress,
-          speed: latest.speed,
-        },
+    for (const event of newEvents) {
+      if (event.active) {
+        cache.upsert(listInProgress, { id: event.id }, event)
+      } else {
+        cache.remove(listInProgress, { id: event.id })
       }
-    )
-  }, [latest, cache])
+
+      cache.patch(
+        orpc.library.getInfo.queryOptions({ input: { id: event.media_id } }),
+        { downloads: { id: event.id } },
+        {
+          progress: event.progress,
+          speed: event.speed,
+          eta: event.eta,
+          status: event.status,
+          error_at: event.error_at,
+        }
+      )
+
+      cache.patch(
+        orpc.library.list.queryOptions({ input: {} }),
+        { id: event.media_id },
+        {
+          download: {
+            status: event.status,
+            progress: event.progress,
+            speed: event.speed,
+          },
+          unread_error_count: event.unread_error_count,
+        }
+      )
+    }
+  }, [data, cache])
 }

@@ -107,7 +107,7 @@ describe('downloads.add', async () => {
     ).toThrow('No root folder configured for movie')
   })
 
-  test('creates download.error event when qBittorrent is offline', async () => {
+  test('cleans up new media when qBittorrent is offline', async () => {
     config.download_client = {
       ...originalClient!,
       url: DEAD_PORT_URL,
@@ -117,17 +117,14 @@ describe('downloads.add', async () => {
       client.downloads.add({ release_id: torrentRelease.id })
     ).toThrow()
 
-    const events = await db
-      .selectFrom('events')
-      .selectAll()
-      .where('event_type', '=', 'error')
-      .execute()
+    const media = await db.selectFrom('media').selectAll().execute()
+    expect(media).toHaveLength(0)
 
-    expect(events).toHaveLength(1)
-    expect(events[0].entity_type).toBe('download')
+    const events = await db.selectFrom('events').selectAll().execute()
+    expect(events).toHaveLength(0)
   })
 
-  test('creates download.error event when torrent is rejected', async () => {
+  test('cleans up new media when torrent is rejected', async () => {
     await client.downloads.add({ release_id: torrentRelease.id })
 
     database.reset('events')
@@ -139,6 +136,41 @@ describe('downloads.add', async () => {
       client.downloads.add({ release_id: torrentRelease.id })
     ).toThrow()
 
+    const media = await db.selectFrom('media').selectAll().execute()
+    expect(media).toHaveLength(0)
+
+    const events = await db.selectFrom('events').selectAll().execute()
+    expect(events).toHaveLength(0)
+  })
+
+  test('creates error event when download fails on existing media', async () => {
+    config.download_client = {
+      ...originalClient!,
+      url: DEAD_PORT_URL,
+    }
+
+    const tmdb = await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      imdb_id: 'tt0133093',
+      year: 1999,
+    })
+
+    const media = await DbMedia.create({
+      id: deriveId('603:movie'),
+      tmdb_media_id: tmdb.id,
+      media_type: 'movie',
+      root_folder: '/movies',
+    })
+
+    await expect(() =>
+      client.downloads.add({
+        release_id: torrentRelease.id,
+        media_id: media.id,
+      })
+    ).toThrow()
+
     const events = await db
       .selectFrom('events')
       .selectAll()
@@ -147,6 +179,10 @@ describe('downloads.add', async () => {
 
     expect(events).toHaveLength(1)
     expect(events[0].entity_type).toBe('download')
+    expect(events[0].media_id).toBe(media.id)
+
+    const mediaRows = await db.selectFrom('media').selectAll().execute()
+    expect(mediaRows).toHaveLength(1)
   })
 
   test('uses existing media when media_id is provided', async () => {
@@ -329,7 +365,7 @@ describe('downloads.add TV ripper', async () => {
   })
 })
 
-describe('downloads.listActive', () => {
+describe('downloads.listInProgress', () => {
   beforeEach(() => {
     database.reset('events')
     database.reset('downloads')
@@ -338,7 +374,7 @@ describe('downloads.listActive', () => {
   })
 
   test('returns empty when no downloads exist', async () => {
-    const result = await client.downloads.listActive()
+    const result = await client.downloads.listInProgress()
 
     expect(result).toHaveLength(0)
   })
@@ -373,13 +409,15 @@ describe('downloads.listActive', () => {
       })
       .execute()
 
-    const result = await client.downloads.listActive()
+    const result = await client.downloads.listInProgress()
 
     expect(result).toHaveLength(1)
     expect(result[0].title).toBe('The Matrix')
     expect(result[0].year).toBe(1999)
     expect(result[0].poster_path).toBe('/poster.jpg')
     expect(result[0].status).toBe('downloading')
+    expect(result[0].active).toBeTruthy()
+    expect(result[0].unread_error_count).toBe(0)
   })
 
   test('filters by active statuses', async () => {
@@ -428,7 +466,7 @@ describe('downloads.listActive', () => {
       ])
       .execute()
 
-    const result = await client.downloads.listActive()
+    const result = await client.downloads.listInProgress()
 
     expect(result).toHaveLength(2)
 
@@ -438,5 +476,43 @@ describe('downloads.listActive', () => {
     expect(statuses).toContain('pending')
     expect(statuses).not.toContain('completed')
     expect(statuses).not.toContain('error')
+
+    for (const d of result) {
+      expect(d.active).toBeTruthy()
+      expect(d.unread_error_count).toBe(0)
+    }
+  })
+})
+
+describe('downloads.add duplicate', async () => {
+  const results = await new TmdbClient().search('Matrix')
+  const releases = await new Releases().search(
+    results[0].tmdb_id,
+    results[0].media_type
+  )
+  const torrentRelease = releases.releases.find(
+    (r) => r.indexer_source !== 'superflix'
+  )!
+  const originalClient = config.download_client
+
+  beforeEach(() => {
+    database.reset('events')
+    database.reset('downloads')
+    database.reset('media')
+    database.reset('tmdb_media')
+    QBittorrentMock.reset()
+    config.download_client = originalClient
+  })
+
+  test('rejects duplicate download for same source_id', async () => {
+    await client.downloads.add({ release_id: torrentRelease.id })
+
+    await expect(() =>
+      client.downloads.add({ release_id: torrentRelease.id })
+    ).toThrow('DUPLICATE_DOWNLOAD')
+
+    const downloads = await db.selectFrom('downloads').selectAll().execute()
+
+    expect(downloads).toHaveLength(1)
   })
 })

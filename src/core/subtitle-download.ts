@@ -6,11 +6,24 @@ import axios from 'redaxios'
 
 import type { DownloadData, DownloadSource } from '@/core/types/download-source'
 import { DbDownloads } from '@/db/downloads'
+import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
 import { deriveId } from '@/lib/utils'
 
 export class SubtitleDownload implements DownloadSource {
+  private async fetchSrtEntries(url: string) {
+    const { data } = await axios<ArrayBuffer>({
+      url,
+      responseType: 'arrayBuffer',
+    })
+
+    const files = unzipSync(new Uint8Array(data))
+    const srtEntries = Object.keys(files).filter((f) => f.endsWith('.srt'))
+
+    return { files, srtEntries }
+  }
+
   async download(input: {
     source_id: string
     download_url: string
@@ -39,13 +52,9 @@ export class SubtitleDownload implements DownloadSource {
     })
 
     try {
-      const { data } = await axios<ArrayBuffer>({
-        url: input.download_url,
-        responseType: 'arrayBuffer',
-      })
-
-      const files = unzipSync(new Uint8Array(data))
-      const srtEntries = Object.keys(files).filter((f) => f.endsWith('.srt'))
+      const { files, srtEntries } = await this.fetchSrtEntries(
+        input.download_url
+      )
 
       if (srtEntries.length === 0) {
         await DbDownloads.update(download.id, {
@@ -132,13 +141,9 @@ export class SubtitleDownload implements DownloadSource {
     })
 
     try {
-      const { data: zipData } = await axios<ArrayBuffer>({
-        url: data.download_url,
-        responseType: 'arrayBuffer',
-      })
-
-      const files = unzipSync(new Uint8Array(zipData))
-      const srtEntries = Object.keys(files).filter((f) => f.endsWith('.srt'))
+      const { files, srtEntries } = await this.fetchSrtEntries(
+        data.download_url
+      )
 
       if (srtEntries.length === 0) {
         throw new Error('No .srt file found in subtitle archive')
@@ -156,7 +161,10 @@ export class SubtitleDownload implements DownloadSource {
 
         const epDir = join(
           data.tracks_dir,
-          `s${String(parsed.season_number).padStart(2, '0')}e${String(parsed.episode_number).padStart(2, '0')}`
+          Formatters.seasonEpisodeTag(
+            parsed.season_number,
+            parsed.episode_number
+          ).toLowerCase()
         )
 
         await mkdir(epDir, { recursive: true })
@@ -212,7 +220,7 @@ export class SubtitleDownload implements DownloadSource {
     if (seasonNumber != null && episodeNumber != null) {
       return join(
         tracks_dir,
-        `s${String(seasonNumber).padStart(2, '0')}e${String(episodeNumber).padStart(2, '0')}`
+        Formatters.seasonEpisodeTag(seasonNumber, episodeNumber).toLowerCase()
       )
     }
 

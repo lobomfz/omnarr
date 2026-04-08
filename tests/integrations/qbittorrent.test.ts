@@ -208,7 +208,7 @@ describe('QBittorrentClient', () => {
 
     await expect(() =>
       qbt.addTorrent({ url: 'magnet:?xt=urn:btih:abc123&dn=Test' })
-    ).toThrow('Torrent rejected by qBittorrent')
+    ).toThrow('TORRENT_REJECTED')
   })
 
   test('getTorrentStatuses defaults unknown state to error', async () => {

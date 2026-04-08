@@ -117,7 +117,7 @@ function BestMatch(props: { item: SearchItem; libraryIds: Set<string> }) {
           <PosterImage
             posterPath={props.item.poster_path}
             title={props.item.title}
-            className="h-full w-full"
+            className="size-full"
           />
 
           {inLibrary && <LibraryCheck />}
@@ -189,7 +189,7 @@ function ResultsCarousel(props: {
                 <PosterImage
                   posterPath={item.poster_path}
                   title={item.title}
-                  className="h-full w-full"
+                  className="size-full"
                 />
 
                 {inLibrary && <LibraryCheck />}

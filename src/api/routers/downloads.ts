@@ -9,9 +9,10 @@ export const downloadsRouter = {
     .input(DownloadSchemas.list)
     .handler(({ input }) => DbDownloads.list(input.limit)),
 
-  listActive: os.handler(() => DbDownloads.listActiveWithMedia()),
+  listInProgress: os.handler(() => DbDownloads.listInProgress()),
 
   add: os
     .input(DownloadSchemas.add)
+    .errors({ TORRENT_REJECTED: {}, DUPLICATE_DOWNLOAD: {}, NO_EPISODES: {} })
     .handler(({ input }) => new Downloads().enqueue(input)),
 }

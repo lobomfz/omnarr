@@ -6,19 +6,20 @@ import { Formatters } from '@/lib/formatters'
 import { orpc } from '@/web/client'
 import {
   Popover,
+  PopoverClose,
   PopoverContent,
   PopoverTrigger,
 } from '@/web/components/ui/popover'
 import { useDownloadProgressSubscription } from '@/web/lib/subscriptions'
 
-function useActiveDownloads() {
-  return useQuery(orpc.downloads.listActive.queryOptions({}))
+function useInProgressDownloads() {
+  return useQuery(orpc.downloads.listInProgress.queryOptions({}))
 }
 
 export function DownloadPill() {
   useDownloadProgressSubscription()
 
-  const { data } = useActiveDownloads()
+  const { data } = useInProgressDownloads()
 
   if (!data || data.length === 0) {
     return null
@@ -71,32 +72,34 @@ function PillEntry(props: {
   const pct = Math.round(props.download.progress * 100)
 
   return (
-    <Link
-      to="/media/$id"
-      params={{ id: props.download.media_id }}
-      className="flex items-center gap-3 px-4 py-3 border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors duration-[var(--duration-fast)]"
-    >
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">
-          {props.download.title}
-        </p>
-        <div className="flex items-center gap-2 mt-1.5">
-          <div className="h-1.5 flex-1 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-1000 ease-linear"
-              style={{ width: `${pct}%` }}
-            />
+    <PopoverClose asChild>
+      <Link
+        to="/media/$id"
+        params={{ id: props.download.media_id }}
+        className="flex items-center gap-3 px-4 py-3 border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors duration-[var(--duration-fast)]"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-foreground truncate">
+            {props.download.title}
+          </p>
+          <div className="flex items-center gap-2 mt-1.5">
+            <div className="h-1.5 flex-1 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-1000 ease-linear"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <span className="text-[11px] text-muted-foreground font-medium flex-shrink-0">
+              {pct}%
+            </span>
           </div>
-          <span className="text-[11px] text-muted-foreground font-medium flex-shrink-0">
-            {pct}%
-          </span>
+          {props.download.speed > 0 && (
+            <span className="text-[11px] text-muted-foreground mt-0.5 block">
+              {Formatters.speed(props.download.speed)}
+            </span>
+          )}
         </div>
-        {props.download.speed > 0 && (
-          <span className="text-[11px] text-muted-foreground mt-0.5 block">
-            {Formatters.speed(props.download.speed)}
-          </span>
-        )}
-      </div>
-    </Link>
+      </Link>
+    </PopoverClose>
   )
 }

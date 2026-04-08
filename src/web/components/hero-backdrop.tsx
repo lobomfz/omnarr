@@ -21,7 +21,7 @@ export function HeroBackdrop(props: {
           alt=""
           onLoad={() => setLoaded(true)}
           className={cn(
-            'absolute inset-0 h-full w-full object-cover transition-opacity duration-700',
+            'absolute inset-0 size-full object-cover transition-opacity duration-700',
             loaded ? 'opacity-100' : 'opacity-0',
             props.animated && 'animate-ken-burns'
           )}
