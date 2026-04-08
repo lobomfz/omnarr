@@ -85,3 +85,4 @@ This is a small codebase. Use direct tool calls (Read, Grep, Glob) instead of Ex
 - Linter: oxlint with pedantic/perf/suspicious categories on error
 - Tests use `database.reset('table_name')` in `beforeEach` to clear tables (in-memory SQLite)
 - Test CLI commands with `testCommand()` and `testCLI()` from `@bunli/test`
+- Tests always run sequentially. Concurrency is never enabled, even though Bun supports it. File execution order across different test files is not guaranteed — only order within the same file is. Do not write tests that depend on cross-file ordering, and do not assume isolation between files beyond what explicit `beforeEach` cleanup provides.

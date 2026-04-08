@@ -2,9 +2,11 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 
 import { orpc, orpcWs } from '@/web/client'
-import { QueryCache } from '@/web/lib/query-cache'
+import { useQueryCache } from '@/web/lib/use-query-cache'
 
 export function useScanProgress(mediaId: string) {
+  const cache = useQueryCache()
+
   const { data } = useQuery(
     orpcWs.scanProgress.experimental_streamedOptions({
       retry: false,
@@ -18,10 +20,10 @@ export function useScanProgress(mediaId: string) {
       return
     }
 
-    QueryCache.invalidate(
+    cache.invalidate(
       orpc.library.getInfo.queryOptions({ input: { id: mediaId } })
     )
-  }, [latest?.current, latest?.total, mediaId])
+  }, [latest?.current, latest?.total, mediaId, cache])
 
   if (!latest || latest.current >= latest.total) {
     return null

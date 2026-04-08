@@ -1,16 +1,26 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test'
+import './setup-dom'
+import { beforeEach, describe, expect, test } from 'bun:test'
 
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { renderHook } from '@testing-library/react'
+import type { ReactNode } from 'react'
 
-const queryClient = new QueryClient()
+import { useQueryCache } from '@/web/lib/use-query-cache'
 
-mock.module('@/web/main', () => ({ queryClient }))
-
-const { QueryCache } = await import('@/web/lib/query-cache')
+let queryClient: QueryClient
+let wrapper: (props: { children: ReactNode }) => ReactNode
 
 beforeEach(() => {
-  queryClient.clear()
+  queryClient = new QueryClient()
+
+  wrapper = ({ children }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  )
 })
+
+function renderCache() {
+  return renderHook(() => useQueryCache(), { wrapper }).result.current
+}
 
 const queryOptions = {
   queryKey: ['test'],
@@ -25,14 +35,14 @@ const nestedQueryOptions = {
   }),
 }
 
-describe('QueryCache.patch', () => {
+describe('useQueryCache.patch', () => {
   test('patches matching item in array', () => {
     queryClient.setQueryData(queryOptions.queryKey, [
       { id: 1, name: 'a', status: 'pending' },
       { id: 2, name: 'b', status: 'pending' },
     ])
 
-    QueryCache.patch(queryOptions, { id: 1 }, { status: 'done' })
+    renderCache().patch(queryOptions, { id: 1 }, { status: 'done' })
 
     const data = queryClient.getQueryData(queryOptions.queryKey) as any[]
 
@@ -45,7 +55,7 @@ describe('QueryCache.patch', () => {
       { id: 1, name: 'a', status: 'pending' },
     ])
 
-    QueryCache.patch(queryOptions, { id: 99 }, { status: 'done' })
+    renderCache().patch(queryOptions, { id: 99 }, { status: 'done' })
 
     const data = queryClient.getQueryData(queryOptions.queryKey) as any[]
 
@@ -61,7 +71,7 @@ describe('QueryCache.patch', () => {
       ],
     })
 
-    QueryCache.patch(
+    renderCache().patch(
       nestedQueryOptions,
       { downloads: { id: 1 } },
       { progress: 0.9, speed: 500 }
@@ -74,7 +84,7 @@ describe('QueryCache.patch', () => {
   })
 
   test('no-ops when cache is empty', () => {
-    QueryCache.patch(queryOptions, { id: 1 }, { status: 'done' })
+    renderCache().patch(queryOptions, { id: 1 }, { status: 'done' })
 
     const data = queryClient.getQueryData(queryOptions.queryKey)
 
@@ -88,7 +98,7 @@ describe('QueryCache.patch', () => {
       { id: 3, name: 'c', status: 'done' },
     ])
 
-    QueryCache.patch(queryOptions, { status: 'active' }, { name: 'updated' })
+    renderCache().patch(queryOptions, { status: 'active' }, { name: 'updated' })
 
     const data = queryClient.getQueryData(queryOptions.queryKey) as any[]
 
@@ -98,11 +108,11 @@ describe('QueryCache.patch', () => {
   })
 })
 
-describe('QueryCache.invalidate', () => {
+describe('useQueryCache.invalidate', () => {
   test('invalidates query by key', () => {
     queryClient.setQueryData(queryOptions.queryKey, [{ id: 1 }])
 
-    QueryCache.invalidate(queryOptions)
+    renderCache().invalidate(queryOptions)
 
     const state = queryClient.getQueryState(queryOptions.queryKey)
 
