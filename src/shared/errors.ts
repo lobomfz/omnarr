@@ -19,6 +19,7 @@ export const ERROR_MAP = {
     'No .srt files with episode patterns found in archive',
   NO_IMDB_ID: 'No IMDB ID found',
   NO_EPISODES: 'No episodes found for this season',
+  TMDB_UNAVAILABLE: 'Could not reach TMDB',
 } as const
 
 export class OmnarrError extends ORPCError<keyof typeof ERROR_MAP, undefined> {}

@@ -33,20 +33,27 @@
   "ignorePatterns": ["dist", "node_modules", "*.config.*"],
   "overrides": [
     {
-      "files": [
-        "src/api/routers/downloads.ts",
-        "src/core/downloads.ts",
-        "src/core/torrent-download.ts",
-        "src/core/ripper-download.ts",
-        "src/core/subtitle-download.ts",
-        "src/integrations/qbittorrent/client.ts",
-        "src/lib/config.ts"
-      ],
+      "files": ["src/**/*.ts"],
       "jsPlugins": [
         { "name": "omnarr", "specifier": "./oxlint/omnarr-plugin.js" }
       ],
       "rules": {
         "omnarr/no-raw-throw": "error"
+      }
+    },
+    {
+      "files": [
+        "src/shared/errors.ts",
+        "src/player/**",
+        "src/commands/**",
+        "src/audio/**",
+        "src/core/exporter.ts",
+        "src/core/subtitle-matcher.ts",
+        "src/jobs/**",
+        "src/integrations/indexers/**"
+      ],
+      "rules": {
+        "omnarr/no-raw-throw": "off"
       }
     }
   ]

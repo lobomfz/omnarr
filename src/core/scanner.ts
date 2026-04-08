@@ -50,7 +50,7 @@ export class Scanner {
     const media = await DbMedia.getById(mediaId)
 
     if (!media) {
-      throw new Error(`Media ${mediaId} not found`)
+      throw new OmnarrError('MEDIA_NOT_FOUND')
     }
 
     Log.info(`scan started media_id=${mediaId}`)

@@ -24,6 +24,7 @@ export const downloadsRouter = {
       NO_SRT_IN_ARCHIVE: {},
       NO_SRT_EPISODE_PATTERN: {},
       NO_EPISODES: {},
+      TMDB_UNAVAILABLE: {},
     })
     .handler(({ input }) => new Downloads().enqueue(input)),
 }

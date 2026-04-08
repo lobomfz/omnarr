@@ -9,6 +9,7 @@ export const releasesRouter = {
     .errors({
       NO_INDEXERS: {},
       NO_IMDB_ID: {},
+      TMDB_UNAVAILABLE: {},
     })
     .handler(({ input }) =>
       new Releases().search(input.tmdb_id, input.media_type, {

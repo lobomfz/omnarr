@@ -24,7 +24,7 @@ export class TmdbClient {
         `tmdb request failed url=${url} status=${e.status} message="${message}"`
       )
 
-      throw new Error(`TMDB ${e.status}: ${message}`)
+      throw new OmnarrError('TMDB_UNAVAILABLE', { cause: e })
     })
 
     return data
@@ -91,7 +91,7 @@ export class TmdbClient {
     const data = await this.request<TmdbTypes['raw_media']>(`/tv/${tmdbId}`)
 
     if (!data.seasons) {
-      throw new Error('TMDB /tv endpoint did not return seasons')
+      throw new OmnarrError('TMDB_UNAVAILABLE')
     }
 
     return {

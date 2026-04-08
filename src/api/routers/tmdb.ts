@@ -13,6 +13,7 @@ export const tmdbRouter = {
     .errors({
       SEARCH_RESULT_NOT_FOUND: {},
       NO_IMDB_ID: {},
+      TMDB_UNAVAILABLE: {},
     })
     .handler(({ input }) => Tmdb.getInfo(input.id)),
 }
