@@ -1,5 +1,3 @@
-import { ORPCError } from '@orpc/server'
-
 import type { DownloadSchemas, SubtitlesSchemas } from '@/api/schemas'
 import { RipperDownload } from '@/core/ripper-download'
 import { SubtitleDownload } from '@/core/subtitle-download'
@@ -17,9 +15,9 @@ import { indexerMap } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Scheduler } from '@/jobs/scheduler'
 import { config, resolveTracksDir } from '@/lib/config'
-import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 import { deriveId } from '@/lib/utils'
+import { OmnarrError } from '@/shared/errors'
 
 const sourceMap: Record<download_source, new () => DownloadSource> = {
   torrent: TorrentDownload,
@@ -32,19 +30,19 @@ export class Downloads {
     const release = await DbReleases.getById(input.release_id)
 
     if (!release) {
-      throw new Error(`Release '${input.release_id}' not found.`)
+      throw new OmnarrError('RELEASE_NOT_FOUND')
     }
 
     const rootFolder = config.root_folders?.[release.media_type]
 
     if (!rootFolder) {
-      throw new Error(`No root folder configured for ${release.media_type}.`)
+      throw new OmnarrError('NO_ROOT_FOLDER')
     }
 
     const existing = await DbDownloads.getBySourceId(release.source_id)
 
     if (existing) {
-      throw new ORPCError('DUPLICATE_DOWNLOAD')
+      throw new OmnarrError('DUPLICATE_DOWNLOAD')
     }
 
     const source = indexerMap[release.indexer_source].source
@@ -94,7 +92,7 @@ export class Downloads {
     const media = await DbMedia.getById(input.media_id)
 
     if (!media) {
-      throw new Error(`Media '${input.media_id}' not found.`)
+      throw new OmnarrError('MEDIA_NOT_FOUND')
     }
 
     const episodeId = await this.resolveEpisodeId(
@@ -123,7 +121,7 @@ export class Downloads {
       const existing = await DbMedia.getById(mediaId)
 
       if (!existing) {
-        throw new Error(`Media '${mediaId}' not found.`)
+        throw new OmnarrError('MEDIA_NOT_FOUND')
       }
 
       return {
@@ -174,7 +172,7 @@ export class Downloads {
     }
 
     if (season === undefined || episode === undefined) {
-      throw new Error('TV shows require season and episode.')
+      throw new OmnarrError('TV_REQUIRES_SEASON_EPISODE')
     }
 
     const ep = await DbEpisodes.getBySeasonEpisode(
@@ -184,9 +182,7 @@ export class Downloads {
     )
 
     if (!ep) {
-      throw new Error(
-        `Episode ${Formatters.seasonEpisodeTag(season, episode)} not found.`
-      )
+      throw new OmnarrError('EPISODE_NOT_FOUND')
     }
 
     return ep.id

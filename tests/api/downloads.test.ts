@@ -88,7 +88,7 @@ describe('downloads.add', async () => {
   test('throws when release not found', async () => {
     await expect(() =>
       client.downloads.add({ release_id: 'NONEXISTENT' })
-    ).toThrow("Release 'NONEXISTENT' not found")
+    ).toThrow('RELEASE_NOT_FOUND')
   })
 
   test('throws when no download client configured', async () => {
@@ -96,7 +96,7 @@ describe('downloads.add', async () => {
 
     await expect(() =>
       client.downloads.add({ release_id: torrentRelease.id })
-    ).toThrow('No download client configured')
+    ).toThrow('NO_DOWNLOAD_CLIENT')
   })
 
   test('throws when no root folder configured', async () => {
@@ -104,7 +104,7 @@ describe('downloads.add', async () => {
 
     await expect(() =>
       client.downloads.add({ release_id: torrentRelease.id })
-    ).toThrow('No root folder configured for movie')
+    ).toThrow('NO_ROOT_FOLDER')
   })
 
   test('cleans up new media when qBittorrent is offline', async () => {
@@ -220,7 +220,7 @@ describe('downloads.add', async () => {
         release_id: torrentRelease.id,
         media_id: 'NOTEXIST',
       })
-    ).toThrow("Media 'NOTEXIST' not found")
+    ).toThrow('MEDIA_NOT_FOUND')
   })
 
   test('does not create download record when qBittorrent fails', async () => {
@@ -294,7 +294,7 @@ describe('downloads.add ripper', async () => {
 
     await expect(() =>
       client.downloads.add({ release_id: ripperRelease.id })
-    ).toThrow('No tracks root folder configured')
+    ).toThrow('NO_ROOT_FOLDER')
   })
 })
 

@@ -111,15 +111,17 @@ describe('subtitles.search', () => {
   })
 
   test('errors for unknown media', async () => {
-    await expect(() =>
-      client.subtitles.search({ media_id: 'XXXXXX' })
-    ).toThrow()
+    await expect(() => client.subtitles.search({ media_id: 'XXXXXX' })).toThrow(
+      'MEDIA_NOT_FOUND'
+    )
   })
 
   test('TV requires season', async () => {
     const mediaId = await setupTvShow()
 
-    await expect(() => client.subtitles.search({ media_id: mediaId })).toThrow()
+    await expect(() => client.subtitles.search({ media_id: mediaId })).toThrow(
+      'TV_REQUIRES_SEASON'
+    )
   })
 
   test('TV search with season and episode', async () => {
@@ -295,7 +297,7 @@ describe('subtitles.download', () => {
 
     await expect(() =>
       client.subtitles.download({ release_id: releaseId, media_id: mediaId })
-    ).toThrow(/No .srt file/)
+    ).toThrow('NO_SRT_IN_ARCHIVE')
 
     const download = await db
       .selectFrom('downloads as d')
@@ -320,7 +322,7 @@ describe('subtitles.autoMatch', () => {
   test('errors for unknown media', async () => {
     await expect(() =>
       client.subtitles.autoMatch({ media_id: 'XXXXXX' })
-    ).toThrow(/not found/)
+    ).toThrow('MEDIA_NOT_FOUND')
   })
 
   test('errors when TV is missing season/episode', async () => {
@@ -328,6 +330,6 @@ describe('subtitles.autoMatch', () => {
 
     await expect(() =>
       client.subtitles.autoMatch({ media_id: mediaId })
-    ).toThrow(/require season/)
+    ).toThrow('TV_REQUIRES_SEASON_EPISODE')
   })
 })

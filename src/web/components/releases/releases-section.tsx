@@ -3,6 +3,7 @@ import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
 import { AlertCircle, AlertTriangle, SearchX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { ERROR_MAP } from '@/shared/errors'
 import { orpc } from '@/web/client'
 import { Toast } from '@/web/components/ui/toast'
 import { cn } from '@/web/lib/cn'
@@ -10,12 +11,6 @@ import type { ReleasesResult } from '@/web/types/releases'
 
 import { ActionBar } from './action-bar'
 import { ReleaseRow } from './release-row'
-
-const DOWNLOAD_ERROR_LABELS: Record<string, string> = {
-  TORRENT_REJECTED: 'Torrent rejected by download client',
-  DUPLICATE_DOWNLOAD: 'This release is already being downloaded',
-  NO_EPISODES: 'No episodes found for this season',
-}
 
 function useReleasesSearch(props: {
   tmdb_id: number
@@ -48,9 +43,7 @@ function useDownloadMutation(props: {
         })
       },
       onError: (err) => {
-        const message = isDefinedError(err)
-          ? (DOWNLOAD_ERROR_LABELS[err.code] ?? err.message)
-          : err.message
+        const message = isDefinedError(err) ? ERROR_MAP[err.code] : err.message
 
         props.onToast({ message, type: 'error' })
       },

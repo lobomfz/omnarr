@@ -31,14 +31,14 @@ await TmdbMock.db.insertInto('external_ids').values({ tmdb_id: 9999 }).execute()
 describe('TmdbClient - no IMDB ID', () => {
   test('throws when TMDB entry has no IMDB ID', async () => {
     await expect(() => new TmdbClient().getDetails(9999, 'tv')).toThrow(
-      /no IMDB ID/
+      'NO_IMDB_ID'
     )
   })
 })
 
 describe('Releases', () => {
   test('throws when media has no IMDB ID', async () => {
-    await expect(() => new Releases().search(9999, 'tv')).toThrow(/no IMDB ID/i)
+    await expect(() => new Releases().search(9999, 'tv')).toThrow('NO_IMDB_ID')
   })
 
   test('continues when one indexer fails', async () => {

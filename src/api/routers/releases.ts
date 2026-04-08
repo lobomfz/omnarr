@@ -4,9 +4,15 @@ import { ReleasesSchemas } from '@/api/schemas'
 import { Releases } from '@/core/releases'
 
 export const releasesRouter = {
-  search: os.input(ReleasesSchemas.search).handler(({ input }) =>
-    new Releases().search(input.tmdb_id, input.media_type, {
-      season: input.season_number,
+  search: os
+    .input(ReleasesSchemas.search)
+    .errors({
+      NO_INDEXERS: {},
+      NO_IMDB_ID: {},
     })
-  ),
+    .handler(({ input }) =>
+      new Releases().search(input.tmdb_id, input.media_type, {
+        season: input.season_number,
+      })
+    ),
 }

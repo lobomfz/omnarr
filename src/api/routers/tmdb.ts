@@ -10,5 +10,9 @@ export const tmdbRouter = {
 
   getInfo: os
     .input(TmdbSchemas.getInfo)
+    .errors({
+      SEARCH_RESULT_NOT_FOUND: {},
+      NO_IMDB_ID: {},
+    })
     .handler(({ input }) => Tmdb.getInfo(input.id)),
 }

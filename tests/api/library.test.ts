@@ -86,7 +86,7 @@ describe('library.getInfo', () => {
 describe('library.rescan', () => {
   test('throws when media does not exist', async () => {
     await expect(() => client.library.rescan({ media_id: 'NOTEXIST' })).toThrow(
-      "Media 'NOTEXIST' not found."
+      'MEDIA_NOT_FOUND'
     )
   })
 

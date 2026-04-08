@@ -10,6 +10,7 @@ import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
 import { deriveId } from '@/lib/utils'
+import { OmnarrError } from '@/shared/errors'
 
 export class SubtitleDownload implements DownloadSource {
   private async fetchSrtEntries(url: string) {
@@ -117,7 +118,7 @@ export class SubtitleDownload implements DownloadSource {
     })
 
     if (!result) {
-      throw new Error('No .srt file found in subtitle archive')
+      throw new OmnarrError('NO_SRT_IN_ARCHIVE')
     }
 
     return {
@@ -146,7 +147,7 @@ export class SubtitleDownload implements DownloadSource {
       )
 
       if (srtEntries.length === 0) {
-        throw new Error('No .srt file found in subtitle archive')
+        throw new OmnarrError('NO_SRT_IN_ARCHIVE')
       }
 
       let saved = 0
@@ -177,9 +178,7 @@ export class SubtitleDownload implements DownloadSource {
       }
 
       if (saved === 0) {
-        throw new Error(
-          'Season pack contained no .srt files with episode patterns'
-        )
+        throw new OmnarrError('NO_SRT_EPISODE_PATTERN')
       }
 
       Log.info(

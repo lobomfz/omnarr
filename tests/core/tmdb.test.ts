@@ -23,7 +23,7 @@ async function seedSearch(tmdbId: number, mediaType: 'movie' | 'tv') {
 describe('Tmdb.getInfo', () => {
   test('throws when search result is missing', async () => {
     await expect(() => Tmdb.getInfo('NOEXIST')).toThrow(
-      "Search result 'NOEXIST' not found."
+      'SEARCH_RESULT_NOT_FOUND'
     )
   })
 
@@ -54,7 +54,7 @@ describe('Tmdb.getInfo', () => {
   test('throws when movie has no imdb id', async () => {
     const id = await seedSearch(7777, 'movie')
 
-    await expect(() => Tmdb.getInfo(id)).toThrow('no IMDB ID')
+    await expect(() => Tmdb.getInfo(id)).toThrow('NO_IMDB_ID')
   })
 
   test('averages episode_run_time for tv runtime', async () => {

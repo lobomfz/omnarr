@@ -7,6 +7,12 @@ import { Releases } from '@/core/releases'
 export const subtitlesRouter = {
   search: os
     .input(SubtitlesSchemas.search)
+    .errors({
+      MEDIA_NOT_FOUND: {},
+      TV_REQUIRES_SEASON: {},
+      NO_IMDB_ID: {},
+      NO_SUBTITLE_INDEXER: {},
+    })
     .handler(({ input }) =>
       new Releases().searchSubtitles(input.media_id, input)
     ),
@@ -17,5 +23,10 @@ export const subtitlesRouter = {
 
   autoMatch: os
     .input(SubtitlesSchemas.autoMatch)
+    .errors({
+      MEDIA_NOT_FOUND: {},
+      TV_REQUIRES_SEASON_EPISODE: {},
+      EPISODE_NOT_FOUND: {},
+    })
     .handler(({ input }) => new Downloads().autoMatchSubtitles(input)),
 }

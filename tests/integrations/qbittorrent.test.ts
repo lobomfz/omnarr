@@ -40,7 +40,9 @@ describe('QBittorrentClient', () => {
       category: 'omnarr',
     })
 
-    expect(() => bad.getTorrentStatuses()).toThrow('qBittorrent login failed')
+    expect(() => bad.getTorrentStatuses()).toThrow(
+      'DOWNLOAD_CLIENT_UNREACHABLE'
+    )
   })
 
   test('getTorrentStatuses maps qBit states to domain status', async () => {

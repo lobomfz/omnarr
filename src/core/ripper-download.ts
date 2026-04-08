@@ -1,5 +1,3 @@
-import { ORPCError } from '@orpc/server'
-
 import { DownloadEvents } from '@/core/download-events'
 import type { DownloadData, DownloadSource } from '@/core/types/download-source'
 import { DbDownloads } from '@/db/downloads'
@@ -7,6 +5,7 @@ import { DbEpisodes } from '@/db/episodes'
 import { DbEvents } from '@/db/events'
 import { DbMedia } from '@/db/media'
 import { Scheduler } from '@/jobs/scheduler'
+import { OmnarrError } from '@/shared/errors'
 
 export class RipperDownload implements DownloadSource {
   enqueue: DownloadSource['enqueue'] = async (data) => {
@@ -58,7 +57,7 @@ export class RipperDownload implements DownloadSource {
     const media = await DbMedia.getById(data.media_id)
 
     if (!media) {
-      throw new Error(`Media '${data.media_id}' not found.`)
+      throw new OmnarrError('MEDIA_NOT_FOUND')
     }
 
     const episodes = await DbEpisodes.listBySeason(
@@ -67,7 +66,7 @@ export class RipperDownload implements DownloadSource {
     )
 
     if (episodes.length === 0) {
-      throw new ORPCError('NO_EPISODES')
+      throw new OmnarrError('NO_EPISODES')
     }
 
     const downloads = await DbDownloads.createBatch(

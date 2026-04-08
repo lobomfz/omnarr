@@ -4,6 +4,7 @@ import axios from 'redaxios'
 import type { media_type } from '@/db/connection'
 import { envVariables } from '@/lib/env'
 import { Log } from '@/lib/log'
+import { OmnarrError } from '@/shared/errors'
 
 import type { TmdbTypes } from './types'
 
@@ -74,7 +75,7 @@ export class TmdbClient {
     ])
 
     if (!externalIds.imdb_id) {
-      throw new Error(`TMDB entry ${tmdbId} has no IMDB ID`)
+      throw new OmnarrError('NO_IMDB_ID')
     }
 
     return { ...this.parse(data, mediaType), imdb_id: externalIds.imdb_id }

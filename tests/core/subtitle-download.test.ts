@@ -148,7 +148,7 @@ describe('SubtitleDownload.enqueueSeasonPack', () => {
         tracks_dir: join(tracksDir, mediaId),
         season_number: 1,
       })
-    ).toThrow('No .srt file found in subtitle archive')
+    ).toThrow('NO_SRT_IN_ARCHIVE')
   })
 
   test('throws when .srt files have no episode patterns', async () => {
@@ -165,6 +165,6 @@ describe('SubtitleDownload.enqueueSeasonPack', () => {
         tracks_dir: join(tracksDir, mediaId),
         season_number: 1,
       })
-    ).toThrow('Season pack contained no .srt files with episode patterns')
+    ).toThrow('NO_SRT_EPISODE_PATTERN')
   })
 })

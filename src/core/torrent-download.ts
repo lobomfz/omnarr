@@ -5,11 +5,12 @@ import { DbEvents } from '@/db/events'
 import { QBittorrentClient } from '@/integrations/qbittorrent/client'
 import { config } from '@/lib/config'
 import { Log } from '@/lib/log'
+import { OmnarrError } from '@/shared/errors'
 
 export class TorrentDownload implements DownloadSource {
   enqueue: DownloadSource['enqueue'] = async (data) => {
     if (!config.download_client) {
-      throw new Error('No download client configured.')
+      throw new OmnarrError('NO_DOWNLOAD_CLIENT')
     }
 
     Log.info(`adding torrent source_id=${data.source_id} title="${data.title}"`)

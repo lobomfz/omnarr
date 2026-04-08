@@ -17,5 +17,8 @@ export const libraryRouter = {
 
   rescan: os
     .input(ScanSchemas.rescan)
+    .errors({
+      MEDIA_NOT_FOUND: {},
+    })
     .handler(({ input }) => new Scanner().rescan(input.media_id, input.force)),
 }

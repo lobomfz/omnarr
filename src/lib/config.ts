@@ -5,6 +5,7 @@ import { type } from '@lobomfz/db'
 import { indexerSchema } from '@/integrations/indexers/registry'
 import { envVariables } from '@/lib/env'
 import { Log } from '@/lib/log'
+import { OmnarrError } from '@/shared/errors'
 
 const qbittorrentClient = type({
   type: "'qbittorrent'",
@@ -62,7 +63,7 @@ export function resolveTracksDir(mediaId: string) {
   const tracksRoot = config.root_folders?.tracks
 
   if (!tracksRoot) {
-    throw new Error('No tracks root folder configured')
+    throw new OmnarrError('NO_ROOT_FOLDER')
   }
 
   return join(tracksRoot, mediaId)

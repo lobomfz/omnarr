@@ -9,6 +9,7 @@ import { config } from '@/lib/config'
 import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
+import { OmnarrError } from '@/shared/errors'
 
 interface SourcedRelease extends IndexerRelease {
   indexer_source: indexer_source
@@ -31,7 +32,7 @@ export class Releases {
     )
 
     if (indexers.length === 0) {
-      throw new Error('No indexers configured.')
+      throw new OmnarrError('NO_INDEXERS')
     }
 
     Log.info(
@@ -123,17 +124,15 @@ export class Releases {
     const media = await DbMedia.getById(media_id)
 
     if (!media) {
-      throw new Error(`Media '${media_id}' not found.`)
+      throw new OmnarrError('MEDIA_NOT_FOUND')
     }
 
     if (media.media_type === 'tv' && opts?.season === undefined) {
-      throw new Error(
-        'TV shows require --season. Use info to see available episodes.'
-      )
+      throw new OmnarrError('TV_REQUIRES_SEASON')
     }
 
     if (!media.imdb_id) {
-      throw new Error(`No IMDB ID found for media '${media_id}'.`)
+      throw new OmnarrError('NO_IMDB_ID')
     }
 
     const indexers = config.indexers.filter(
@@ -141,7 +140,7 @@ export class Releases {
     )
 
     if (indexers.length === 0) {
-      throw new Error('No subtitle indexer configured.')
+      throw new OmnarrError('NO_SUBTITLE_INDEXER')
     }
 
     Log.info(

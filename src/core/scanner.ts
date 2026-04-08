@@ -18,6 +18,7 @@ import { DbMediaVad } from '@/db/media-vad'
 import { Scheduler } from '@/jobs/scheduler'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
+import { OmnarrError } from '@/shared/errors'
 
 const VALID_EXTENSIONS = new Set(['mkv', 'mp4', 'avi', 'ts', 'mka', 'srt'])
 
@@ -31,7 +32,7 @@ export class Scanner {
     const media = await DbMedia.getById(mediaId)
 
     if (!media) {
-      throw new Error(`Media '${mediaId}' not found.`)
+      throw new OmnarrError('MEDIA_NOT_FOUND')
     }
 
     Scheduler.scan(mediaId, force)

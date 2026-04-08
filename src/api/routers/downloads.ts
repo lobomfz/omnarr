@@ -13,6 +13,17 @@ export const downloadsRouter = {
 
   add: os
     .input(DownloadSchemas.add)
-    .errors({ TORRENT_REJECTED: {}, DUPLICATE_DOWNLOAD: {}, NO_EPISODES: {} })
+    .errors({
+      RELEASE_NOT_FOUND: {},
+      MEDIA_NOT_FOUND: {},
+      DUPLICATE_DOWNLOAD: {},
+      NO_DOWNLOAD_CLIENT: {},
+      NO_ROOT_FOLDER: {},
+      TORRENT_REJECTED: {},
+      DOWNLOAD_CLIENT_UNREACHABLE: {},
+      NO_SRT_IN_ARCHIVE: {},
+      NO_SRT_EPISODE_PATTERN: {},
+      NO_EPISODES: {},
+    })
     .handler(({ input }) => new Downloads().enqueue(input)),
 }

@@ -7,6 +7,7 @@ import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { TmdbClient } from '@/integrations/tmdb/client'
 import { Log } from '@/lib/log'
+import { OmnarrError } from '@/shared/errors'
 
 const SEASONS_TTL_DAYS = 7
 
@@ -36,7 +37,7 @@ export const Tmdb = {
     const searchResult = await DbSearchResults.getById(id)
 
     if (!searchResult) {
-      throw new Error(`Search result '${id}' not found.`)
+      throw new OmnarrError('SEARCH_RESULT_NOT_FOUND')
     }
 
     const tmdb = new TmdbClient()
@@ -100,7 +101,7 @@ export const Tmdb = {
     ])
 
     if (!externalIds.imdb_id) {
-      throw new Error(`TMDB entry ${tmdb_id} has no IMDB ID`)
+      throw new OmnarrError('NO_IMDB_ID')
     }
 
     const allEpisodes = await Promise.all(

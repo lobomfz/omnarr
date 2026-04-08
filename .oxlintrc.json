@@ -30,5 +30,24 @@
     "suspicious": "error",
     "pedantic": "error"
   },
-  "ignorePatterns": ["dist", "node_modules", "*.config.*"]
+  "ignorePatterns": ["dist", "node_modules", "*.config.*"],
+  "overrides": [
+    {
+      "files": [
+        "src/api/routers/downloads.ts",
+        "src/core/downloads.ts",
+        "src/core/torrent-download.ts",
+        "src/core/ripper-download.ts",
+        "src/core/subtitle-download.ts",
+        "src/integrations/qbittorrent/client.ts",
+        "src/lib/config.ts"
+      ],
+      "jsPlugins": [
+        { "name": "omnarr", "specifier": "./oxlint/omnarr-plugin.js" }
+      ],
+      "rules": {
+        "omnarr/no-raw-throw": "error"
+      }
+    }
+  ]
 }
