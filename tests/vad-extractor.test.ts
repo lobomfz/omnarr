@@ -5,6 +5,7 @@ import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
+import { PubSub } from '@/api/pubsub'
 import { VadExtractor } from '@/audio/vad-extractor'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-vad-'))
@@ -47,14 +48,20 @@ afterAll(async () => {
 
 describe('VadExtractor.extract', () => {
   test('returns Float32Array for silent audio', async () => {
-    const result = await new VadExtractor().extract(silentMkv, () => {})
+    const result = await new VadExtractor({
+      media_id: 'ABCDEF',
+      path: silentMkv,
+    }).extract()
 
     expect(result).toBeInstanceOf(Float32Array)
     expect(result.length).toBe(0)
   })
 
   test('timestamps are in ascending order with start < end', async () => {
-    const result = await new VadExtractor().extract(speechMkv, () => {})
+    const result = await new VadExtractor({
+      media_id: 'ABCDEF',
+      path: speechMkv,
+    }).extract()
 
     expect(result).toBeInstanceOf(Float32Array)
 
@@ -67,32 +74,48 @@ describe('VadExtractor.extract', () => {
     }
   })
 
-  test('calls onProgress during extraction', async () => {
-    const ratios: number[] = []
-
-    await new VadExtractor().extract(silentMkv, (r) => ratios.push(r), {
-      duration: 2,
-    })
-
-    expect(ratios.length).toBeGreaterThan(0)
-
-    for (const r of ratios) {
-      expect(r).toBeGreaterThanOrEqual(0)
-      expect(r).toBeLessThanOrEqual(1)
-    }
-  })
-
-  test('does not call onProgress when duration is not provided', async () => {
-    const ratios: number[] = []
-
-    await new VadExtractor().extract(silentMkv, (r) => ratios.push(r))
-
-    expect(ratios.length).toBe(0)
-  })
-
   test('result length is always even (start/end pairs)', async () => {
-    const result = await new VadExtractor().extract(speechMkv, () => {})
+    const result = await new VadExtractor({
+      media_id: 'ABCDEF',
+      path: speechMkv,
+    }).extract()
 
     expect(result.length % 2).toBe(0)
+  })
+
+  test('publishes scan_file_progress events with step=vad and correct identity', async () => {
+    const events: {
+      media_id: string
+      path: string
+      step: 'keyframes' | 'vad'
+      ratio: number
+    }[] = []
+    const ac = new AbortController()
+
+    const collecting = (async () => {
+      for await (const event of PubSub.subscribe(
+        'scan_file_progress',
+        ac.signal
+      )) {
+        events.push(event)
+      }
+    })().catch(() => {})
+
+    await new VadExtractor({
+      media_id: 'ABCDEF',
+      path: silentMkv,
+    }).extract({ duration: 2 })
+
+    await Bun.sleep(50)
+    ac.abort()
+    await collecting
+
+    const vadEvents = events.filter(
+      (e) => e.step === 'vad' && e.path === silentMkv
+    )
+
+    expect(vadEvents.length).toBeGreaterThan(0)
+    expect(vadEvents.every((e) => e.media_id === 'ABCDEF')).toBe(true)
+    expect(vadEvents.every((e) => e.ratio >= 0 && e.ratio <= 1)).toBe(true)
   })
 })

@@ -3,6 +3,10 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Suspense, useState } from 'react'
 
 import { orpc } from '@/web/client'
+import {
+  QueryErrorBoundary,
+  QueryErrorFallback,
+} from '@/web/components/query-error-boundary'
 import { ReleasesSection } from '@/web/components/releases/releases-section'
 import { ReleasesSkeleton } from '@/web/components/releases/releases-skeleton'
 
@@ -11,6 +15,7 @@ import { PageSkeleton } from './-components/page-skeleton'
 
 export const Route = createFileRoute('/search/$id')({
   component: SearchDetailPage,
+  errorComponent: ({ error }) => <QueryErrorFallback error={error} />,
 })
 
 function useTmdbInfo(id: string) {
@@ -65,17 +70,16 @@ function SearchDetailContent(props: { id: string }) {
             </p>
           </div>
         ) : (
-          <Suspense
-            key={selectedSeason ?? 'all'}
-            fallback={<ReleasesSkeleton />}
-          >
-            <ReleasesSection
-              tmdb_id={info.tmdb_id}
-              media_type={info.media_type}
-              title={info.title}
-              season_number={selectedSeason}
-            />
-          </Suspense>
+          <QueryErrorBoundary key={selectedSeason ?? 'all'}>
+            <Suspense fallback={<ReleasesSkeleton />}>
+              <ReleasesSection
+                tmdb_id={info.tmdb_id}
+                media_type={info.media_type}
+                title={info.title}
+                season_number={selectedSeason}
+              />
+            </Suspense>
+          </QueryErrorBoundary>
         )}
       </div>
     </>

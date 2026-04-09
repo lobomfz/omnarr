@@ -10,6 +10,7 @@ import { mkdir, mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
+import { PubSub } from '@/api/pubsub'
 import { Scanner } from '@/core/scanner'
 import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
@@ -699,5 +700,81 @@ describe('new Scanner().scan — VAD extraction', () => {
 
     expect(vadAfter).toBeDefined()
     expect(filesAfter[0].id).not.toBe(filesBefore[0].id)
+  })
+})
+
+describe('new Scanner().scan — scan_file_progress PubSub', () => {
+  test('publishes scan_file_progress events with step=keyframes for video files', async () => {
+    const contentPath = join(tmpDir, 'basic/The Matrix (1999)')
+    const filePath = join(contentPath, 'movie.mkv')
+    const media = await seedMedia(contentPath)
+
+    const events: {
+      media_id: string
+      path: string
+      step: 'keyframes' | 'vad'
+      ratio: number
+    }[] = []
+    const ac = new AbortController()
+
+    const collecting = (async () => {
+      for await (const event of PubSub.subscribe(
+        'scan_file_progress',
+        ac.signal
+      )) {
+        events.push(event)
+      }
+    })().catch(() => {})
+
+    await new Scanner().scan(media.id)
+
+    await Bun.sleep(50)
+    ac.abort()
+    await collecting
+
+    const keyframeEvents = events.filter(
+      (e) => e.step === 'keyframes' && e.path === filePath
+    )
+
+    expect(keyframeEvents.length).toBeGreaterThan(0)
+    expect(keyframeEvents.every((e) => e.media_id === media.id)).toBe(true)
+    expect(keyframeEvents.every((e) => e.ratio >= 0 && e.ratio <= 1)).toBe(true)
+  })
+
+  test('publishes scan_file_progress events with step=vad for audio files', async () => {
+    const contentPath = join(tmpDir, 'basic/The Matrix (1999)')
+    const filePath = join(contentPath, 'movie.mkv')
+    const media = await seedMedia(contentPath)
+
+    const events: {
+      media_id: string
+      path: string
+      step: 'keyframes' | 'vad'
+      ratio: number
+    }[] = []
+    const ac = new AbortController()
+
+    const collecting = (async () => {
+      for await (const event of PubSub.subscribe(
+        'scan_file_progress',
+        ac.signal
+      )) {
+        events.push(event)
+      }
+    })().catch(() => {})
+
+    await new Scanner().scan(media.id)
+
+    await Bun.sleep(50)
+    ac.abort()
+    await collecting
+
+    const vadEvents = events.filter(
+      (e) => e.step === 'vad' && e.path === filePath
+    )
+
+    expect(vadEvents.length).toBeGreaterThan(0)
+    expect(vadEvents.every((e) => e.media_id === media.id)).toBe(true)
+    expect(vadEvents.every((e) => e.ratio >= 0 && e.ratio <= 1)).toBe(true)
   })
 })

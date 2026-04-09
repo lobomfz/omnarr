@@ -14,6 +14,14 @@ export const wsRouter = {
   subtitleProgress: os.handler(({ signal }) =>
     PubSub.subscribe('subtitle_progress', signal)
   ),
+
+  exportProgress: os.handler(({ signal }) =>
+    PubSub.subscribe('export_progress', signal)
+  ),
+
+  scanFileProgress: os.handler(({ signal }) =>
+    PubSub.subscribe('scan_file_progress', signal)
+  ),
 }
 
 export type WsAPI = typeof wsRouter

@@ -25,6 +25,7 @@ interface RipperEntry {
 
 export class Ripper {
   private client = new SuperflixAdapter()
+  private lastPublishAt = 0
 
   constructor(
     private ctx: {
@@ -134,12 +135,15 @@ export class Ripper {
     }
 
     let ripped = 0
-    let completed = 0
 
     await this.publishProgress(0)
 
-    for (const entry of entries) {
-      await this.ripEntry(entry, tmpPath)
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i]
+
+      this.lastPublishAt = 0
+
+      await this.ripEntry(entry, tmpPath, i, entries.length)
         .then(() => {
           ripped++
         })
@@ -147,11 +151,8 @@ export class Ripper {
           Log.warn(`ripper failed tag=${entry.tag} error="${err.message}"`)
         )
 
-      completed++
-
-      const progress = completed / entries.length
-
-      await this.publishProgress(progress)
+      this.lastPublishAt = 0
+      await this.publishProgress((i + 1) / entries.length)
     }
 
     await this.publishProgress(1)
@@ -165,10 +166,31 @@ export class Ripper {
     await DownloadEvents.publish(this.ctx.download_id)
   }
 
-  private async ripEntry(entry: RipperEntry, tmpPath: string) {
+  private async ripEntry(
+    entry: RipperEntry,
+    tmpPath: string,
+    completed: number,
+    total: number
+  ) {
     const tmpFile = join(tmpPath, `${entry.tag.replaceAll(' ', '_')}.ts`)
 
-    await this.client.downloadStream(entry.stream, tmpFile, () => {})
+    await this.client.downloadStream(
+      entry.stream,
+      tmpFile,
+      (downloaded, downloadTotal) => {
+        const now = Date.now()
+
+        if (now - this.lastPublishAt < 500) {
+          return
+        }
+
+        this.lastPublishAt = now
+
+        const ratio = (completed + downloaded / downloadTotal) / total
+
+        this.publishProgress(ratio).catch(Log.warn)
+      }
+    )
 
     await mkdir(dirname(entry.outputPath), { recursive: true })
 

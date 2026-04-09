@@ -1,9 +1,9 @@
 import { tmpdir } from 'os'
 import { join } from 'path'
 
+import { type } from '@lobomfz/db'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 import { Mock } from '@lobomfz/ghostapi'
-import { type } from '@lobomfz/db'
 
 import { envVariables } from '@/lib/env'
 
@@ -197,31 +197,29 @@ var API_URL_SOURCE = "${baseUrl}/player/source";
         return new Response('Not found', { status: 500 })
       }
 
-      const playlist = [
-        '#EXTM3U',
-        '#EXT-X-VERSION:3',
-        '#EXT-X-TARGETDURATION:1',
-        '#EXTINF:1.0,',
-        `${baseUrl}/hls/vchunk/0`,
-        '#EXT-X-ENDLIST',
-      ].join('\n')
+      const lines = ['#EXTM3U', '#EXT-X-VERSION:3', '#EXT-X-TARGETDURATION:1']
 
-      return new Response(playlist, {
+      for (let i = 0; i < 25; i++) {
+        lines.push('#EXTINF:1.0,', `${baseUrl}/hls/vchunk/${i}`)
+      }
+
+      lines.push('#EXT-X-ENDLIST')
+
+      return new Response(lines.join('\n'), {
         headers: { 'content-type': 'application/vnd.apple.mpegurl' },
       })
     })
 
     app.get('/hls/audio/:lang', () => {
-      const playlist = [
-        '#EXTM3U',
-        '#EXT-X-VERSION:3',
-        '#EXT-X-TARGETDURATION:1',
-        '#EXTINF:1.0,',
-        `${baseUrl}/hls/chunk/0`,
-        '#EXT-X-ENDLIST',
-      ].join('\n')
+      const lines = ['#EXTM3U', '#EXT-X-VERSION:3', '#EXT-X-TARGETDURATION:1']
 
-      return new Response(playlist, {
+      for (let i = 0; i < 25; i++) {
+        lines.push('#EXTINF:1.0,', `${baseUrl}/hls/chunk/${i}`)
+      }
+
+      lines.push('#EXT-X-ENDLIST')
+
+      return new Response(lines.join('\n'), {
         headers: { 'content-type': 'application/vnd.apple.mpegurl' },
       })
     })

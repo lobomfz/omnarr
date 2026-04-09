@@ -2,6 +2,7 @@ import { resolve } from 'path'
 
 import { type, type Type } from '@lobomfz/db'
 
+import { PubSub } from '@/api/pubsub'
 import { MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
 import { client } from '@/cli/client'
 import { connectWs } from '@/cli/ws-client'
@@ -403,36 +404,53 @@ export class Handler {
 
     const outputPath = resolve(output)
 
-    let lastWrite = 0
-
     const exporter = new Exporter({ id: media_id, episode_id: episodeId })
+    const controller = new AbortController()
+    const consumer = this.consumeExportProgress(
+      media_id,
+      outputPath,
+      controller.signal
+    )
 
-    await exporter.export({
-      video: opts.video,
-      output: outputPath,
-      onProgress: (ratio) => {
-        if (this.json || !process.stdout.isTTY) {
-          return
+    try {
+      await exporter.export({ video: opts.video, output: outputPath })
+    } finally {
+      controller.abort()
+      await consumer
+    }
+
+    this.output({ output: outputPath }, `Exported: ${outputPath}`)
+  }
+
+  private async consumeExportProgress(
+    media_id: string,
+    outputPath: string,
+    signal: AbortSignal
+  ) {
+    if (this.json || !process.stdout.isTTY) {
+      return
+    }
+
+    try {
+      for await (const event of PubSub.subscribe('export_progress', signal)) {
+        if (event.media_id !== media_id || event.output !== outputPath) {
+          continue
         }
 
-        const now = Date.now()
-
-        if (ratio < 1 && now - lastWrite < 100) {
-          return
-        }
-
-        lastWrite = now
-
-        const pct = Formatters.progress(ratio)
+        const pct = Formatters.progress(event.ratio)
 
         process.stdout.write(`\rExporting ${pct}`)
 
-        if (ratio >= 1) {
+        if (event.ratio >= 1) {
           process.stdout.write('\n')
         }
-      },
-    })
+      }
+    } catch (err) {
+      if (signal.aborted) {
+        return
+      }
 
-    this.output({ output: outputPath }, `Exported: ${outputPath}`)
+      throw err
+    }
   }
 }

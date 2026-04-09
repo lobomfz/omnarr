@@ -3,7 +3,11 @@ import { join } from 'path'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 import { InferenceSession, Tensor } from 'onnxruntime-node'
 
-import { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES } from '@/audio/vad-constants'
+import { PubSub } from '@/api/pubsub'
+import {
+  SILERO_SAMPLE_RATE,
+  SILERO_WINDOW_SAMPLES,
+} from '@/audio/vad-constants'
 
 export { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES }
 
@@ -40,6 +44,8 @@ export class VadExtractor {
   private tempEnd = 0
   private currentSpeech: { start?: number; end?: number } = {}
   private speeches: { start: number; end: number }[] = []
+
+  constructor(private id: { media_id: string; path: string }) {}
 
   private async processChunk(chunk: Float32Array) {
     this.inputWithContext.set(this.context, 0)
@@ -138,11 +144,7 @@ export class VadExtractor {
     return result
   }
 
-  private async processPcmStream(
-    path: string,
-    onProgress: (ratio: number) => void,
-    opts?: { duration?: number }
-  ) {
+  private async processPcmStream(opts?: { duration?: number }) {
     let processedSamples = 0
 
     const totalExpectedSamples = opts?.duration
@@ -150,7 +152,7 @@ export class VadExtractor {
       : 0
 
     const stream = new FFmpegBuilder()
-      .input(path)
+      .input(this.id.path)
       .map('0:a:0')
       .raw('-ac', '1', '-ar', String(SILERO_SAMPLE_RATE))
       .format('f32le')
@@ -180,7 +182,12 @@ export class VadExtractor {
       pending = merged.slice(offset)
 
       if (totalExpectedSamples > 0) {
-        onProgress(Math.min(processedSamples / totalExpectedSamples, 1))
+        PubSub.publish('scan_file_progress', {
+          media_id: this.id.media_id,
+          path: this.id.path,
+          step: 'vad',
+          ratio: Math.min(processedSamples / totalExpectedSamples, 1),
+        })
       }
     }
 
@@ -223,12 +230,8 @@ export class VadExtractor {
     }
   }
 
-  async extract(
-    path: string,
-    onProgress: (ratio: number) => void,
-    opts?: { duration?: number }
-  ) {
-    const totalSamples = await this.processPcmStream(path, onProgress, opts)
+  async extract(opts?: { duration?: number }) {
+    const totalSamples = await this.processPcmStream(opts)
 
     this.closeOpenSegment(totalSamples)
     this.padSpeeches(totalSamples)

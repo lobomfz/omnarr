@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { rm } from 'fs/promises'
 import { join } from 'path'
 
+import { PubSub } from '@/api/pubsub'
 import { Ripper } from '@/core/ripper'
 import { database, db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
@@ -133,6 +134,80 @@ describe('Ripper.run', () => {
       .executeTakeFirstOrThrow()
 
     expect(updated.progress).toBe(1)
+  })
+
+  test('publishes intermediate progress during entry download', async () => {
+    const mediaId = await seedMedia(10003, 'tt0133093')
+    const download = await seedDownload(mediaId, 'ripper:test:interp')
+
+    const events: { progress: number }[] = []
+    const ac = new AbortController()
+
+    const collecting = (async () => {
+      for await (const event of PubSub.subscribe(
+        'download_progress',
+        ac.signal
+      )) {
+        events.push({ progress: event.progress })
+      }
+    })().catch(() => {})
+
+    await new Ripper({
+      download_id: download.id,
+      media_id: mediaId,
+      source_id: 'ripper:test:interp',
+      imdb_id: 'tt0133093',
+      tracks_dir: `${tracksDir}/${mediaId}`,
+    }).run()
+
+    await Bun.sleep(50)
+    ac.abort()
+    await collecting
+
+    // 3 entries (1 video + 2 audio). Boundaries at 0, 1/3, 2/3, 1.
+    // An intermediate value should exist strictly between entry boundaries.
+    const boundaries = [0, 1 / 3, 2 / 3, 1]
+    const hasIntermediate = events.some((e) =>
+      boundaries.every((b) => Math.abs(e.progress - b) > 0.01)
+    )
+
+    expect(hasIntermediate).toBe(true)
+  })
+
+  test('publishes exact ratio at per-entry completion boundaries', async () => {
+    const mediaId = await seedMedia(10004, 'tt0133093')
+    const download = await seedDownload(mediaId, 'ripper:test:boundary')
+
+    const events: { progress: number }[] = []
+    const ac = new AbortController()
+
+    const collecting = (async () => {
+      for await (const event of PubSub.subscribe(
+        'download_progress',
+        ac.signal
+      )) {
+        events.push({ progress: event.progress })
+      }
+    })().catch(() => {})
+
+    await new Ripper({
+      download_id: download.id,
+      media_id: mediaId,
+      source_id: 'ripper:test:boundary',
+      imdb_id: 'tt0133093',
+      tracks_dir: `${tracksDir}/${mediaId}`,
+    }).run()
+
+    await Bun.sleep(50)
+    ac.abort()
+    await collecting
+
+    const hasExact = (target: number) =>
+      events.some((e) => Math.abs(e.progress - target) < 1e-9)
+
+    expect(hasExact(1 / 3)).toBe(true)
+    expect(hasExact(2 / 3)).toBe(true)
+    expect(hasExact(1)).toBe(true)
   })
 
   test('creates files in episode subdirectory for TV', async () => {

@@ -1,8 +1,9 @@
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
+import { PubSub } from '@/api/pubsub'
+import { TrackResolver } from '@/audio/track-resolver'
 import { type TracksWithFile } from '@/db/media-tracks'
 import { Log } from '@/lib/log'
-import { TrackResolver } from '@/audio/track-resolver'
 
 type ResolvedTracks = Awaited<ReturnType<Exporter['resolveTracks']>>
 
@@ -65,11 +66,7 @@ export class Exporter extends TrackResolver {
     return this.createBuilder(resolved, offsets, output).toArgs()
   }
 
-  async export(opts: {
-    video?: number
-    output: string
-    onProgress: (ratio: number) => void
-  }) {
+  async export(opts: { video?: number; output: string }) {
     if (await Bun.file(opts.output).exists()) {
       throw new Error(`Output file already exists: ${opts.output}`)
     }
@@ -83,7 +80,13 @@ export class Exporter extends TrackResolver {
 
     await this.createBuilder(resolved, offsets, opts.output).run({
       duration: resolved.video.file_duration ?? 0,
-      onProgress: opts.onProgress,
+      onProgress: (ratio) => {
+        PubSub.publish('export_progress', {
+          media_id: this.media.id,
+          output: opts.output,
+          ratio,
+        })
+      },
     })
 
     Log.info(`export complete output=${opts.output}`)

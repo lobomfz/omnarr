@@ -299,10 +299,18 @@ export class Scanner {
       videoStream
         ? new FFmpegBuilder().input(fullPath).probeKeyframes({
             duration: probe.format.duration,
+            onProgress: (ratio) => {
+              PubSub.publish('scan_file_progress', {
+                media_id: media.id,
+                path: fullPath,
+                step: 'keyframes',
+                ratio,
+              })
+            },
           })
         : undefined,
       hasAudio
-        ? new VadExtractor().extract(fullPath, () => {}, {
+        ? new VadExtractor({ media_id: media.id, path: fullPath }).extract({
             duration: probe.format.duration,
           })
         : undefined,

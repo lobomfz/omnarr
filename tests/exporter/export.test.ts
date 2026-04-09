@@ -12,8 +12,9 @@ import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
-import { database } from '@/db/connection'
+import { PubSub } from '@/api/pubsub'
 import { Exporter } from '@/core/exporter'
+import { database } from '@/db/connection'
 
 import { seedMedia, seedDownloadWithTracks, seedVad } from '../player/seed'
 
@@ -320,9 +321,9 @@ describe('Exporter — output validation', () => {
 
     const exporter = new Exporter({ id: media.id })
 
-    await expect(() =>
-      exporter.export({ output: existingFile, onProgress: () => {} })
-    ).toThrow(/already exists/i)
+    await expect(() => exporter.export({ output: existingFile })).toThrow(
+      /already exists/i
+    )
   })
 })
 
@@ -372,7 +373,7 @@ describe('Exporter — integration', () => {
     const outputPath = join(tmpDir, 'export-test.mkv')
     const exporter = new Exporter({ id: media.id })
 
-    await exporter.export({ output: outputPath, onProgress: () => {} })
+    await exporter.export({ output: outputPath })
 
     const probe = await new FFmpegBuilder().input(outputPath).probe()
 
@@ -381,5 +382,52 @@ describe('Exporter — integration', () => {
     expect(probe.streams[1].codec_type).toBe('audio')
     expect(probe.streams[1].tags?.language).toBe('eng')
     expect(probe.streams[1].tags?.title).toBe('English Stereo')
+  })
+
+  test('publishes export_progress events with correct identity', async () => {
+    const media = await seedMedia()
+
+    await seedDownloadWithTracks(media.id, 'hash1', refMkv, [
+      {
+        stream_index: 0,
+        stream_type: 'video',
+        codec_name: 'h264',
+        is_default: true,
+        width: 320,
+        height: 240,
+      },
+      {
+        stream_index: 1,
+        stream_type: 'audio',
+        codec_name: 'aac',
+        is_default: true,
+      },
+    ])
+
+    const outputPath = join(tmpDir, 'export-progress.mkv')
+
+    const events: { media_id: string; output: string; ratio: number }[] = []
+    const ac = new AbortController()
+
+    const collecting = (async () => {
+      for await (const event of PubSub.subscribe(
+        'export_progress',
+        ac.signal
+      )) {
+        events.push(event)
+      }
+    })().catch(() => {})
+
+    const exporter = new Exporter({ id: media.id })
+
+    await exporter.export({ output: outputPath })
+
+    ac.abort()
+    await collecting
+
+    expect(events.length).toBeGreaterThan(0)
+    expect(events.every((e) => e.media_id === media.id)).toBe(true)
+    expect(events.every((e) => e.output === outputPath)).toBe(true)
+    expect(events.at(-1)?.ratio).toBe(1)
   })
 })

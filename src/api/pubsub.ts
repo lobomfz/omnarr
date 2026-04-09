@@ -18,6 +18,17 @@ type PubSubChannels = {
     offset: number
     status: 'downloading' | 'testing' | 'matched' | 'no-match'
   }
+  export_progress: {
+    media_id: string
+    output: string
+    ratio: number
+  }
+  scan_file_progress: {
+    media_id: string
+    path: string
+    step: 'keyframes' | 'vad'
+    ratio: number
+  }
 }
 
 const publisher = new MemoryPublisher<PubSubChannels>()
