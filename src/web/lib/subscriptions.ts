@@ -15,7 +15,7 @@ export function useDownloadProgressSubscription() {
   )
 
   useEffect(() => {
-    if (!data) {
+    if (data === undefined) {
       return
     }
 

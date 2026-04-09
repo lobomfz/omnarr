@@ -8,30 +8,28 @@ import { Releases } from '@/core/releases'
 import { database } from '@/db/connection'
 import { TmdbClient } from '@/integrations/tmdb/client'
 
-import { QBittorrentMock } from '../mocks/qbittorrent'
+import { TestSeed } from '../helpers/seed'
 import '../mocks/beyond-hd'
 import '../mocks/superflix'
 import '../mocks/yts'
 import '../mocks/qbittorrent'
 import '../mocks/tmdb'
+import { QBittorrentMock } from '../mocks/qbittorrent'
 
-describe('download command', async () => {
-  const results = await new TmdbClient().search('Matrix')
-  const releases = await new Releases().search(
-    results[0].tmdb_id,
-    results[0].media_type
-  )
-  const torrentRelease = releases.releases.find(
-    (r) => r.indexer_source !== 'superflix'
-  )!
+describe('download command', () => {
+  let torrentRelease!: { id: string; source_id: string }
 
-  beforeEach(() => {
-    database.reset('events')
-    database.reset('media_files')
-    database.reset('downloads')
-    database.reset('media')
-    database.reset('tmdb_media')
-    QBittorrentMock.reset()
+  beforeEach(async () => {
+    TestSeed.reset()
+
+    const results = await new TmdbClient().search('Matrix')
+    const releases = await new Releases().search(
+      results[0].tmdb_id,
+      results[0].media_type
+    )
+    torrentRelease = releases.releases.find(
+      (r) => r.indexer_source !== 'superflix'
+    )!
   })
 
   test('enqueues download and returns result', async () => {

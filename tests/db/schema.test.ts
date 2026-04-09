@@ -2,14 +2,16 @@ import { describe, expect, test, beforeEach } from 'bun:test'
 
 import dayjs from 'dayjs'
 
-import { database, db } from '@/db/connection'
+import { db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { deriveId } from '@/lib/utils'
 
+import { TestSeed } from '../helpers/seed'
+
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 describe('schema - tmdb_media', () => {

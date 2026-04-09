@@ -4,16 +4,14 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 
 import { Scanner } from '@/core/scanner'
-import { database, db } from '@/db/connection'
-import { DbEpisodes } from '@/db/episodes'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
-import { DbSeasons } from '@/db/seasons'
-import { deriveId } from '@/lib/utils'
+
+import { TestSeed } from '../helpers/seed'
 
 const testDir = join(tmpdir(), 'omnarr-scanner-subtitle-test')
 beforeEach(async () => {
-  database.reset()
+  TestSeed.reset()
   await rm(testDir, { recursive: true }).catch(() => {})
   await mkdir(testDir, { recursive: true })
 })
@@ -22,50 +20,41 @@ afterAll(async () => {
   await rm(testDir, { recursive: true }).catch(() => {})
 })
 
-async function seedMedia(opts: {
-  media_type: 'movie' | 'tv'
-  tmdb_id: number
-}) {
-  const tmdb = await db
-    .insertInto('tmdb_media')
-    .values({
-      tmdb_id: opts.tmdb_id,
-      media_type: opts.media_type,
-      title: 'Test Media',
-      year: 2024,
-      imdb_id: 'tt0000001',
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
+let seedCounter = 0
 
-  const mediaId = deriveId(`${opts.tmdb_id}:${opts.media_type}`)
+async function seedMovie() {
+  seedCounter++
+  const media = await TestSeed.library.movie({
+    tmdbId: 100 + seedCounter,
+    title: 'Test Media',
+    year: 2024,
+    imdbId: 'tt0000001',
+  })
 
-  await db
-    .insertInto('media')
-    .values({
-      id: mediaId,
-      tmdb_media_id: tmdb.id,
-      media_type: opts.media_type,
-      root_folder: '/media',
-    })
-    .execute()
-
-  return { mediaId, tmdbMediaId: tmdb.id }
+  return media.id
 }
 
-async function seedDownload(mediaId: string, contentPath: string) {
-  return await db
-    .insertInto('downloads')
-    .values({
-      media_id: mediaId,
-      source_id: `test-${Date.now()}`,
-      download_url: 'magnet:?test',
-      source: 'torrent',
-      status: 'completed',
-      content_path: contentPath,
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
+async function seedTv() {
+  seedCounter++
+  const { media, episodes } = await TestSeed.library.tv({
+    tmdbId: 100 + seedCounter,
+    title: 'Test Media',
+    year: 2024,
+    imdbId: 'tt0000001',
+    seasons: [
+      {
+        seasonNumber: 1,
+        title: 'Season 1',
+        episodeCount: 3,
+        episodes: [
+          { episodeNumber: 1, title: 'Pilot' },
+          { episodeNumber: 2, title: 'Second' },
+        ],
+      },
+    ],
+  })
+
+  return { mediaId: media.id, tmdbMediaId: media.tmdb_media_id, episodes }
 }
 
 async function writeSrt(path: string) {
@@ -74,11 +63,11 @@ async function writeSrt(path: string) {
 
 describe('scanner subtitle handling', () => {
   test('discovers and registers .srt file', async () => {
-    const { mediaId } = await seedMedia({ media_type: 'movie', tmdb_id: 100 })
+    const mediaId = await seedMovie()
 
     const srtPath = join(testDir, 'sub_en_abc123.srt')
     await writeSrt(srtPath)
-    await seedDownload(mediaId, testDir)
+    await TestSeed.downloads.completed(mediaId, { contentPath: testDir })
 
     await new Scanner().scan(mediaId)
 
@@ -98,13 +87,13 @@ describe('scanner subtitle handling', () => {
   })
 
   test('extracts language from sub_[lang]_ pattern', async () => {
-    const { mediaId } = await seedMedia({ media_type: 'movie', tmdb_id: 101 })
+    const mediaId = await seedMovie()
 
     const enPath = join(testDir, 'sub_en_hash1.srt')
     const ptPath = join(testDir, 'sub_pt_hash2.srt')
     await writeSrt(enPath)
     await writeSrt(ptPath)
-    await seedDownload(mediaId, testDir)
+    await TestSeed.downloads.completed(mediaId, { contentPath: testDir })
 
     await new Scanner().scan(mediaId)
 
@@ -115,11 +104,11 @@ describe('scanner subtitle handling', () => {
   })
 
   test('language is null when filename does not match pattern', async () => {
-    const { mediaId } = await seedMedia({ media_type: 'movie', tmdb_id: 102 })
+    const mediaId = await seedMovie()
 
     const srtPath = join(testDir, 'random_subtitle.srt')
     await writeSrt(srtPath)
-    await seedDownload(mediaId, testDir)
+    await TestSeed.downloads.completed(mediaId, { contentPath: testDir })
 
     await new Scanner().scan(mediaId)
 
@@ -130,26 +119,14 @@ describe('scanner subtitle handling', () => {
   })
 
   test('associates subtitle with episode via directory name', async () => {
-    const { mediaId, tmdbMediaId } = await seedMedia({
-      media_type: 'tv',
-      tmdb_id: 103,
-    })
-
-    const seasons = await DbSeasons.upsert([
-      { tmdb_media_id: tmdbMediaId, season_number: 1, episode_count: 3 },
-    ])
-
-    const episodes = await DbEpisodes.upsert([
-      { season_id: seasons[0].id, episode_number: 1, title: 'Pilot' },
-      { season_id: seasons[0].id, episode_number: 2, title: 'Second' },
-    ])
+    const { mediaId, episodes } = await seedTv()
 
     const epDir = join(testDir, 's01e02')
     await mkdir(epDir, { recursive: true })
 
     const srtPath = join(epDir, 'sub_en_hash.srt')
     await writeSrt(srtPath)
-    await seedDownload(mediaId, testDir)
+    await TestSeed.downloads.completed(mediaId, { contentPath: testDir })
 
     await new Scanner().scan(mediaId)
 
@@ -160,11 +137,11 @@ describe('scanner subtitle handling', () => {
   })
 
   test('skips already registered subtitle on re-scan', async () => {
-    const { mediaId } = await seedMedia({ media_type: 'movie', tmdb_id: 104 })
+    const mediaId = await seedMovie()
 
     const srtPath = join(testDir, 'sub_en_abc.srt')
     await writeSrt(srtPath)
-    await seedDownload(mediaId, testDir)
+    await TestSeed.downloads.completed(mediaId, { contentPath: testDir })
 
     await new Scanner().scan(mediaId)
     await new Scanner().scan(mediaId)

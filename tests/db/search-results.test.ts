@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
-import { database } from '@/db/connection'
 import { DbSearchResults } from '@/db/search-results'
 import { deriveId } from '@/lib/utils'
 
+import { TestSeed } from '../helpers/seed'
+
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 describe('DbSearchResults', () => {

@@ -2,23 +2,16 @@ import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { rm } from 'fs/promises'
 
 import { SubtitleMatcher } from '@/core/subtitle-matcher'
-import { database, db } from '@/db/connection'
-import { DbDownloads } from '@/db/downloads'
-import { DbMedia } from '@/db/media'
-import { DbMediaFiles } from '@/db/media-files'
-import { DbMediaTracks } from '@/db/media-tracks'
-import { DbMediaVad } from '@/db/media-vad'
-import { DbTmdbMedia } from '@/db/tmdb-media'
+import { db } from '@/db/connection'
 import { config } from '@/lib/config'
-import { deriveId } from '@/lib/utils'
 
+import { TestSeed } from '../helpers/seed'
 import { SubdlMock } from '../mocks/subdl'
 
 const tracksDir = config.root_folders!.tracks!
-const MOVIE_ID = deriveId('603:movie')
 
 beforeEach(async () => {
-  database.reset()
+  TestSeed.reset()
   SubdlMock.reset()
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })
@@ -26,74 +19,6 @@ beforeEach(async () => {
 afterAll(async () => {
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })
-
-async function setupMovieWithVad() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    year: 1999,
-    imdb_id: 'tt0133093',
-  })
-
-  await DbMedia.create({
-    id: MOVIE_ID,
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/tmp/movies',
-  })
-
-  const download = await DbDownloads.create({
-    media_id: MOVIE_ID,
-    source_id: 'torrent:matrix-1080p',
-    download_url: 'magnet:?xt=urn:btih:abc',
-    source: 'torrent',
-    status: 'completed',
-  })
-
-  await db
-    .insertInto('releases')
-    .values({
-      id: deriveId('torrent:matrix-1080p'),
-      tmdb_id: 603,
-      media_type: 'movie',
-      source_id: 'torrent:matrix-1080p',
-      indexer_source: 'yts',
-      name: 'The.Matrix.1999.1080p.BluRay-GROUP',
-      size: 5000000,
-      hdr: '',
-      download_url: 'magnet:?xt=urn:btih:abc',
-    })
-    .execute()
-
-  const mediaFile = await DbMediaFiles.create({
-    media_id: MOVIE_ID,
-    download_id: download.id,
-    path: '/tmp/movies/The.Matrix.1999.mkv',
-    size: 5000000,
-    format_name: 'matroska',
-    duration: 8100,
-  })
-
-  await DbMediaTracks.create({
-    media_file_id: mediaFile.id,
-    stream_index: 0,
-    stream_type: 'video',
-    codec_name: 'h264',
-    is_default: true,
-    width: 1920,
-    height: 1080,
-  })
-
-  const vadTimestamps = Float32Array.from([5, 5.5, 500, 500.5])
-
-  await DbMediaVad.create({
-    media_file_id: mediaFile.id,
-    data: Buffer.from(vadTimestamps.buffer),
-  })
-
-  return MOVIE_ID
-}
 
 async function seedSubdlEntries(
   entries: {
@@ -166,7 +91,7 @@ describe('SubtitleMatcher.rank', () => {
 
 describe('SubtitleMatcher.match', () => {
   test('returns matched subtitle when correlation is high', async () => {
-    const mediaId = await setupMovieWithVad()
+    const mediaId = await TestSeed.subtitleMatch.movieWithVad()
 
     await seedSubdlEntries([
       {
@@ -186,7 +111,7 @@ describe('SubtitleMatcher.match', () => {
   })
 
   test('continues to next candidate on low correlation', async () => {
-    const mediaId = await setupMovieWithVad()
+    const mediaId = await TestSeed.subtitleMatch.movieWithVad()
 
     await seedSubdlEntries([
       {
@@ -213,7 +138,7 @@ describe('SubtitleMatcher.match', () => {
   })
 
   test('returns null when no candidates match', async () => {
-    const mediaId = await setupMovieWithVad()
+    const mediaId = await TestSeed.subtitleMatch.movieWithVad()
 
     await seedSubdlEntries([
       {
@@ -242,7 +167,7 @@ describe('SubtitleMatcher.match', () => {
   })
 
   test('returns empty tested list when no subtitles found', async () => {
-    const mediaId = await setupMovieWithVad()
+    const mediaId = await TestSeed.subtitleMatch.movieWithVad()
 
     const matcher = new SubtitleMatcher({ id: mediaId })
     const result = await matcher.match({})
@@ -252,7 +177,7 @@ describe('SubtitleMatcher.match', () => {
   })
 
   test('respects max attempts limit', async () => {
-    const mediaId = await setupMovieWithVad()
+    const mediaId = await TestSeed.subtitleMatch.movieWithVad()
 
     await seedSubdlEntries(
       Array.from({ length: 8 }, (_, i) => ({
@@ -271,7 +196,7 @@ describe('SubtitleMatcher.match', () => {
   })
 
   test('creates download records for each attempted subtitle', async () => {
-    const mediaId = await setupMovieWithVad()
+    const mediaId = await TestSeed.subtitleMatch.movieWithVad()
 
     await seedSubdlEntries([
       {

@@ -4,38 +4,19 @@ import { createRouterClient } from '@orpc/server'
 
 import { router } from '@/api/router'
 import '@/api/arktype'
-import { database } from '@/db/connection'
 import { DbEvents } from '@/db/events'
-import { DbMedia } from '@/db/media'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/lib/utils'
+
+import { TestSeed } from '../helpers/seed'
 
 const client = createRouterClient(router)
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
-
-async function seedMedia() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    imdb_id: 'tt0133093',
-    year: 1999,
-  })
-
-  return await DbMedia.create({
-    id: deriveId('603:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/movies',
-  })
-}
 
 describe('events.getByMediaId', () => {
   test('returns events for a media', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbEvents.create({
       media_id: media.id,
@@ -56,7 +37,7 @@ describe('events.getByMediaId', () => {
 
 describe('events.markRead', () => {
   test('marks events as read and returns count', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     const e1 = await DbEvents.create({
       media_id: media.id,

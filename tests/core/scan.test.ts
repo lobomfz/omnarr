@@ -11,14 +11,10 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 
 import { Scanner } from '@/core/scanner'
-import { database } from '@/db/connection'
-import { DbDownloads } from '@/db/downloads'
 import { DbEvents } from '@/db/events'
-import { DbMedia } from '@/db/media'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/lib/utils'
 
 import { MediaFixtures } from '../fixtures/media'
+import { TestSeed } from '../helpers/seed'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-scan-test-'))
 const refMkv = join(tmpDir, 'ref.mkv')
@@ -36,32 +32,13 @@ afterAll(async () => {
 })
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 async function seedMedia(contentPath: string) {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    imdb_id: 'tt0133093',
-    year: 1999,
-  })
+  const media = await TestSeed.library.matrix()
 
-  const media = await DbMedia.create({
-    id: deriveId('603:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/movies',
-  })
-
-  await DbDownloads.create({
-    media_id: media.id,
-    source_id: 'test_hash',
-    download_url: 'magnet:test',
-    status: 'completed',
-    content_path: contentPath,
-  })
+  await TestSeed.downloads.completedWithFile(media.id, { contentPath })
 
   return media
 }

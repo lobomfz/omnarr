@@ -4,19 +4,15 @@ import { createRouterClient } from '@orpc/server'
 
 import { router } from '@/api/router'
 import '@/api/arktype'
-import { Releases } from '@/core/releases'
-import { database, db } from '@/db/connection'
-import { DbMedia } from '@/db/media'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { TmdbClient } from '@/integrations/tmdb/client'
+import { db } from '@/db/connection'
 import { config } from '@/lib/config'
-import { deriveId } from '@/lib/utils'
 
 import '../mocks/tmdb'
 import '../mocks/beyond-hd'
 import '../mocks/yts'
 import '../mocks/superflix'
 import '../mocks/qbittorrent'
+import { TestSeed } from '../helpers/seed'
 import { QBittorrentMock } from '../mocks/qbittorrent'
 
 const client = createRouterClient(router)
@@ -30,26 +26,21 @@ afterAll(() => {
   config.root_folders = savedRootFolders
 })
 
-describe('downloads.add', async () => {
-  const results = await new TmdbClient().search('Matrix')
-  const releases = await new Releases().search(
-    results[0].tmdb_id,
-    results[0].media_type
-  )
-  const torrentRelease = releases.releases.find(
-    (r) => r.indexer_source !== 'superflix'
-  )!
+type SearchedRelease = Awaited<
+  ReturnType<typeof TestSeed.releases.matrix>
+>['releases'][number]
+
+describe('downloads.add', () => {
+  let torrentRelease!: SearchedRelease
   const originalClient = config.download_client
   const originalRootFolders = config.root_folders
 
-  beforeEach(() => {
-    database.reset('events')
-    database.reset('downloads')
-    database.reset('media')
-    database.reset('tmdb_media')
-    QBittorrentMock.reset()
+  beforeEach(async () => {
+    TestSeed.reset()
     config.download_client = originalClient
     config.root_folders = originalRootFolders
+    const { releases } = await TestSeed.releases.matrix()
+    torrentRelease = releases.find((r) => r.indexer_source !== 'superflix')!
   })
 
   test('sends torrent to qBittorrent and creates download record', async () => {
@@ -127,10 +118,14 @@ describe('downloads.add', async () => {
   test('cleans up new media when torrent is rejected', async () => {
     await client.downloads.add({ release_id: torrentRelease.id })
 
-    database.reset('events')
-    database.reset('downloads')
-    database.reset('media')
-    database.reset('tmdb_media')
+    const [torrent] = await QBittorrentMock.db
+      .selectFrom('torrents')
+      .selectAll()
+      .execute()
+
+    TestSeed.reset()
+    await QBittorrentMock.db.insertInto('torrents').values(torrent).execute()
+    await TestSeed.releases.matrix()
 
     await expect(() =>
       client.downloads.add({ release_id: torrentRelease.id })
@@ -149,20 +144,7 @@ describe('downloads.add', async () => {
       url: DEAD_PORT_URL,
     }
 
-    const tmdb = await DbTmdbMedia.upsert({
-      tmdb_id: 603,
-      media_type: 'movie',
-      title: 'The Matrix',
-      imdb_id: 'tt0133093',
-      year: 1999,
-    })
-
-    const media = await DbMedia.create({
-      id: deriveId('603:movie'),
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: '/movies',
-    })
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
     await expect(() =>
       client.downloads.add({
@@ -186,20 +168,7 @@ describe('downloads.add', async () => {
   })
 
   test('uses existing media when media_id is provided', async () => {
-    const tmdb = await DbTmdbMedia.upsert({
-      tmdb_id: 603,
-      media_type: 'movie',
-      title: 'The Matrix',
-      imdb_id: 'tt0133093',
-      year: 1999,
-    })
-
-    const media = await DbMedia.create({
-      id: deriveId('603:movie'),
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: '/movies',
-    })
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
     const result = await client.downloads.add({
       release_id: torrentRelease.id,
@@ -239,23 +208,15 @@ describe('downloads.add', async () => {
   })
 })
 
-describe('downloads.add ripper', async () => {
-  const results = await new TmdbClient().search('Matrix')
-  const releases = await new Releases().search(
-    results[0].tmdb_id,
-    results[0].media_type
-  )
-  const ripperRelease = releases.releases.find(
-    (r) => r.indexer_source === 'superflix'
-  )!
+describe('downloads.add ripper', () => {
+  let ripperRelease!: SearchedRelease
   const originalRootFolders = config.root_folders
 
-  beforeEach(() => {
-    database.reset('events')
-    database.reset('downloads')
-    database.reset('media')
-    database.reset('tmdb_media')
+  beforeEach(async () => {
+    TestSeed.reset()
     config.root_folders = originalRootFolders
+    const { releases } = await TestSeed.releases.matrix()
+    ripperRelease = releases.find((r) => r.indexer_source === 'superflix')!
   })
 
   test('creates download record with pending status and ripper source', async () => {
@@ -298,29 +259,15 @@ describe('downloads.add ripper', async () => {
   })
 })
 
-describe('downloads.add TV ripper', async () => {
-  const results = await new TmdbClient().search('Breaking Bad')
-  const tvResult = results[0]
-  const releases = await new Releases().search(
-    tvResult.tmdb_id,
-    tvResult.media_type,
-    { season: 1 }
-  )
-  const tvRipperRelease = releases.releases.find(
-    (r) => r.indexer_source === 'superflix'
-  )!
+describe('downloads.add TV ripper', () => {
+  let tvRipperRelease!: SearchedRelease
   const originalRootFolders = config.root_folders
 
   beforeEach(async () => {
-    database.reset('events')
-    database.reset('downloads')
-    database.reset('media')
-    database.reset('tmdb_media')
+    TestSeed.reset()
     config.root_folders = originalRootFolders
-
-    await new Releases().search(tvResult.tmdb_id, tvResult.media_type, {
-      season: 1,
-    })
+    const { releases } = await TestSeed.releases.breakingBad()
+    tvRipperRelease = releases.find((r) => r.indexer_source === 'superflix')!
   })
 
   test('creates N download records for N episodes', async () => {
@@ -367,10 +314,7 @@ describe('downloads.add TV ripper', async () => {
 
 describe('downloads.listInProgress', () => {
   beforeEach(() => {
-    database.reset('events')
-    database.reset('downloads')
-    database.reset('media')
-    database.reset('tmdb_media')
+    TestSeed.reset()
   })
 
   test('returns empty when no downloads exist', async () => {
@@ -380,20 +324,9 @@ describe('downloads.listInProgress', () => {
   })
 
   test('returns active downloads with media info', async () => {
-    const tmdb = await DbTmdbMedia.upsert({
-      tmdb_id: 603,
-      media_type: 'movie',
-      title: 'The Matrix',
-      imdb_id: 'tt0133093',
-      year: 1999,
-      poster_path: '/poster.jpg',
-    })
-
-    const media = await DbMedia.create({
-      id: deriveId('603:movie'),
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: '/movies',
+    const media = await TestSeed.library.matrix({
+      rootFolder: '/movies',
+      posterPath: '/poster.jpg',
     })
 
     await db
@@ -421,20 +354,7 @@ describe('downloads.listInProgress', () => {
   })
 
   test('filters by active statuses', async () => {
-    const tmdb = await DbTmdbMedia.upsert({
-      tmdb_id: 603,
-      media_type: 'movie',
-      title: 'The Matrix',
-      imdb_id: 'tt0133093',
-      year: 1999,
-    })
-
-    const media = await DbMedia.create({
-      id: deriveId('603:movie'),
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: '/movies',
-    })
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
     await db
       .insertInto('downloads')
@@ -484,24 +404,15 @@ describe('downloads.listInProgress', () => {
   })
 })
 
-describe('downloads.add duplicate', async () => {
-  const results = await new TmdbClient().search('Matrix')
-  const releases = await new Releases().search(
-    results[0].tmdb_id,
-    results[0].media_type
-  )
-  const torrentRelease = releases.releases.find(
-    (r) => r.indexer_source !== 'superflix'
-  )!
+describe('downloads.add duplicate', () => {
+  let torrentRelease!: SearchedRelease
   const originalClient = config.download_client
 
-  beforeEach(() => {
-    database.reset('events')
-    database.reset('downloads')
-    database.reset('media')
-    database.reset('tmdb_media')
-    QBittorrentMock.reset()
+  beforeEach(async () => {
+    TestSeed.reset()
     config.download_client = originalClient
+    const { releases } = await TestSeed.releases.matrix()
+    torrentRelease = releases.find((r) => r.indexer_source !== 'superflix')!
   })
 
   test('rejects duplicate download for same source_id', async () => {

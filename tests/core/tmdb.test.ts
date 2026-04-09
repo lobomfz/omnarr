@@ -3,22 +3,14 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import dayjs from 'dayjs'
 
 import { Tmdb } from '@/core/tmdb'
-import { database, db } from '@/db/connection'
-import { DbSearchResults } from '@/db/search-results'
+import { db } from '@/db/connection'
 
 import '../mocks/tmdb'
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
-
-async function seedSearch(tmdbId: number, mediaType: 'movie' | 'tv') {
-  const [row] = await DbSearchResults.upsert([
-    { tmdb_id: tmdbId, media_type: mediaType, title: 'seed' },
-  ])
-
-  return row.id
-}
 
 describe('Tmdb.getInfo', () => {
   test('throws when search result is missing', async () => {
@@ -28,7 +20,7 @@ describe('Tmdb.getInfo', () => {
   })
 
   test('returns movie with runtime, vote_average and genres', async () => {
-    const id = await seedSearch(603, 'movie')
+    const id = await TestSeed.search.result(603, 'movie')
 
     const info = await Tmdb.getInfo(id)
 
@@ -44,7 +36,7 @@ describe('Tmdb.getInfo', () => {
   })
 
   test('returns empty genres array when movie has none', async () => {
-    const id = await seedSearch(9998, 'movie')
+    const id = await TestSeed.search.result(9998, 'movie')
 
     const info = await Tmdb.getInfo(id)
 
@@ -52,13 +44,13 @@ describe('Tmdb.getInfo', () => {
   })
 
   test('throws when movie has no imdb id', async () => {
-    const id = await seedSearch(7777, 'movie')
+    const id = await TestSeed.search.result(7777, 'movie')
 
     await expect(() => Tmdb.getInfo(id)).toThrow('NO_IMDB_ID')
   })
 
   test('averages episode_run_time for tv runtime', async () => {
-    const id = await seedSearch(1399, 'tv')
+    const id = await TestSeed.search.result(1399, 'tv')
 
     const info = await Tmdb.getInfo(id)
 
@@ -66,7 +58,7 @@ describe('Tmdb.getInfo', () => {
   })
 
   test('returns null runtime when tv has no runtime fields', async () => {
-    const id = await seedSearch(8888, 'tv')
+    const id = await TestSeed.search.result(8888, 'tv')
 
     const info = await Tmdb.getInfo(id)
 
@@ -74,7 +66,7 @@ describe('Tmdb.getInfo', () => {
   })
 
   test('persists seasons and episodes on first tv fetch', async () => {
-    const id = await seedSearch(1399, 'tv')
+    const id = await TestSeed.search.result(1399, 'tv')
 
     const info = await Tmdb.getInfo(id)
 
@@ -88,7 +80,7 @@ describe('Tmdb.getInfo', () => {
   })
 
   test('skips refetch when seasons cache is fresh', async () => {
-    const id = await seedSearch(1399, 'tv')
+    const id = await TestSeed.search.result(1399, 'tv')
 
     await Tmdb.getInfo(id)
 
@@ -113,7 +105,7 @@ describe('Tmdb.getInfo', () => {
   })
 
   test('refetches seasons when cache is stale', async () => {
-    const id = await seedSearch(1399, 'tv')
+    const id = await TestSeed.search.result(1399, 'tv')
 
     await Tmdb.getInfo(id)
 

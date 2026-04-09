@@ -5,7 +5,14 @@ import '../../../mocks/subdl'
 import '../../../mocks/superflix'
 import '../../../mocks/tmdb'
 import '../../../mocks/yts'
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  setDefaultTimeout,
+  test,
+} from 'bun:test'
 
 import { DownloadEvents } from '@/core/download-events'
 import { database } from '@/db/connection'
@@ -13,29 +20,26 @@ import { DbDownloads } from '@/db/downloads'
 import { ripperQueue } from '@/jobs/queues'
 import { deriveId } from '@/lib/utils'
 
+import { TestSeed } from '../../../helpers/seed'
 import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
 import { cleanup, fireEvent, waitFor } from '../../testing-library'
-import {
-  resetDownloadState,
-  seedBreakingBadInLibrary,
-  seedBreakingBadNoEpisodes,
-  seedMatrixInLibrary,
-  seedRipperDownload,
-} from './helpers'
+import { seedRipperDownload, waitForDownloadProgressStream } from './helpers'
 
 beforeEach(() => {
-  resetDownloadState()
+  TestSeed.reset()
   ripperQueue.clear()
 })
 
-afterEach(() => {
-  cleanup()
+setDefaultTimeout(10_000)
+
+afterEach(async () => {
+  await cleanup()
 })
 
 describe('ripper lifecycle', () => {
   test('adding single-episode ripper release shows download in pill', async () => {
-    await seedMatrixInLibrary()
+    await TestSeed.library.matrix()
     const mediaId = deriveId('603:movie')
 
     const { user } = mountApp(`/media/${mediaId}`)
@@ -73,7 +77,7 @@ describe('ripper lifecycle', () => {
   })
 
   test('adding ripper season pack shows every episode in pill', async () => {
-    await seedBreakingBadInLibrary()
+    await TestSeed.library.breakingBad()
     const mediaId = deriveId('1399:tv')
 
     const { user } = mountApp(`/media/${mediaId}`)
@@ -124,7 +128,7 @@ describe('ripper lifecycle', () => {
   })
 
   test('ripper season pack with no episodes shows error message', async () => {
-    await seedBreakingBadNoEpisodes()
+    await TestSeed.library.breakingBad({ withEpisodes: false })
     const mediaId = deriveId('1399:tv')
 
     const { user } = mountApp(`/media/${mediaId}`)
@@ -182,7 +186,7 @@ describe('ripper lifecycle', () => {
   })
 
   test('speed is displayed in pill popover and detail page', async () => {
-    await seedMatrixInLibrary()
+    await TestSeed.library.matrix()
     const mediaId = deriveId('603:movie')
 
     const { downloadId } = await seedRipperDownload({
@@ -192,7 +196,7 @@ describe('ripper lifecycle', () => {
       progress: 0.3,
     })
 
-    mountApp(`/media/${mediaId}`)
+    const { queryClient } = mountApp(`/media/${mediaId}`)
 
     await waitFor(
       () => {
@@ -206,6 +210,8 @@ describe('ripper lifecycle', () => {
       speed: 5_000_000,
     })
 
+    await waitForDownloadProgressStream(queryClient)
+
     await DownloadEvents.publish(downloadId)
 
     await waitFor(
@@ -217,7 +223,7 @@ describe('ripper lifecycle', () => {
   })
 
   test('ripper progress updates are reflected in the UI', async () => {
-    await seedMatrixInLibrary()
+    await TestSeed.library.matrix()
     const mediaId = deriveId('603:movie')
 
     const { downloadId } = await seedRipperDownload({
@@ -227,7 +233,7 @@ describe('ripper lifecycle', () => {
       progress: 0,
     })
 
-    mountApp(`/media/${mediaId}`)
+    const { queryClient } = mountApp(`/media/${mediaId}`)
 
     await waitFor(
       () => {
@@ -240,6 +246,8 @@ describe('ripper lifecycle', () => {
       progress: 0.75,
     })
 
+    await waitForDownloadProgressStream(queryClient)
+
     await DownloadEvents.publish(downloadId)
 
     await waitFor(
@@ -251,7 +259,7 @@ describe('ripper lifecycle', () => {
   })
 
   test('completed ripper download leaves pill and detail shows completion', async () => {
-    await seedMatrixInLibrary()
+    await TestSeed.library.matrix()
     const mediaId = deriveId('603:movie')
 
     const { downloadId } = await seedRipperDownload({
@@ -261,7 +269,7 @@ describe('ripper lifecycle', () => {
       progress: 0.8,
     })
 
-    mountApp(`/media/${mediaId}`)
+    const { queryClient } = mountApp(`/media/${mediaId}`)
 
     await waitFor(
       () => {
@@ -275,6 +283,8 @@ describe('ripper lifecycle', () => {
       progress: 1,
     })
 
+    await waitForDownloadProgressStream(queryClient)
+
     await DownloadEvents.publish(downloadId)
 
     await waitFor(
@@ -286,7 +296,7 @@ describe('ripper lifecycle', () => {
   })
 
   test('ripper zero-rip failure leaves pill and shows error badge', async () => {
-    await seedMatrixInLibrary()
+    await TestSeed.library.matrix()
     const mediaId = deriveId('603:movie')
 
     const { downloadId } = await seedRipperDownload({
@@ -296,7 +306,7 @@ describe('ripper lifecycle', () => {
       progress: 0,
     })
 
-    mountApp(`/media/${mediaId}`)
+    const { queryClient } = mountApp(`/media/${mediaId}`)
 
     await waitFor(
       () => {
@@ -309,6 +319,8 @@ describe('ripper lifecycle', () => {
       status: 'error',
       error_at: new Date().toISOString(),
     })
+
+    await waitForDownloadProgressStream(queryClient)
 
     await DownloadEvents.publish(downloadId)
 
@@ -323,7 +335,7 @@ describe('ripper lifecycle', () => {
   })
 
   test('ripper worker crash transitions download to error in UI', async () => {
-    await seedMatrixInLibrary()
+    await TestSeed.library.matrix()
     const mediaId = deriveId('603:movie')
 
     const { downloadId } = await seedRipperDownload({
@@ -333,7 +345,7 @@ describe('ripper lifecycle', () => {
       progress: 0.2,
     })
 
-    mountApp(`/media/${mediaId}`)
+    const { queryClient } = mountApp(`/media/${mediaId}`)
 
     await waitFor(
       () => {
@@ -347,6 +359,8 @@ describe('ripper lifecycle', () => {
       error_at: new Date().toISOString(),
     })
 
+    await waitForDownloadProgressStream(queryClient)
+
     await DownloadEvents.publish(downloadId)
 
     await waitFor(
@@ -358,7 +372,7 @@ describe('ripper lifecycle', () => {
   })
 
   test('pending ripper download transitions to downloading with progress', async () => {
-    await seedMatrixInLibrary()
+    await TestSeed.library.matrix()
     const mediaId = deriveId('603:movie')
 
     const { downloadId } = await seedRipperDownload({
@@ -368,7 +382,7 @@ describe('ripper lifecycle', () => {
       progress: 0,
     })
 
-    mountApp(`/media/${mediaId}`)
+    const { queryClient } = mountApp(`/media/${mediaId}`)
 
     await waitFor(
       () => {
@@ -384,6 +398,8 @@ describe('ripper lifecycle', () => {
       eta: 100,
     })
 
+    await waitForDownloadProgressStream(queryClient)
+
     await DownloadEvents.publish(downloadId)
 
     await waitFor(
@@ -397,7 +413,7 @@ describe('ripper lifecycle', () => {
   })
 
   test('season pack mixed states shows correct pill count and individual states', async () => {
-    const media = await seedBreakingBadInLibrary()
+    const media = await TestSeed.library.breakingBad()
 
     await seedRipperDownload({
       mediaId: media.id,

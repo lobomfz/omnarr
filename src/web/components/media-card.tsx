@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
 import { PosterImage } from '@/web/components/poster-image'
+import { cn } from '@/web/lib/cn'
 import type { MediaItem } from '@/web/types/library'
 
 export function MediaCard(props: { media: MediaItem }) {
@@ -90,11 +91,12 @@ function StatusDot(props: { media: MediaItem }) {
   return (
     <div className="absolute top-2.5 left-2.5">
       <div
-        className={`size-2.5 rounded-full ring-1 ring-black/20 ${
+        className={cn(
+          'size-2.5 rounded-full ring-1 ring-black/20',
           hasFiles
             ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]'
             : 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.8)]'
-        }`}
+        )}
       />
     </div>
   )

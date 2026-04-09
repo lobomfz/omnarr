@@ -18,15 +18,11 @@ import { Scanner } from '@/core/scanner'
 import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
-import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
-import { DbMediaTracks } from '@/db/media-tracks'
 import { DbSeasons } from '@/db/seasons'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/lib/utils'
 
 import { MediaFixtures } from '../fixtures/media'
-import { seedDownloadWithTracks } from '../player/seed'
+import { TestSeed } from '../helpers/seed'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-info-cmd-'))
 const refMkv = join(tmpDir, 'ref-subs.mkv')
@@ -44,29 +40,12 @@ afterAll(async () => {
 })
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
-
-async function seedMedia() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    imdb_id: 'tt0133093',
-    year: 1999,
-  })
-
-  return await DbMedia.create({
-    id: deriveId('603:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/movies',
-  })
-}
 
 describe('info command', () => {
   test('returns json with media, downloads, files and tracks', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbDownloads.create({
       media_id: media.id,
@@ -97,7 +76,7 @@ describe('info command', () => {
   })
 
   test('shows keyframe and vad status in formatted output', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbDownloads.create({
       media_id: media.id,
@@ -119,7 +98,7 @@ describe('info command', () => {
   })
 
   test('outputs formatted text without --json', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbDownloads.create({
       media_id: media.id,
@@ -145,7 +124,7 @@ describe('info command', () => {
   })
 
   test('shows media with no downloads or files', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     const result = await testCommand(InfoCommand, {
       args: [media.id],
@@ -159,7 +138,7 @@ describe('info command', () => {
   })
 
   test('shows multiple downloads', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbDownloads.create({
       media_id: media.id,
@@ -196,9 +175,75 @@ describe('info command', () => {
   })
 
   test('shows per-type track indices matching play command numbering', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          language: 'eng',
+        },
+        {
+          stream_index: 2,
+          stream_type: 'audio',
+          codec_name: 'ac3',
+          is_default: false,
+          language: 'por',
+        },
+      ]
+    )
+
+    const result = await testCommand(InfoCommand, {
+      args: [media.id],
+      flags: {},
+    })
+
+    expect(result.stdout).toContain('video 0:')
+    expect(result.stdout).toContain('audio 0:')
+    expect(result.stdout).toContain('audio 1:')
+  })
+})
+
+async function seedTvMediaForInfo() {
+  const { media, episodes } = await TestSeed.library.tv({
+    tmdbId: 1396,
+    title: 'Breaking Bad',
+    year: 2008,
+    imdbId: 'tt0903747',
+    rootFolder: '/tv',
+    seasons: [
+      {
+        seasonNumber: 1,
+        title: 'Season 1',
+        episodeCount: 3,
+        episodes: [
+          { episodeNumber: 1, title: 'Pilot' },
+          { episodeNumber: 2, title: "Cat's in the Bag..." },
+          { episodeNumber: 3, title: "...And the Bag's in the River" },
+        ],
+      },
+    ],
+  })
+
+  const { file } = await TestSeed.player.downloadWithTracks(
+    media.id,
+    'tv_hash',
+    '/tv/Breaking Bad (2008)/Breaking.Bad.S01E01.mkv',
+    [
       {
         stream_index: 0,
         stream_type: 'video',
@@ -214,104 +259,11 @@ describe('info command', () => {
         is_default: true,
         language: 'eng',
       },
-      {
-        stream_index: 2,
-        stream_type: 'audio',
-        codec_name: 'ac3',
-        is_default: false,
-        language: 'por',
-      },
-    ])
+    ],
+    { duration: 3492, episode_id: episodes[0].id }
+  )
 
-    const result = await testCommand(InfoCommand, {
-      args: [media.id],
-      flags: {},
-    })
-
-    expect(result.stdout).toContain('video 0:')
-    expect(result.stdout).toContain('audio 0:')
-    expect(result.stdout).toContain('audio 1:')
-  })
-})
-
-async function seedTvMediaForInfo() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 1396,
-    media_type: 'tv',
-    title: 'Breaking Bad',
-    imdb_id: 'tt0903747',
-    year: 2008,
-  })
-
-  const media = await DbMedia.create({
-    id: deriveId('1396:tv'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'tv',
-    root_folder: '/tv',
-  })
-
-  const seasons = await DbSeasons.upsert([
-    {
-      tmdb_media_id: tmdb.id,
-      season_number: 1,
-      title: 'Season 1',
-      episode_count: 3,
-    },
-  ])
-
-  const episodes = await DbEpisodes.upsert([
-    { season_id: seasons[0].id, episode_number: 1, title: 'Pilot' },
-    {
-      season_id: seasons[0].id,
-      episode_number: 2,
-      title: "Cat's in the Bag...",
-    },
-    {
-      season_id: seasons[0].id,
-      episode_number: 3,
-      title: "...And the Bag's in the River",
-    },
-  ])
-
-  const download = await DbDownloads.create({
-    media_id: media.id,
-    source_id: 'tv_hash',
-    download_url: 'magnet:test',
-    status: 'completed',
-    content_path: '/tv/Breaking Bad (2008)',
-  })
-
-  const file = await DbMediaFiles.create({
-    media_id: media.id,
-    download_id: download.id,
-    episode_id: episodes[0].id,
-    path: '/tv/Breaking Bad (2008)/Breaking.Bad.S01E01.mkv',
-    size: 8_000_000_000,
-    duration: 3492,
-    format_name: 'matroska',
-  })
-
-  await DbMediaTracks.createMany([
-    {
-      media_file_id: file.id,
-      stream_index: 0,
-      stream_type: 'video',
-      codec_name: 'h264',
-      is_default: true,
-      width: 1920,
-      height: 1080,
-    },
-    {
-      media_file_id: file.id,
-      stream_index: 1,
-      stream_type: 'audio',
-      codec_name: 'aac',
-      is_default: true,
-      language: 'eng',
-    },
-  ])
-
-  return { media, seasons, episodes }
+  return { media, file }
 }
 
 describe('info command — TV', () => {
@@ -335,10 +287,10 @@ describe('info command — TV', () => {
   })
 
   test('displays season/episode hierarchy in formatted text', async () => {
-    await seedTvMediaForInfo()
+    const { media } = await seedTvMediaForInfo()
 
     const result = await testCommand(InfoCommand, {
-      args: [deriveId('1396:tv')],
+      args: [media.id],
       flags: {},
     })
 
@@ -350,10 +302,10 @@ describe('info command — TV', () => {
   })
 
   test('hides episodes without files from display', async () => {
-    await seedTvMediaForInfo()
+    const { media } = await seedTvMediaForInfo()
 
     const result = await testCommand(InfoCommand, {
-      args: [deriveId('1396:tv')],
+      args: [media.id],
       flags: {},
     })
 

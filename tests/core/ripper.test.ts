@@ -4,19 +4,16 @@ import { join } from 'path'
 
 import { PubSub } from '@/api/pubsub'
 import { Ripper } from '@/core/ripper'
-import { database, db } from '@/db/connection'
-import { DbDownloads } from '@/db/downloads'
-import { ripperQueue } from '@/jobs/queues'
+import { database } from '@/db/connection'
 import { config } from '@/lib/config'
-import { deriveId } from '@/lib/utils'
 
 import '../mocks/superflix'
+import { TestSeed } from '../helpers/seed'
 
 const tracksDir = config.root_folders!.tracks!
 
 beforeEach(async () => {
-  database.reset()
-  ripperQueue.clear()
+  TestSeed.reset()
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })
 
@@ -25,40 +22,18 @@ afterAll(async () => {
 })
 
 async function seedMedia(tmdbId: number, imdbId: string) {
-  const tmdb = await db
-    .insertInto('tmdb_media')
-    .values({
-      tmdb_id: tmdbId,
-      media_type: 'movie',
-      title: 'Ripper Test',
-      year: 2020,
-      imdb_id: imdbId,
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
-
-  const media = await db
-    .insertInto('media')
-    .values({
-      id: deriveId(`${tmdbId}:movie`),
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: '/tmp/omnarr-test-movies',
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
+  const media = await TestSeed.library.movie({
+    tmdbId,
+    title: 'Ripper Test',
+    year: 2020,
+    imdbId,
+  })
 
   return media.id
 }
 
 async function seedDownload(mediaId: string, sourceId: string) {
-  return await DbDownloads.create({
-    media_id: mediaId,
-    source_id: sourceId,
-    download_url: 'imdb:test',
-    source: 'ripper',
-    status: 'pending',
-  })
+  return await TestSeed.downloads.ripper({ mediaId, sourceId })
 }
 
 describe('Ripper.run', () => {
@@ -211,28 +186,14 @@ describe('Ripper.run', () => {
   })
 
   test('creates files in episode subdirectory for TV', async () => {
-    const tmdb = await db
-      .insertInto('tmdb_media')
-      .values({
-        tmdb_id: 903747,
-        media_type: 'tv',
-        title: 'TV Ripper Test',
-        year: 2008,
-        imdb_id: 'tt0903747',
-      })
-      .returning(['id'])
-      .executeTakeFirstOrThrow()
-
-    const media = await db
-      .insertInto('media')
-      .values({
-        id: deriveId('903747:tv'),
-        tmdb_media_id: tmdb.id,
-        media_type: 'tv',
-        root_folder: '/tmp/omnarr-test-tv',
-      })
-      .returning(['id'])
-      .executeTakeFirstOrThrow()
+    const { media } = await TestSeed.library.tv({
+      tmdbId: 903747,
+      title: 'TV Ripper Test',
+      year: 2008,
+      imdbId: 'tt0903747',
+      rootFolder: '/tmp/omnarr-test-tv',
+      seasons: [],
+    })
 
     const download = await seedDownload(media.id, 'ripper:test:tv')
 

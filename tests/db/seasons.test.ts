@@ -1,12 +1,14 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
-import { database, db } from '@/db/connection'
+import { db } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 
+import { TestSeed } from '../helpers/seed'
+
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 async function seedTmdbMedia() {

@@ -1,34 +1,38 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
-import { database } from '@/db/connection'
 import { Exporter } from '@/core/exporter'
 
-import { seedMedia, seedDownloadWithTracks, seedVad } from '../player/seed'
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 describe('Exporter — offset computation', () => {
   test('same-download tracks get offset 0 without VAD lookup', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+      ]
+    )
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -38,9 +42,9 @@ describe('Exporter — offset computation', () => {
   })
 
   test('different-download with VAD data produces computed offset', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file: videoFile } = await seedDownloadWithTracks(
+    const { file: videoFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/movies/video.mkv',
@@ -62,7 +66,7 @@ describe('Exporter — offset computation', () => {
       ]
     )
 
-    const { file: audioFile } = await seedDownloadWithTracks(
+    const { file: audioFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash2',
       '/tracks/audio_pt.mka',
@@ -77,8 +81,8 @@ describe('Exporter — offset computation', () => {
       ]
     )
 
-    await seedVad(videoFile.id, 42)
-    await seedVad(audioFile.id, 42)
+    await TestSeed.player.vad(videoFile.id, 42)
+    await TestSeed.player.vad(audioFile.id, 42)
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -88,9 +92,9 @@ describe('Exporter — offset computation', () => {
   })
 
   test('offset is computed once per download, not per track', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file: videoFile } = await seedDownloadWithTracks(
+    const { file: videoFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/movies/video.mkv',
@@ -112,30 +116,31 @@ describe('Exporter — offset computation', () => {
       ]
     )
 
-    const { file: audioFile, download: audioDl } = await seedDownloadWithTracks(
-      media.id,
-      'hash2',
-      '/tracks/multi.mka',
-      [
-        {
-          stream_index: 0,
-          stream_type: 'audio',
-          codec_name: 'opus',
-          is_default: false,
-          language: 'por',
-        },
-        {
-          stream_index: 1,
-          stream_type: 'audio',
-          codec_name: 'ac3',
-          is_default: false,
-          language: 'spa',
-        },
-      ]
-    )
+    const { file: audioFile, download: audioDl } =
+      await TestSeed.player.downloadWithTracks(
+        media.id,
+        'hash2',
+        '/tracks/multi.mka',
+        [
+          {
+            stream_index: 0,
+            stream_type: 'audio',
+            codec_name: 'opus',
+            is_default: false,
+            language: 'por',
+          },
+          {
+            stream_index: 1,
+            stream_type: 'audio',
+            codec_name: 'ac3',
+            is_default: false,
+            language: 'spa',
+          },
+        ]
+      )
 
-    await seedVad(videoFile.id, 42)
-    await seedVad(audioFile.id, 42)
+    await TestSeed.player.vad(videoFile.id, 42)
+    await TestSeed.player.vad(audioFile.id, 42)
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -150,41 +155,47 @@ describe('Exporter — offset computation', () => {
   })
 
   test('missing VAD for video file produces offset 0', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/video.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-    ])
-
-    const { file: audioFile, download: audioDl } = await seedDownloadWithTracks(
+    await TestSeed.player.downloadWithTracks(
       media.id,
-      'hash2',
-      '/tracks/audio_pt.mka',
+      'hash1',
+      '/movies/video.mkv',
       [
         {
           stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
           stream_type: 'audio',
-          codec_name: 'opus',
-          is_default: false,
-          language: 'por',
+          codec_name: 'aac',
+          is_default: true,
         },
       ]
     )
 
-    await seedVad(audioFile.id, 42)
+    const { file: audioFile, download: audioDl } =
+      await TestSeed.player.downloadWithTracks(
+        media.id,
+        'hash2',
+        '/tracks/audio_pt.mka',
+        [
+          {
+            stream_index: 0,
+            stream_type: 'audio',
+            codec_name: 'opus',
+            is_default: false,
+            language: 'por',
+          },
+        ]
+      )
+
+    await TestSeed.player.vad(audioFile.id, 42)
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -194,9 +205,9 @@ describe('Exporter — offset computation', () => {
   })
 
   test('missing VAD for other download produces offset 0', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file: videoFile } = await seedDownloadWithTracks(
+    const { file: videoFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/movies/video.mkv',
@@ -218,7 +229,7 @@ describe('Exporter — offset computation', () => {
       ]
     )
 
-    const { download: audioDl } = await seedDownloadWithTracks(
+    const { download: audioDl } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash2',
       '/tracks/audio_pt.mka',
@@ -233,7 +244,7 @@ describe('Exporter — offset computation', () => {
       ]
     )
 
-    await seedVad(videoFile.id, 42)
+    await TestSeed.player.vad(videoFile.id, 42)
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -243,9 +254,9 @@ describe('Exporter — offset computation', () => {
   })
 
   test('low confidence correlation produces offset 0', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file: videoFile } = await seedDownloadWithTracks(
+    const { file: videoFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/movies/video.mkv',
@@ -267,23 +278,24 @@ describe('Exporter — offset computation', () => {
       ]
     )
 
-    const { file: audioFile, download: audioDl } = await seedDownloadWithTracks(
-      media.id,
-      'hash2',
-      '/tracks/audio_pt.mka',
-      [
-        {
-          stream_index: 0,
-          stream_type: 'audio',
-          codec_name: 'opus',
-          is_default: false,
-          language: 'por',
-        },
-      ]
-    )
+    const { file: audioFile, download: audioDl } =
+      await TestSeed.player.downloadWithTracks(
+        media.id,
+        'hash2',
+        '/tracks/audio_pt.mka',
+        [
+          {
+            stream_index: 0,
+            stream_type: 'audio',
+            codec_name: 'opus',
+            is_default: false,
+            language: 'por',
+          },
+        ]
+      )
 
-    await seedVad(videoFile.id, 111)
-    await seedVad(audioFile.id, 222)
+    await TestSeed.player.vad(videoFile.id, 111)
+    await TestSeed.player.vad(audioFile.id, 222)
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -293,9 +305,9 @@ describe('Exporter — offset computation', () => {
   })
 
   test('multiple different downloads each get independent offset', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file: videoFile } = await seedDownloadWithTracks(
+    const { file: videoFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/movies/video.mkv',
@@ -317,39 +329,41 @@ describe('Exporter — offset computation', () => {
       ]
     )
 
-    const { file: audioFile2, download: dl2 } = await seedDownloadWithTracks(
-      media.id,
-      'hash2',
-      '/tracks/audio_pt.mka',
-      [
-        {
-          stream_index: 0,
-          stream_type: 'audio',
-          codec_name: 'opus',
-          is_default: false,
-          language: 'por',
-        },
-      ]
-    )
+    const { file: audioFile2, download: dl2 } =
+      await TestSeed.player.downloadWithTracks(
+        media.id,
+        'hash2',
+        '/tracks/audio_pt.mka',
+        [
+          {
+            stream_index: 0,
+            stream_type: 'audio',
+            codec_name: 'opus',
+            is_default: false,
+            language: 'por',
+          },
+        ]
+      )
 
-    const { file: audioFile3, download: dl3 } = await seedDownloadWithTracks(
-      media.id,
-      'hash3',
-      '/tracks/audio_spa.mka',
-      [
-        {
-          stream_index: 0,
-          stream_type: 'audio',
-          codec_name: 'ac3',
-          is_default: false,
-          language: 'spa',
-        },
-      ]
-    )
+    const { file: audioFile3, download: dl3 } =
+      await TestSeed.player.downloadWithTracks(
+        media.id,
+        'hash3',
+        '/tracks/audio_spa.mka',
+        [
+          {
+            stream_index: 0,
+            stream_type: 'audio',
+            codec_name: 'ac3',
+            is_default: false,
+            language: 'spa',
+          },
+        ]
+      )
 
-    await seedVad(videoFile.id, 42)
-    await seedVad(audioFile2.id, 42)
-    await seedVad(audioFile3.id, 42)
+    await TestSeed.player.vad(videoFile.id, 42)
+    await TestSeed.player.vad(audioFile2.id, 42)
+    await TestSeed.player.vad(audioFile3.id, 42)
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -362,9 +376,9 @@ describe('Exporter — offset computation', () => {
   })
 
   test('subtitle download shares offset with other tracks from same download', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file: videoFile } = await seedDownloadWithTracks(
+    const { file: videoFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/movies/video.mkv',
@@ -386,30 +400,31 @@ describe('Exporter — offset computation', () => {
       ]
     )
 
-    const { file: otherFile, download: dl2 } = await seedDownloadWithTracks(
-      media.id,
-      'hash2',
-      '/tracks/foreign.mkv',
-      [
-        {
-          stream_index: 0,
-          stream_type: 'audio',
-          codec_name: 'opus',
-          is_default: false,
-          language: 'por',
-        },
-        {
-          stream_index: 1,
-          stream_type: 'subtitle',
-          codec_name: 'subrip',
-          is_default: false,
-          language: 'por',
-        },
-      ]
-    )
+    const { file: otherFile, download: dl2 } =
+      await TestSeed.player.downloadWithTracks(
+        media.id,
+        'hash2',
+        '/tracks/foreign.mkv',
+        [
+          {
+            stream_index: 0,
+            stream_type: 'audio',
+            codec_name: 'opus',
+            is_default: false,
+            language: 'por',
+          },
+          {
+            stream_index: 1,
+            stream_type: 'subtitle',
+            codec_name: 'subrip',
+            is_default: false,
+            language: 'por',
+          },
+        ]
+      )
 
-    await seedVad(videoFile.id, 42)
-    await seedVad(otherFile.id, 42)
+    await TestSeed.player.vad(videoFile.id, 42)
+    await TestSeed.player.vad(otherFile.id, 42)
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})

@@ -8,6 +8,7 @@ import { Suspense } from 'react'
 
 import { routeTree } from '@/web/routeTree.gen'
 
+import { TestQueryClients } from './query-clients'
 import { render, userEvent } from './testing-library'
 
 export function mountApp(initialPath: string) {
@@ -16,6 +17,8 @@ export function mountApp(initialPath: string) {
       queries: { retry: false, throwOnError: false },
     },
   })
+
+  TestQueryClients.add(queryClient)
 
   const router = createRouter({
     routeTree,

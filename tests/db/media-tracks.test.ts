@@ -1,49 +1,23 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
-import { database, db } from '@/db/connection'
-import { DbDownloads } from '@/db/downloads'
+import { db } from '@/db/connection'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/lib/utils'
+
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 async function seedMediaFile() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    imdb_id: 'tt0133093',
-    year: 1999,
-  })
+  const media = await TestSeed.library.matrix()
+  const { download, file } = await TestSeed.downloads.completedWithFile(
+    media.id
+  )
 
-  const media = await DbMedia.create({
-    id: deriveId('603:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/movies',
-  })
-
-  const download = await DbDownloads.create({
-    media_id: media.id,
-    source_id: 'test_hash',
-    download_url: 'magnet:test',
-    status: 'completed',
-    content_path: '/movies/The Matrix (1999)',
-  })
-
-  const file = await DbMediaFiles.create({
-    media_id: media.id,
-    download_id: download.id,
-    path: '/movies/The Matrix (1999)/The.Matrix.1999.mkv',
-    size: 8_000_000_000,
-  })
-
-  return { tmdb, media, download, file }
+  return { media, download, file }
 }
 
 describe('schema - media_tracks', () => {

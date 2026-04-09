@@ -12,11 +12,11 @@ import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
-import { database } from '@/db/connection'
 import { HlsServer } from '@/player/hls-server'
 import { Transcoder } from '@/player/transcoder'
 
 import { MediaFixtures } from '../fixtures/media'
+import { TestSeed } from '../helpers/seed'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-hls-'))
 const refMkv = join(tmpDir, 'ref.mkv')
@@ -31,7 +31,7 @@ beforeAll(async () => {
 })
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 afterAll(async () => {

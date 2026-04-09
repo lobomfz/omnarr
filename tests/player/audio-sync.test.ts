@@ -1,19 +1,18 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
-import { database } from '@/db/connection'
 import { Player } from '@/player/player'
 
-import { seedMedia, seedDownloadWithTracks, seedVad } from './seed'
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 describe('Player.resolveAudioOffset', () => {
   test('same download_id → no correlation, offset is 0', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file } = await seedDownloadWithTracks(
+    const { file } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/movies/movie.mkv',
@@ -35,7 +34,7 @@ describe('Player.resolveAudioOffset', () => {
       ]
     )
 
-    await seedVad(file.id, 42)
+    await TestSeed.player.vad(file.id, 42)
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -45,9 +44,9 @@ describe('Player.resolveAudioOffset', () => {
   })
 
   test('different download_id with vad data → offset applied', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file: videoFile } = await seedDownloadWithTracks(
+    const { file: videoFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'torrent_hash',
       '/movies/video.mkv',
@@ -70,7 +69,7 @@ describe('Player.resolveAudioOffset', () => {
       ]
     )
 
-    const { file: audioFile } = await seedDownloadWithTracks(
+    const { file: audioFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'ripper_hash',
       '/tracks/audio_pt.mka',
@@ -85,8 +84,8 @@ describe('Player.resolveAudioOffset', () => {
       ]
     )
 
-    await seedVad(videoFile.id, 42)
-    await seedVad(audioFile.id, 42)
+    await TestSeed.player.vad(videoFile.id, 42)
+    await TestSeed.player.vad(audioFile.id, 42)
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -99,9 +98,9 @@ describe('Player.resolveAudioOffset', () => {
   })
 
   test('different download_id with missing vad → offset is 0', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file: videoFile } = await seedDownloadWithTracks(
+    const { file: videoFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'torrent_hash',
       '/movies/video.mkv',
@@ -123,7 +122,7 @@ describe('Player.resolveAudioOffset', () => {
       ]
     )
 
-    await seedDownloadWithTracks(
+    await TestSeed.player.downloadWithTracks(
       media.id,
       'ripper_hash',
       '/tracks/audio_pt.mka',
@@ -138,7 +137,7 @@ describe('Player.resolveAudioOffset', () => {
       ]
     )
 
-    await seedVad(videoFile.id, 42)
+    await TestSeed.player.vad(videoFile.id, 42)
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -148,9 +147,9 @@ describe('Player.resolveAudioOffset', () => {
   })
 
   test('different download_id with low confidence → offset is 0', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file: videoFile } = await seedDownloadWithTracks(
+    const { file: videoFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'torrent_hash',
       '/movies/video.mkv',
@@ -172,7 +171,7 @@ describe('Player.resolveAudioOffset', () => {
       ]
     )
 
-    const { file: audioFile } = await seedDownloadWithTracks(
+    const { file: audioFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'ripper_hash',
       '/tracks/audio_pt.mka',
@@ -187,8 +186,8 @@ describe('Player.resolveAudioOffset', () => {
       ]
     )
 
-    await seedVad(videoFile.id, 111)
-    await seedVad(audioFile.id, 222)
+    await TestSeed.player.vad(videoFile.id, 111)
+    await TestSeed.player.vad(audioFile.id, 222)
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})

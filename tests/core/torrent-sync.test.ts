@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { PubSub } from '@/api/pubsub'
 import { TorrentSync } from '@/core/torrent-sync'
-import { database, db } from '@/db/connection'
+import { db } from '@/db/connection'
+import { scanQueue } from '@/jobs/queues'
 import { config } from '@/lib/config'
 import { deriveId } from '@/lib/utils'
 
 import '../mocks/qbittorrent'
+import { TestSeed } from '../helpers/seed'
 import { QBittorrentMock } from '../mocks/qbittorrent'
 
 const DEAD_PORT_URL = 'http://localhost:19999'
@@ -15,65 +17,20 @@ const SOURCE_ID = 'ABC123'
 const DOWNLOAD_URL = 'https://beyond-hd.me/dl/abc123'
 
 async function setupDownload() {
-  const tmdb = await db
-    .insertInto('tmdb_media')
-    .values({
-      tmdb_id: 603,
-      media_type: 'movie',
-      title: 'The Matrix',
-      year: 1999,
-      imdb_id: 'tt0133093',
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
+  await TestSeed.library.matrix()
 
-  await db
-    .insertInto('media')
-    .values({
-      id: MEDIA_ID,
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: '/tmp/omnarr-test-movies',
-    })
-    .execute()
-
-  await db
-    .insertInto('downloads')
-    .values({
-      media_id: MEDIA_ID,
-      source_id: SOURCE_ID,
-      download_url: DOWNLOAD_URL,
-      source: 'torrent',
-      status: 'downloading',
-    })
-    .execute()
-
-  await QBittorrentMock.db
-    .insertInto('torrents')
-    .values({
-      hash: 'abc123',
-      url: DOWNLOAD_URL,
-      savepath: '',
-      category: 'omnarr',
-      progress: 0,
-      dlspeed: 0,
-      eta: 0,
-      state: 'downloading',
-      content_path: '/abc123',
-    })
-    .execute()
+  await TestSeed.downloads.torrent({
+    mediaId: MEDIA_ID,
+    sourceId: SOURCE_ID,
+    downloadUrl: DOWNLOAD_URL,
+  })
 }
 
 describe('TorrentSync', () => {
   const originalUrl = config.download_client!.url
 
   beforeEach(() => {
-    database.reset('events')
-    database.reset('media_files')
-    database.reset('downloads')
-    database.reset('media')
-    database.reset('tmdb_media')
-    QBittorrentMock.reset()
+    TestSeed.reset()
     config.download_client!.url = originalUrl
   })
 
@@ -250,5 +207,26 @@ describe('TorrentSync', () => {
     expect(events[0].event_type).toBe('error')
     expect(events[1].event_type).toBe('recovered')
     expect(events[1].message).toBe('Torrent sync reconnected')
+  })
+
+  test('enqueues scan job when torrent completes', async () => {
+    await setupDownload()
+
+    await QBittorrentMock.db
+      .updateTable('torrents')
+      .set({ progress: 1, dlspeed: 0, eta: 0, state: 'uploading' })
+      .where('hash', '=', 'abc123')
+      .execute()
+
+    const result = await new TorrentSync().sync()
+
+    expect(result.completed).toContain(MEDIA_ID)
+
+    const scanJobs = scanQueue.getJobs()
+    const scanForMedia = scanJobs.find((j) => j.data.media_id === MEDIA_ID)
+
+    expect(scanForMedia).toBeDefined()
+
+    scanQueue.clear()
   })
 })

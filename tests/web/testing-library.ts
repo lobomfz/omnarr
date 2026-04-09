@@ -1,11 +1,23 @@
-export {
-  cleanup,
+import {
+  act,
+  cleanup as rtlCleanup,
   render,
   renderHook,
   waitFor,
   fireEvent,
 } from '@testing-library/react'
+
+import { TestQueryClients } from './query-clients'
+
+export { render, renderHook, waitFor, fireEvent }
 export {
   default as userEvent,
   type UserEvent,
 } from '@testing-library/user-event'
+
+export async function cleanup() {
+  await act(() => {
+    rtlCleanup()
+    TestQueryClients.clear()
+  })
+}

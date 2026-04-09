@@ -6,21 +6,16 @@ import '@/jobs/workers/scan'
 import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEvents } from '@/db/events'
-import { DbMedia } from '@/db/media'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { ripperQueue, scanQueue } from '@/jobs/queues'
 import { Scheduler } from '@/jobs/scheduler'
 import { config } from '@/lib/config'
-import { deriveId } from '@/lib/utils'
 
 import '../mocks/superflix'
+import { TestSeed } from '../helpers/seed'
 
 const tracksDir = config.root_folders!.tracks!
 
 beforeEach(async () => {
-  scanQueue.clear()
-  ripperQueue.clear()
-  database.reset()
+  TestSeed.reset()
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })
 
@@ -28,26 +23,14 @@ afterAll(async () => {
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })
 
-async function seedMedia(tmdbId: number, imdbId: string) {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: tmdbId,
-    media_type: 'movie',
-    title: 'Ripper Worker Test',
-    imdb_id: imdbId,
-    year: 2020,
-  })
-
-  return await DbMedia.create({
-    id: deriveId(`${tmdbId}:movie`),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/tmp/omnarr-test-movies',
-  })
-}
-
 describe('Scheduler.ripper', () => {
   test('enqueues to correct queue and job completes', async () => {
-    const media = await seedMedia(10001, 'tt0000001')
+    const media = await TestSeed.library.movie({
+      tmdbId: 10001,
+      title: 'Ripper Worker Test',
+      year: 2020,
+      imdbId: 'tt0000001',
+    })
 
     const download = await DbDownloads.create({
       media_id: media.id,
@@ -76,7 +59,12 @@ describe('Scheduler.ripper', () => {
 
 describe('ripper worker', () => {
   test('updates to completed and creates event on success', async () => {
-    const media = await seedMedia(10001, 'tt0000001')
+    const media = await TestSeed.library.movie({
+      tmdbId: 10001,
+      title: 'Ripper Worker Test',
+      year: 2020,
+      imdbId: 'tt0000001',
+    })
 
     const download = await DbDownloads.create({
       media_id: media.id,
@@ -115,7 +103,12 @@ describe('ripper worker', () => {
   })
 
   test('creates error event when all streams fail', async () => {
-    const media = await seedMedia(10002, 'tt9999999')
+    const media = await TestSeed.library.movie({
+      tmdbId: 10002,
+      title: 'Ripper Worker Test',
+      year: 2020,
+      imdbId: 'tt9999999',
+    })
 
     const download = await DbDownloads.create({
       media_id: media.id,

@@ -34,11 +34,12 @@ function SearchPage() {
   const { data, isLoading } = useSearchResults(debounced)
 
   return (
-    <div className="pt-8 md:pt-12">
+    <div data-component="search-page" className="pt-8 md:pt-12">
       <div className="mx-auto max-w-2xl mb-10">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground pointer-events-none" />
           <input
+            data-slot="input"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -67,7 +68,10 @@ function SearchResults(props: {
 
   if (props.query.length < 3) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[40vh] text-center">
+      <div
+        data-component="search-prompt"
+        className="flex flex-col items-center justify-center min-h-[40vh] text-center"
+      >
         <p className="text-muted-foreground">
           Type a search to find movies and TV shows.
         </p>
@@ -81,7 +85,11 @@ function SearchResults(props: {
 
   if (!props.data || props.data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[40vh] text-center">
+      <div
+        data-component="search-no-results"
+        data-query={props.query}
+        className="flex flex-col items-center justify-center min-h-[40vh] text-center"
+      >
         <p className="text-lg font-medium">No results</p>
         <p className="text-sm text-muted-foreground mt-1">
           Nothing matched "{props.query}"
@@ -111,7 +119,15 @@ function BestMatch(props: { item: SearchItem; libraryIds: Set<string> }) {
   const inLibrary = props.libraryIds.has(props.item.id)
 
   return (
-    <div className="flex gap-6 md:gap-8">
+    <div
+      data-component="best-match"
+      data-title={props.item.title}
+      data-media-type={props.item.media_type}
+      data-year={props.item.year}
+      data-media-id={props.item.id}
+      data-in-library={String(inLibrary)}
+      className="flex gap-6 md:gap-8"
+    >
       <div className="w-40 sm:w-48 md:w-56 flex-shrink-0">
         <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-card shadow-elevation-1">
           <PosterImage
@@ -141,12 +157,16 @@ function BestMatch(props: { item: SearchItem; libraryIds: Set<string> }) {
         </h2>
 
         {props.item.overview && (
-          <p className="text-sm text-white/70 leading-relaxed line-clamp-4 mb-6">
+          <p
+            data-slot="overview"
+            className="text-sm text-white/70 leading-relaxed line-clamp-4 mb-6"
+          >
             {props.item.overview}
           </p>
         )}
 
         <Link
+          data-slot="open"
           to={inLibrary ? '/media/$id' : '/search/$id'}
           params={{ id: props.item.id }}
           className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold backdrop-blur-sm transition-colors duration-[var(--duration-fast)] hover:bg-white/20"
@@ -165,7 +185,7 @@ function ResultsCarousel(props: {
   const navigate = useNavigate()
 
   return (
-    <div>
+    <div data-component="results-carousel">
       <h3 className="text-sm font-medium text-muted-foreground mb-4">
         Other results
       </h3>
@@ -175,6 +195,9 @@ function ResultsCarousel(props: {
 
           return (
             <button
+              data-component="carousel-item"
+              data-media-id={item.id}
+              data-in-library={String(inLibrary)}
               key={item.id}
               type="button"
               onClick={() =>

@@ -2,36 +2,18 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import dayjs from 'dayjs'
 
-import { database, db } from '@/db/connection'
+import { db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
-import { DbMedia } from '@/db/media'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/lib/utils'
+
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
-
-async function seedMedia() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    imdb_id: 'tt0133093',
-    year: 1999,
-  })
-
-  return await DbMedia.create({
-    id: deriveId('603:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/movies',
-  })
-}
 
 describe('deleteStaleErrors', () => {
   test('deletes error downloads older than 24 hours', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbDownloads.create({
       media_id: media.id,
@@ -51,7 +33,7 @@ describe('deleteStaleErrors', () => {
   })
 
   test('keeps recent error downloads', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbDownloads.create({
       media_id: media.id,
@@ -71,7 +53,7 @@ describe('deleteStaleErrors', () => {
   })
 
   test('keeps non-error downloads regardless of age', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbDownloads.create({
       media_id: media.id,
@@ -86,7 +68,7 @@ describe('deleteStaleErrors', () => {
   })
 
   test('deletes only stale errors in mixed set', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbDownloads.create({
       media_id: media.id,

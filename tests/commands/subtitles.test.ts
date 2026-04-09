@@ -3,74 +3,23 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { testCommand } from '@bunli/test'
 
 import { SubtitlesCommand } from '@/commands/subtitles'
-import { database, db } from '@/db/connection'
+import { db } from '@/db/connection'
 import { deriveId } from '@/lib/utils'
 
 import '../helpers/api-server'
 import '../mocks/subdl'
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
-
-async function setupMovie() {
-  const tmdb = await db
-    .insertInto('tmdb_media')
-    .values({
-      tmdb_id: 603,
-      media_type: 'movie',
-      title: 'The Matrix',
-      year: 1999,
-      imdb_id: 'tt0133093',
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
-
-  await db
-    .insertInto('media')
-    .values({
-      id: 'MTX001',
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: '/tmp/movies',
-    })
-    .execute()
-
-  return 'MTX001'
-}
-
-async function setupTvShow() {
-  const tmdb = await db
-    .insertInto('tmdb_media')
-    .values({
-      tmdb_id: 1399,
-      media_type: 'tv',
-      title: 'Breaking Bad',
-      year: 2008,
-      imdb_id: 'tt0903747',
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
-
-  await db
-    .insertInto('media')
-    .values({
-      id: 'BRB001',
-      tmdb_media_id: tmdb.id,
-      media_type: 'tv',
-      root_folder: '/tmp/tv',
-    })
-    .execute()
-
-  return 'BRB001'
-}
 
 describe('subtitles command', () => {
   test('returns subtitles for movie', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
 
     const result = await testCommand(SubtitlesCommand, {
-      args: [mediaId],
+      args: [media.id],
       flags: { json: true },
     })
 
@@ -83,10 +32,10 @@ describe('subtitles command', () => {
   })
 
   test('caches results in releases table', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
 
     await testCommand(SubtitlesCommand, {
-      args: [mediaId],
+      args: [media.id],
       flags: { json: true },
     })
 
@@ -101,10 +50,10 @@ describe('subtitles command', () => {
   })
 
   test('--lang overrides config languages', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
 
     const result = await testCommand(SubtitlesCommand, {
-      args: [mediaId],
+      args: [media.id],
       flags: { json: true, lang: 'FR' },
     })
 
@@ -115,10 +64,10 @@ describe('subtitles command', () => {
   })
 
   test('TV requires --season and --episode', async () => {
-    const mediaId = await setupTvShow()
+    const tv = await TestSeed.library.breakingBad()
 
     const result = await testCommand(SubtitlesCommand, {
-      args: [mediaId],
+      args: [tv.id],
       flags: { json: true },
     })
 
@@ -126,10 +75,10 @@ describe('subtitles command', () => {
   })
 
   test('TV search with --season and --episode', async () => {
-    const mediaId = await setupTvShow()
+    const tv = await TestSeed.library.breakingBad()
 
     const result = await testCommand(SubtitlesCommand, {
-      args: [mediaId],
+      args: [tv.id],
       flags: { json: true, season: '1', episode: '1' },
     })
 
@@ -194,10 +143,10 @@ describe('subtitles command', () => {
 
 describe('subtitles --auto --json', () => {
   test('enqueues auto-match and returns immediately', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
 
     const result = await testCommand(SubtitlesCommand, {
-      args: [mediaId],
+      args: [media.id],
       flags: { json: true, auto: true },
     })
 
@@ -205,7 +154,7 @@ describe('subtitles --auto --json', () => {
 
     const data = JSON.parse(result.stdout)
 
-    expect(data.media_id).toBe(mediaId)
+    expect(data.media_id).toBe(media.id)
   })
 
   test('errors for unknown media', async () => {

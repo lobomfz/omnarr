@@ -12,11 +12,10 @@ import * as fsPromises from 'fs/promises'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
 import { config } from '@/lib/config'
-import { database } from '@/db/connection'
 import { Player } from '@/player/player'
 import { Transcoder } from '@/player/transcoder'
 
-import { seedMedia, seedDownloadWithTracks } from './seed'
+import { TestSeed } from '../helpers/seed'
 
 const originalAccess = fsPromises.access.bind(fsPromises)
 
@@ -35,7 +34,7 @@ function argAfter(args: string[], flag: string) {
 }
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 
   spyOn(fsPromises, 'access').mockImplementation((path: any) => {
     if (path === '/dev/dri/renderD128') {
@@ -48,26 +47,31 @@ beforeEach(() => {
 
 describe('Player — transcoder resolution', () => {
   test('compatible codecs produce copy strategy', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-        channels: 6,
-        channel_layout: '5.1',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          channels: 6,
+          channel_layout: '5.1',
+        },
+      ]
+    )
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -80,26 +84,31 @@ describe('Player — transcoder resolution', () => {
   })
 
   test('incompatible video codec produces transcode strategy', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'av1',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-        channels: 2,
-        channel_layout: 'stereo',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'av1',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          channels: 2,
+          channel_layout: 'stereo',
+        },
+      ]
+    )
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -112,26 +121,31 @@ describe('Player — transcoder resolution', () => {
   })
 
   test('incompatible audio codec produces transcode with channel preservation', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'dts',
-        is_default: true,
-        channels: 6,
-        channel_layout: '5.1',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'dts',
+          is_default: true,
+          channels: 6,
+          channel_layout: '5.1',
+        },
+      ]
+    )
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -145,9 +159,9 @@ describe('Player — transcoder resolution', () => {
   })
 
   test('incompatible subtitle codec still produces error', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(
+    await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/movies/movie.mkv',

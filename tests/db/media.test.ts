@@ -2,40 +2,21 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import dayjs from 'dayjs'
 
-import { database, db } from '@/db/connection'
+import { db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
-import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
-import { DbSeasons } from '@/db/seasons'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/lib/utils'
+
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
-
-async function seedMedia() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    imdb_id: 'tt0133093',
-    year: 1999,
-  })
-
-  return await DbMedia.create({
-    id: deriveId('603:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/movies',
-  })
-}
 
 describe('DbMedia.delete', () => {
   test('removes media and returns deleted id', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     const deleted = await DbMedia.delete(media.id)
 
@@ -53,7 +34,7 @@ describe('DbMedia.delete', () => {
   })
 
   test('cascades to downloads', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbDownloads.create({
       media_id: media.id,
@@ -71,41 +52,29 @@ describe('DbMedia.delete', () => {
 })
 
 async function seedTvMedia() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 1399,
-    media_type: 'tv',
+  return await TestSeed.library.tv({
+    tmdbId: 1399,
     title: 'Breaking Bad',
-    imdb_id: 'tt0903747',
     year: 2008,
+    imdbId: 'tt0903747',
+    rootFolder: '/tv',
+    seasons: [
+      {
+        seasonNumber: 1,
+        title: 'Season 1',
+        episodeCount: 7,
+        episodes: [
+          { episodeNumber: 1, title: 'Pilot' },
+          { episodeNumber: 2, title: "Cat's in the Bag..." },
+        ],
+      },
+    ],
   })
-
-  const media = await DbMedia.create({
-    id: deriveId('1399:tv'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'tv',
-    root_folder: '/tv',
-  })
-
-  const [season] = await DbSeasons.upsert([
-    {
-      tmdb_media_id: tmdb.id,
-      season_number: 1,
-      title: 'Season 1',
-      episode_count: 7,
-    },
-  ])
-
-  const episodes = await DbEpisodes.upsert([
-    { season_id: season.id, episode_number: 1, title: 'Pilot' },
-    { season_id: season.id, episode_number: 2, title: "Cat's in the Bag..." },
-  ])
-
-  return { tmdb, media, season, episodes }
 }
 
 describe('DbMedia.list', () => {
   test('returns file_count and track_count', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     const download = await DbDownloads.create({
       media_id: media.id,
@@ -145,7 +114,7 @@ describe('DbMedia.list', () => {
   })
 
   test('returns download from latest non-error download', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbDownloads.create({
       media_id: media.id,
@@ -192,7 +161,7 @@ describe('DbMedia.list', () => {
   })
 
   test('filters by media type', async () => {
-    await seedMedia()
+    await TestSeed.library.matrix()
     await seedTvMedia()
 
     const movies = await DbMedia.list({ media_type: 'movie' })
@@ -207,20 +176,7 @@ describe('DbMedia.list', () => {
   })
 
   test('filters out rows without backdrop in spotlight', async () => {
-    const tmdbNoBackdrop = await DbTmdbMedia.upsert({
-      tmdb_id: 603,
-      media_type: 'movie',
-      title: 'The Matrix',
-      imdb_id: 'tt0133093',
-      year: 1999,
-    })
-
-    await DbMedia.create({
-      id: deriveId('603:movie'),
-      tmdb_media_id: tmdbNoBackdrop.id,
-      media_type: 'movie',
-      root_folder: '/movies',
-    })
+    await TestSeed.library.matrix()
 
     const result = await DbMedia.spotlight()
 
@@ -228,21 +184,14 @@ describe('DbMedia.list', () => {
   })
 
   test('returns trimmed shape for row with backdrop', async () => {
-    const tmdb = await DbTmdbMedia.upsert({
-      tmdb_id: 1399,
-      media_type: 'tv',
+    const { media } = await TestSeed.library.tv({
+      tmdbId: 1399,
       title: 'Breaking Bad',
-      imdb_id: 'tt0903747',
       year: 2008,
+      imdbId: 'tt0903747',
       overview: 'A chemistry teacher diagnosed with cancer.',
-      backdrop_path: '/backdrop.jpg',
-    })
-
-    const media = await DbMedia.create({
-      id: deriveId('1399:tv'),
-      tmdb_media_id: tmdb.id,
-      media_type: 'tv',
-      root_folder: '/tv',
+      backdropPath: '/backdrop.jpg',
+      seasons: [],
     })
 
     const result = await DbMedia.spotlight()
@@ -263,20 +212,7 @@ describe('DbMedia.list', () => {
   })
 
   test('returns rows ordered by added_at desc', async () => {
-    const oldTmdb = await DbTmdbMedia.upsert({
-      tmdb_id: 603,
-      media_type: 'movie',
-      title: 'The Matrix',
-      imdb_id: 'tt0133093',
-      year: 1999,
-    })
-
-    const oldMedia = await DbMedia.create({
-      id: deriveId('603:movie'),
-      tmdb_media_id: oldTmdb.id,
-      media_type: 'movie',
-      root_folder: '/movies',
-    })
+    const oldMedia = await TestSeed.library.matrix()
 
     await db
       .updateTable('media')
@@ -284,20 +220,7 @@ describe('DbMedia.list', () => {
       .where('id', '=', oldMedia.id)
       .execute()
 
-    const newTmdb = await DbTmdbMedia.upsert({
-      tmdb_id: 1399,
-      media_type: 'tv',
-      title: 'Breaking Bad',
-      imdb_id: 'tt0903747',
-      year: 2008,
-    })
-
-    const newMedia = await DbMedia.create({
-      id: deriveId('1399:tv'),
-      tmdb_media_id: newTmdb.id,
-      media_type: 'tv',
-      root_folder: '/tv',
-    })
+    const newMedia = await TestSeed.library.breakingBad()
 
     const rows = await DbMedia.list({})
 

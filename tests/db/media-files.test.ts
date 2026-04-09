@@ -1,31 +1,18 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
-import { database, db } from '@/db/connection'
+import { db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/lib/utils'
+
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 async function seedMedia() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    imdb_id: 'tt0133093',
-    year: 1999,
-  })
-
-  const media = await DbMedia.create({
-    id: deriveId('603:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/movies',
-  })
+  const media = await TestSeed.library.matrix()
 
   const download = await DbDownloads.create({
     media_id: media.id,
@@ -171,20 +158,7 @@ describe('schema - media_files', () => {
   test('cascade delete does not affect other media files', async () => {
     const { media: media1 } = await seedMedia()
 
-    const tmdb2 = await DbTmdbMedia.upsert({
-      tmdb_id: 1399,
-      media_type: 'tv',
-      title: 'Breaking Bad',
-      imdb_id: 'tt0903747',
-      year: 2008,
-    })
-
-    const media2 = await DbMedia.create({
-      id: deriveId('1399:tv'),
-      tmdb_media_id: tmdb2.id,
-      media_type: 'tv',
-      root_folder: '/tv',
-    })
+    const media2 = await TestSeed.library.breakingBad()
 
     const dl1 = await DbDownloads.create({
       media_id: media1.id,

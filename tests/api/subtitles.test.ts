@@ -6,91 +6,34 @@ import { createRouterClient } from '@orpc/server'
 
 import { router } from '@/api/router'
 import '@/api/arktype'
-import { database, db } from '@/db/connection'
+import { db } from '@/db/connection'
 import { config } from '@/lib/config'
 import { deriveId } from '@/lib/utils'
 
 import '../mocks/subdl'
+import { TestSeed } from '../helpers/seed'
 
 const client = createRouterClient(router)
 const tracksDir = config.root_folders!.tracks!
 
 beforeEach(() => {
-  database.reset('downloads')
-  database.reset('releases')
-  database.reset('media')
-  database.reset('tmdb_media')
+  TestSeed.reset()
 })
-
-const MOVIE_ID = deriveId('603:movie')
-const TV_ID = deriveId('1399:tv')
-
-async function setupMovie() {
-  const tmdb = await db
-    .insertInto('tmdb_media')
-    .values({
-      tmdb_id: 603,
-      media_type: 'movie',
-      title: 'The Matrix',
-      year: 1999,
-      imdb_id: 'tt0133093',
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
-
-  await db
-    .insertInto('media')
-    .values({
-      id: MOVIE_ID,
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: '/tmp/movies',
-    })
-    .execute()
-
-  return MOVIE_ID
-}
-
-async function setupTvShow() {
-  const tmdb = await db
-    .insertInto('tmdb_media')
-    .values({
-      tmdb_id: 1399,
-      media_type: 'tv',
-      title: 'Breaking Bad',
-      year: 2008,
-      imdb_id: 'tt0903747',
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
-
-  await db
-    .insertInto('media')
-    .values({
-      id: TV_ID,
-      tmdb_media_id: tmdb.id,
-      media_type: 'tv',
-      root_folder: '/tmp/tv',
-    })
-    .execute()
-
-  return TV_ID
-}
 
 describe('subtitles.search', () => {
   test('returns subtitles for a movie', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
 
-    const result = await client.subtitles.search({ media_id: mediaId })
+    const result = await client.subtitles.search({ media_id: media.id })
 
     expect(result.length).toBeGreaterThan(0)
     expect(result[0].id).toHaveLength(6)
   })
 
   test('returns subtitles with expected fields', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
 
-    const result = await client.subtitles.search({ media_id: mediaId })
+    const result = await client.subtitles.search({ media_id: media.id })
 
     const sub = result[0]
 
@@ -99,10 +42,10 @@ describe('subtitles.search', () => {
   })
 
   test('filters by language', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
 
     const result = await client.subtitles.search({
-      media_id: mediaId,
+      media_id: media.id,
       lang: 'FR',
     })
 
@@ -117,18 +60,18 @@ describe('subtitles.search', () => {
   })
 
   test('TV requires season', async () => {
-    const mediaId = await setupTvShow()
+    const tv = await TestSeed.library.breakingBad()
 
-    await expect(() => client.subtitles.search({ media_id: mediaId })).toThrow(
+    await expect(() => client.subtitles.search({ media_id: tv.id })).toThrow(
       'TV_REQUIRES_SEASON'
     )
   })
 
   test('TV search with season and episode', async () => {
-    const mediaId = await setupTvShow()
+    const tv = await TestSeed.library.breakingBad()
 
     const result = await client.subtitles.search({
-      media_id: mediaId,
+      media_id: tv.id,
       season: 1,
       episode: 1,
     })
@@ -139,7 +82,8 @@ describe('subtitles.search', () => {
 })
 
 async function setupMovieWithRelease(opts?: { url?: string }) {
-  const mediaId = await setupMovie()
+  const media = await TestSeed.library.matrix()
+  const mediaId = media.id
   const sourceId = 'SUBDL:100-200'
   const releaseId = deriveId(sourceId)
 
@@ -163,7 +107,8 @@ async function setupMovieWithRelease(opts?: { url?: string }) {
 }
 
 async function setupTvWithSeasonPackRelease() {
-  const mediaId = await setupTvShow()
+  const tv = await TestSeed.library.breakingBad()
+  const mediaId = tv.id
   const sourceId = 'SUBDL:SEASON-PACK'
   const releaseId = deriveId(sourceId)
 
@@ -312,11 +257,11 @@ describe('subtitles.download', () => {
 
 describe('subtitles.autoMatch', () => {
   test('enqueues job and returns immediately for movie', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
 
-    const result = await client.subtitles.autoMatch({ media_id: mediaId })
+    const result = await client.subtitles.autoMatch({ media_id: media.id })
 
-    expect(result.media_id).toBe(mediaId)
+    expect(result.media_id).toBe(media.id)
   })
 
   test('errors for unknown media', async () => {
@@ -326,10 +271,10 @@ describe('subtitles.autoMatch', () => {
   })
 
   test('errors when TV is missing season/episode', async () => {
-    const mediaId = await setupTvShow()
+    const tv = await TestSeed.library.breakingBad()
 
-    await expect(() =>
-      client.subtitles.autoMatch({ media_id: mediaId })
-    ).toThrow('TV_REQUIRES_SEASON_EPISODE')
+    await expect(() => client.subtitles.autoMatch({ media_id: tv.id })).toThrow(
+      'TV_REQUIRES_SEASON_EPISODE'
+    )
   })
 })

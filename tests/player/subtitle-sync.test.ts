@@ -10,10 +10,9 @@ import { mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-import { database } from '@/db/connection'
 import { Player } from '@/player/player'
 
-import { seedMedia, seedDownloadWithTracks, seedVad } from './seed'
+import { TestSeed } from '../helpers/seed'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-subsync-'))
 
@@ -49,29 +48,34 @@ afterAll(async () => {
 })
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 describe('Player.resolveSubtitleSync', () => {
   test('no subtitle selected → offset is 0', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+      ]
+    )
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -81,9 +85,9 @@ describe('Player.resolveSubtitleSync', () => {
   })
 
   test('same download_id → offset is 0', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file } = await seedDownloadWithTracks(
+    const { file } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/movies/movie.mkv',
@@ -111,7 +115,7 @@ describe('Player.resolveSubtitleSync', () => {
       ]
     )
 
-    await seedVad(file.id, 42)
+    await TestSeed.player.vad(file.id, 42)
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({ sub: 0 })
@@ -121,45 +125,9 @@ describe('Player.resolveSubtitleSync', () => {
   })
 
   test('different download_id with missing vad → offset is 0', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'video_hash', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-    ])
-
-    await seedDownloadWithTracks(media.id, 'sub_hash', srtPath, [
-      {
-        stream_index: 0,
-        stream_type: 'subtitle',
-        codec_name: 'subrip',
-        is_default: false,
-      },
-    ])
-
-    const player = new Player({ id: media.id })
-    const resolved = await player.resolveTracks({ sub: 0 })
-    const offset = await player.resolveSubtitleSync(resolved)
-
-    expect(offset).toEqual({ offset: 0, confidence: null })
-  })
-
-  test('different download_id with vad → attempts correlation', async () => {
-    const media = await seedMedia()
-
-    const { file: videoFile } = await seedDownloadWithTracks(
+    await TestSeed.player.downloadWithTracks(
       media.id,
       'video_hash',
       '/movies/movie.mkv',
@@ -181,9 +149,50 @@ describe('Player.resolveSubtitleSync', () => {
       ]
     )
 
-    await seedVad(videoFile.id, 42)
+    await TestSeed.player.downloadWithTracks(media.id, 'sub_hash', srtPath, [
+      {
+        stream_index: 0,
+        stream_type: 'subtitle',
+        codec_name: 'subrip',
+        is_default: false,
+      },
+    ])
 
-    await seedDownloadWithTracks(media.id, 'sub_hash', srtPath, [
+    const player = new Player({ id: media.id })
+    const resolved = await player.resolveTracks({ sub: 0 })
+    const offset = await player.resolveSubtitleSync(resolved)
+
+    expect(offset).toEqual({ offset: 0, confidence: null })
+  })
+
+  test('different download_id with vad → attempts correlation', async () => {
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
+
+    const { file: videoFile } = await TestSeed.player.downloadWithTracks(
+      media.id,
+      'video_hash',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+      ]
+    )
+
+    await TestSeed.player.vad(videoFile.id, 42)
+
+    await TestSeed.player.downloadWithTracks(media.id, 'sub_hash', srtPath, [
       {
         stream_index: 0,
         stream_type: 'subtitle',
@@ -202,9 +211,9 @@ describe('Player.resolveSubtitleSync', () => {
   })
 
   test('separate audio file → uses audio file vad for correlation', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file: videoFile } = await seedDownloadWithTracks(
+    const { file: videoFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'video_hash',
       '/movies/movie.mkv',
@@ -220,7 +229,7 @@ describe('Player.resolveSubtitleSync', () => {
       ]
     )
 
-    const { file: audioFile } = await seedDownloadWithTracks(
+    const { file: audioFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'audio_hash',
       '/movies/movie.audio.mkv',
@@ -234,9 +243,9 @@ describe('Player.resolveSubtitleSync', () => {
       ]
     )
 
-    await seedVad(audioFile.id, 99)
+    await TestSeed.player.vad(audioFile.id, 99)
 
-    await seedDownloadWithTracks(media.id, 'sub_hash', srtPath, [
+    await TestSeed.player.downloadWithTracks(media.id, 'sub_hash', srtPath, [
       {
         stream_index: 0,
         stream_type: 'subtitle',

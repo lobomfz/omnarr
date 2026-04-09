@@ -4,12 +4,12 @@ import { testCommand } from '@bunli/test'
 
 import '../helpers/api-server'
 import { SearchCommand } from '@/commands/search'
-import { database } from '@/db/connection'
 
 import '../mocks/tmdb'
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset('search_results')
+  TestSeed.reset()
 })
 
 describe('search command', () => {

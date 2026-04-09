@@ -1,31 +1,22 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import '@/jobs/workers/scan'
-import { database } from '@/db/connection'
 import { DbEvents } from '@/db/events'
-import { DbMedia } from '@/db/media'
-import { DbTmdbMedia } from '@/db/tmdb-media'
 import { Scheduler } from '@/jobs/scheduler'
-import { deriveId } from '@/lib/utils'
+
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 async function seedMedia() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 99999,
-    media_type: 'movie',
+  return await TestSeed.library.movie({
+    tmdbId: 99999,
     title: 'Scan Job Test Movie',
-    imdb_id: 'tt9999999',
     year: 2020,
-  })
-
-  return await DbMedia.create({
-    id: deriveId('99999:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/movies',
+    imdbId: 'tt9999999',
+    rootFolder: '/movies',
   })
 }
 

@@ -5,28 +5,34 @@ import '../../../mocks/subdl'
 import '../../../mocks/superflix'
 import '../../../mocks/tmdb'
 import '../../../mocks/yts'
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  setDefaultTimeout,
+  test,
+} from 'bun:test'
 
 import { TorrentSync } from '@/core/torrent-sync'
 import { database } from '@/db/connection'
 import { deriveId } from '@/lib/utils'
 
+import { TestSeed } from '../../../helpers/seed'
 import { QBittorrentMock } from '../../../mocks/qbittorrent'
 import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
 import { cleanup, waitFor } from '../../testing-library'
-import {
-  resetDownloadState,
-  seedDownload,
-  seedMatrixInLibrary,
-} from './helpers'
+import { seedDownload, waitForDownloadProgressStream } from './helpers'
 
 beforeEach(() => {
-  resetDownloadState()
+  TestSeed.reset()
 })
 
-afterEach(() => {
-  cleanup()
+setDefaultTimeout(10_000)
+
+afterEach(async () => {
+  await cleanup()
 })
 
 describe('errors and conflicts', () => {
@@ -37,7 +43,7 @@ describe('errors and conflicts', () => {
       sourceId: 'ABC123',
     })
 
-    mountApp('/')
+    const { queryClient } = mountApp('/')
 
     await waitFor(
       () => {
@@ -50,6 +56,8 @@ describe('errors and conflicts', () => {
       .deleteFrom('torrents')
       .where('hash', '=', 'abc123')
       .execute()
+
+    await waitForDownloadProgressStream(queryClient)
 
     await new TorrentSync().sync()
 
@@ -68,7 +76,7 @@ describe('errors and conflicts', () => {
       sourceId: 'ABC123',
     })
 
-    mountApp(`/media/${mediaId}`)
+    const { queryClient } = mountApp(`/media/${mediaId}`)
 
     await waitFor(
       () => {
@@ -81,6 +89,8 @@ describe('errors and conflicts', () => {
       .deleteFrom('torrents')
       .where('hash', '=', 'abc123')
       .execute()
+
+    await waitForDownloadProgressStream(queryClient)
 
     await new TorrentSync().sync()
 
@@ -115,7 +125,7 @@ describe('errors and conflicts', () => {
       .where('hash', '=', 'abc123')
       .execute()
 
-    mountApp('/')
+    const { queryClient } = mountApp('/')
 
     await waitFor(
       () => {
@@ -125,6 +135,8 @@ describe('errors and conflicts', () => {
     )
 
     expect(query('download-pill', { nav: 'desktop' })).toBeNull()
+
+    await waitForDownloadProgressStream(queryClient)
 
     await new TorrentSync().sync()
 
@@ -143,7 +155,7 @@ describe('errors and conflicts', () => {
       sourceId: 'ABC123',
     })
 
-    mountApp('/')
+    const { queryClient } = mountApp('/')
 
     await waitFor(
       () => {
@@ -156,6 +168,8 @@ describe('errors and conflicts', () => {
       .deleteFrom('torrents')
       .where('hash', '=', 'abc123')
       .execute()
+
+    await waitForDownloadProgressStream(queryClient)
 
     await new TorrentSync().sync()
 
@@ -170,7 +184,7 @@ describe('errors and conflicts', () => {
   })
 
   test('duplicate download shows user-friendly conflict message', async () => {
-    await seedMatrixInLibrary()
+    await TestSeed.library.matrix()
     const mediaId = deriveId('603:movie')
 
     await database.kysely

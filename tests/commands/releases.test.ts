@@ -5,43 +5,22 @@ import dayjs from 'dayjs'
 
 import '../helpers/api-server'
 import { ReleasesCommand } from '@/commands/releases'
-import { database, db } from '@/db/connection'
-import { DbSearchResults } from '@/db/search-results'
+import { db } from '@/db/connection'
 
-import { TmdbMock } from '../mocks/tmdb'
+import { TestSeed } from '../helpers/seed'
 import '../mocks/beyond-hd'
 import '../mocks/superflix'
 import '../mocks/yts'
+import { TmdbMock } from '../mocks/tmdb'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
   TmdbMock.reset('tv_season_failures')
 })
 
-async function setupMovieSearch() {
-  const results = await DbSearchResults.upsert([
-    { tmdb_id: 603, media_type: 'movie', title: 'The Matrix', year: 1999 },
-  ])
-
-  return results[0].id
-}
-
-async function setupTvSearch() {
-  const results = await DbSearchResults.upsert([
-    {
-      tmdb_id: 1399,
-      media_type: 'tv',
-      title: 'Breaking Bad',
-      year: 2008,
-    },
-  ])
-
-  return results[0].id
-}
-
 describe('releases command', () => {
   test('returns combined results from all indexers', async () => {
-    const searchId = await setupMovieSearch()
+    const searchId = await TestSeed.search.matrix()
 
     const result = await testCommand(ReleasesCommand, {
       args: [searchId],
@@ -57,7 +36,7 @@ describe('releases command', () => {
   })
 
   test('includes seeders, size, resolution, codec', async () => {
-    const searchId = await setupMovieSearch()
+    const searchId = await TestSeed.search.matrix()
 
     const result = await testCommand(ReleasesCommand, {
       args: [searchId],
@@ -74,7 +53,7 @@ describe('releases command', () => {
   })
 
   test('movie releases have null season/episode', async () => {
-    const searchId = await setupMovieSearch()
+    const searchId = await TestSeed.search.matrix()
 
     const result = await testCommand(ReleasesCommand, {
       args: [searchId],
@@ -92,7 +71,7 @@ describe('releases command', () => {
 
 describe('TV releases', () => {
   test('fetches and stores seasons/episodes from TMDB', async () => {
-    const searchId = await setupTvSearch()
+    const searchId = await TestSeed.search.breakingBad()
 
     await testCommand(ReleasesCommand, {
       args: [searchId],
@@ -109,7 +88,7 @@ describe('TV releases', () => {
   })
 
   test('parses S/E from release names', async () => {
-    const searchId = await setupTvSearch()
+    const searchId = await TestSeed.search.breakingBad()
 
     const result = await testCommand(ReleasesCommand, {
       args: [searchId],
@@ -128,7 +107,7 @@ describe('TV releases', () => {
   })
 
   test('--season filters releases by season', async () => {
-    const searchId = await setupTvSearch()
+    const searchId = await TestSeed.search.breakingBad()
 
     const result = await testCommand(ReleasesCommand, {
       args: [searchId],
@@ -145,7 +124,7 @@ describe('TV releases', () => {
   })
 
   test('YTS not called for TV searches', async () => {
-    const searchId = await setupTvSearch()
+    const searchId = await TestSeed.search.breakingBad()
 
     const result = await testCommand(ReleasesCommand, {
       args: [searchId],
@@ -160,7 +139,7 @@ describe('TV releases', () => {
   })
 
   test('skips TMDB season fetch when fresh', async () => {
-    const searchId = await setupTvSearch()
+    const searchId = await TestSeed.search.breakingBad()
 
     await testCommand(ReleasesCommand, {
       args: [searchId],
@@ -190,7 +169,7 @@ describe('TV releases', () => {
   })
 
   test('does not persist partial TV cache when season sync fails', async () => {
-    const searchId = await setupTvSearch()
+    const searchId = await TestSeed.search.breakingBad()
 
     await TmdbMock.db
       .insertInto('tv_season_failures')
@@ -239,7 +218,7 @@ describe('TV releases', () => {
   })
 
   test('re-fetches seasons when TTL expired', async () => {
-    const searchId = await setupTvSearch()
+    const searchId = await TestSeed.search.breakingBad()
 
     await testCommand(ReleasesCommand, {
       args: [searchId],

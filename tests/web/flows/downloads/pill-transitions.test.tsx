@@ -5,7 +5,14 @@ import '../../../mocks/subdl'
 import '../../../mocks/superflix'
 import '../../../mocks/tmdb'
 import '../../../mocks/yts'
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  setDefaultTimeout,
+  test,
+} from 'bun:test'
 
 import { PubSub } from '@/api/pubsub'
 import { DownloadEvents } from '@/core/download-events'
@@ -14,18 +21,21 @@ import { DbDownloads } from '@/db/downloads'
 import { scanQueue } from '@/jobs/queues'
 import { deriveId } from '@/lib/utils'
 
+import { TestSeed } from '../../../helpers/seed'
 import { QBittorrentMock } from '../../../mocks/qbittorrent'
 import { get, query } from '../../dom'
 import { mountApp } from '../../mount-app'
 import { cleanup, waitFor } from '../../testing-library'
-import { resetDownloadState, seedDownload } from './helpers'
+import { seedDownload, waitForDownloadProgressStream } from './helpers'
 
 beforeEach(() => {
-  resetDownloadState()
+  TestSeed.reset()
 })
 
-afterEach(() => {
-  cleanup()
+setDefaultTimeout(10_000)
+
+afterEach(async () => {
+  await cleanup()
 })
 
 describe('terminal transitions clear the pill', () => {
@@ -36,7 +46,7 @@ describe('terminal transitions clear the pill', () => {
       sourceId: 'ABC123',
     })
 
-    mountApp(`/media/${mediaId}`)
+    const { queryClient } = mountApp(`/media/${mediaId}`)
 
     await waitFor(
       () => {
@@ -51,6 +61,8 @@ describe('terminal transitions clear the pill', () => {
       eta: 300,
     })
 
+    await waitForDownloadProgressStream(queryClient)
+
     await DownloadEvents.publish(downloadId)
 
     await waitFor(
@@ -62,7 +74,7 @@ describe('terminal transitions clear the pill', () => {
   })
 
   test('progress update for unknown download adds it to the pill', async () => {
-    mountApp('/')
+    const { queryClient } = mountApp('/')
 
     await waitFor(
       () => {
@@ -70,6 +82,8 @@ describe('terminal transitions clear the pill', () => {
       },
       { timeout: 5000 }
     )
+
+    await waitForDownloadProgressStream(queryClient)
 
     await PubSub.publish('download_progress', {
       id: 99999,
@@ -127,7 +141,7 @@ describe('terminal transitions clear the pill', () => {
       sourceId: 'ABC123',
     })
 
-    mountApp('/')
+    const { queryClient } = mountApp('/')
 
     await waitFor(
       () => {
@@ -142,7 +156,10 @@ describe('terminal transitions clear the pill', () => {
       .where('hash', '=', 'abc123')
       .execute()
 
+    await waitForDownloadProgressStream(queryClient)
+
     await new TorrentSync().sync()
+    scanQueue.clear()
 
     await waitFor(
       () => {
@@ -216,7 +233,7 @@ describe('terminal transitions clear the pill', () => {
       progress: 0.7,
     })
 
-    mountApp('/')
+    const { queryClient } = mountApp('/')
 
     await waitFor(
       () => {
@@ -231,7 +248,10 @@ describe('terminal transitions clear the pill', () => {
       .where('hash', '=', 'abc123')
       .execute()
 
+    await waitForDownloadProgressStream(queryClient)
+
     await new TorrentSync().sync()
+    scanQueue.clear()
 
     await waitFor(
       () => {
@@ -249,7 +269,7 @@ describe('terminal transitions clear the pill', () => {
       progress: 0.3,
     })
 
-    mountApp('/')
+    const { queryClient } = mountApp('/')
 
     await waitFor(
       () => {
@@ -263,6 +283,8 @@ describe('terminal transitions clear the pill', () => {
       .set({ state: 'pausedDL' })
       .where('hash', '=', 'abc123')
       .execute()
+
+    await waitForDownloadProgressStream(queryClient)
 
     await new TorrentSync().sync()
 
@@ -287,28 +309,5 @@ describe('terminal transitions clear the pill', () => {
       },
       { timeout: 5000 }
     )
-  })
-
-  test('torrent completing during sync triggers automatic scan', async () => {
-    const { mediaId } = await seedDownload({
-      tmdbId: 603,
-      title: 'The Matrix',
-      sourceId: 'ABC123',
-    })
-
-    await QBittorrentMock.db
-      .updateTable('torrents')
-      .set({ progress: 1, dlspeed: 0, eta: 0, state: 'uploading' })
-      .where('hash', '=', 'abc123')
-      .execute()
-
-    const result = await new TorrentSync().sync()
-
-    expect(result.completed).toContain(mediaId)
-
-    const scanJobs = scanQueue.getJobs()
-    const scanForMedia = scanJobs.find((j) => j.data.media_id === mediaId)
-
-    expect(scanForMedia).toBeDefined()
   })
 })

@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/web/components/ui/popover'
+import { Tooltip } from '@/web/components/ui/tooltip'
 import { useDownloadProgressSubscription } from '@/web/lib/subscriptions'
 
 function useInProgressDownloads() {
@@ -84,9 +85,11 @@ function PillEntry(props: {
         className="flex items-center gap-3 px-4 py-3 border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors duration-[var(--duration-fast)]"
       >
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">
-            {props.download.title}
-          </p>
+          <Tooltip content={props.download.title}>
+            <p className="text-sm font-medium text-foreground truncate">
+              {props.download.title}
+            </p>
+          </Tooltip>
           <div className="flex items-center gap-2 mt-1.5">
             <div className="h-1.5 flex-1 rounded-full bg-white/10 overflow-hidden">
               <div

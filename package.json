@@ -24,7 +24,7 @@
     "@bunli/test": "^0.6.0",
     "@happy-dom/global-registrator": "^20.8.9",
     "@lobomfz/bunmq": "link:@lobomfz/bunmq",
-    "@lobomfz/db": "link:@lobomfz/db",
+    "@lobomfz/db": "^0.3.9",
     "@lobomfz/ffmpeg": "link:@lobomfz/ffmpeg",
     "@lobomfz/ghostapi": "^0.3.4",
     "@tanstack/router-cli": "^1.166.25",

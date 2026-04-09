@@ -3,19 +3,16 @@ import { rm } from 'fs/promises'
 import { join } from 'path'
 
 import { SubtitleDownload } from '@/core/subtitle-download'
-import { database, db } from '@/db/connection'
-import { DbMedia } from '@/db/media'
-import { DbTmdbMedia } from '@/db/tmdb-media'
+import { db } from '@/db/connection'
 import { config } from '@/lib/config'
-import { deriveId } from '@/lib/utils'
 
 import '../mocks/subdl'
+import { TestSeed } from '../helpers/seed'
 
 const tracksDir = config.root_folders!.tracks!
-const MOVIE_ID = deriveId('603:movie')
 
 beforeEach(async () => {
-  database.reset()
+  TestSeed.reset()
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })
 
@@ -23,28 +20,10 @@ afterAll(async () => {
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })
 
-async function setupMovie() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    year: 1999,
-    imdb_id: 'tt0133093',
-  })
-
-  await DbMedia.create({
-    id: MOVIE_ID,
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/tmp/movies',
-  })
-
-  return MOVIE_ID
-}
-
 describe('SubtitleDownload.download', () => {
   test('downloads subtitle and returns path with download_id', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
+    const mediaId = media.id
     const mediaTracksDir = join(tracksDir, mediaId)
 
     const result = await new SubtitleDownload().download({
@@ -72,7 +51,8 @@ describe('SubtitleDownload.download', () => {
   })
 
   test('saves .srt file to disk', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
+    const mediaId = media.id
     const mediaTracksDir = join(tracksDir, mediaId)
 
     const result = await new SubtitleDownload().download({
@@ -93,7 +73,8 @@ describe('SubtitleDownload.download', () => {
   })
 
   test('returns null when archive has no .srt', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
+    const mediaId = media.id
     const mediaTracksDir = join(tracksDir, mediaId)
 
     const result = await new SubtitleDownload().download({
@@ -116,7 +97,8 @@ describe('SubtitleDownload.download', () => {
   })
 
   test('places episode subtitle in season/episode subdirectory', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
+    const mediaId = media.id
     const mediaTracksDir = join(tracksDir, mediaId)
 
     const result = await new SubtitleDownload().download({
@@ -135,7 +117,8 @@ describe('SubtitleDownload.download', () => {
 
 describe('SubtitleDownload.enqueueSeasonPack', () => {
   test('throws when archive has no .srt files', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
+    const mediaId = media.id
 
     await expect(() =>
       new SubtitleDownload().enqueue({
@@ -152,7 +135,8 @@ describe('SubtitleDownload.enqueueSeasonPack', () => {
   })
 
   test('throws when .srt files have no episode patterns', async () => {
-    const mediaId = await setupMovie()
+    const media = await TestSeed.library.matrix()
+    const mediaId = media.id
 
     await expect(() =>
       new SubtitleDownload().enqueue({

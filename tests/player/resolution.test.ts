@@ -1,53 +1,62 @@
 import { describe, expect, test, beforeEach } from 'bun:test'
 
-import { database } from '@/db/connection'
 import { Player } from '@/player/player'
 
-import { seedMedia, seedTvMedia, seedDownloadWithTracks } from './seed'
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 describe('Player — track resolution defaults', () => {
   test('picks is_default tracks from the most recent download', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'old_hash', '/movies/old.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1280,
-        height: 720,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-        channel_layout: '5.1',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'old_hash',
+      '/movies/old.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1280,
+          height: 720,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          channel_layout: '5.1',
+        },
+      ]
+    )
 
-    await seedDownloadWithTracks(media.id, 'new_hash', '/movies/new.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'hevc',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'eac3',
-        is_default: true,
-        channel_layout: '7.1',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'new_hash',
+      '/movies/new.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'hevc',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'eac3',
+          is_default: true,
+          channel_layout: '7.1',
+        },
+      ]
+    )
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -57,34 +66,39 @@ describe('Player — track resolution defaults', () => {
   })
 
   test('picks first by stream_index when multiple is_default of same type', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-        language: 'eng',
-        channel_layout: '5.1',
-      },
-      {
-        stream_index: 2,
-        stream_type: 'audio',
-        codec_name: 'ac3',
-        is_default: true,
-        language: 'por',
-        channel_layout: '5.1',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          language: 'eng',
+          channel_layout: '5.1',
+        },
+        {
+          stream_index: 2,
+          stream_type: 'audio',
+          codec_name: 'ac3',
+          is_default: true,
+          language: 'por',
+          channel_layout: '5.1',
+        },
+      ]
+    )
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -94,34 +108,39 @@ describe('Player — track resolution defaults', () => {
   })
 
   test('falls back to first track when none marked is_default', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: false,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: false,
-        language: 'eng',
-        channel_layout: '5.1',
-      },
-      {
-        stream_index: 2,
-        stream_type: 'audio',
-        codec_name: 'ac3',
-        is_default: false,
-        language: 'por',
-        channel_layout: '5.1',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: false,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: false,
+          language: 'eng',
+          channel_layout: '5.1',
+        },
+        {
+          stream_index: 2,
+          stream_type: 'audio',
+          codec_name: 'ac3',
+          is_default: false,
+          language: 'por',
+          channel_layout: '5.1',
+        },
+      ]
+    )
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -131,32 +150,37 @@ describe('Player — track resolution defaults', () => {
   })
 
   test('subtitle defaults to none', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-        channel_layout: '5.1',
-      },
-      {
-        stream_index: 2,
-        stream_type: 'subtitle',
-        codec_name: 'subrip',
-        is_default: true,
-        language: 'eng',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          channel_layout: '5.1',
+        },
+        {
+          stream_index: 2,
+          stream_type: 'subtitle',
+          codec_name: 'subrip',
+          is_default: true,
+          language: 'eng',
+        },
+      ]
+    )
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({})
@@ -165,7 +189,7 @@ describe('Player — track resolution defaults', () => {
   })
 
   test('no tracks throws error', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
     const player = new Player({ id: media.id })
 
@@ -175,34 +199,39 @@ describe('Player — track resolution defaults', () => {
 
 describe('Player — explicit track selection', () => {
   test('selects track by explicit index', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-        language: 'eng',
-        channel_layout: '5.1',
-      },
-      {
-        stream_index: 2,
-        stream_type: 'audio',
-        codec_name: 'ac3',
-        is_default: false,
-        language: 'por',
-        channel_layout: '5.1',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          language: 'eng',
+          channel_layout: '5.1',
+        },
+        {
+          stream_index: 2,
+          stream_type: 'audio',
+          codec_name: 'ac3',
+          is_default: false,
+          language: 'por',
+          channel_layout: '5.1',
+        },
+      ]
+    )
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({ audio: 1 })
@@ -212,32 +241,37 @@ describe('Player — explicit track selection', () => {
   })
 
   test('selects subtitle when sub index is provided', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-        channel_layout: '5.1',
-      },
-      {
-        stream_index: 2,
-        stream_type: 'subtitle',
-        codec_name: 'subrip',
-        is_default: false,
-        language: 'eng',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          channel_layout: '5.1',
+        },
+        {
+          stream_index: 2,
+          stream_type: 'subtitle',
+          codec_name: 'subrip',
+          is_default: false,
+          language: 'eng',
+        },
+      ]
+    )
 
     const player = new Player({ id: media.id })
     const resolved = await player.resolveTracks({ sub: 0 })
@@ -247,25 +281,30 @@ describe('Player — explicit track selection', () => {
   })
 
   test('out of range index throws error with valid range', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-        channel_layout: '5.1',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          channel_layout: '5.1',
+        },
+      ]
+    )
 
     const player = new Player({ id: media.id })
 
@@ -277,9 +316,27 @@ describe('Player — explicit track selection', () => {
 
 describe('Player — TV episode resolution', () => {
   test('resolves only tracks from the specified episode', async () => {
-    const { media, episodes } = await seedTvMedia()
+    const { media, episodes } = await TestSeed.library.tv({
+      tmdbId: 1396,
+      title: 'Breaking Bad',
+      year: 2008,
+      imdbId: 'tt0903747',
+      rootFolder: '/tv',
+      seasons: [
+        {
+          seasonNumber: 1,
+          title: 'Season 1',
+          episodeCount: 3,
+          episodes: [
+            { episodeNumber: 1, title: 'Pilot' },
+            { episodeNumber: 2, title: "Cat's in the Bag..." },
+            { episodeNumber: 3, title: "...And the Bag's in the River" },
+          ],
+        },
+      ],
+    })
 
-    await seedDownloadWithTracks(
+    await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/tv/Breaking.Bad.S01E01.mkv',
@@ -303,7 +360,7 @@ describe('Player — TV episode resolution', () => {
       { episode_id: episodes[0].id }
     )
 
-    await seedDownloadWithTracks(
+    await TestSeed.player.downloadWithTracks(
       media.id,
       'hash2',
       '/tv/Breaking.Bad.S01E02.mkv',
@@ -341,9 +398,27 @@ describe('Player — TV episode resolution', () => {
   })
 
   test('track selection works scoped to episode', async () => {
-    const { media, episodes } = await seedTvMedia()
+    const { media, episodes } = await TestSeed.library.tv({
+      tmdbId: 1396,
+      title: 'Breaking Bad',
+      year: 2008,
+      imdbId: 'tt0903747',
+      rootFolder: '/tv',
+      seasons: [
+        {
+          seasonNumber: 1,
+          title: 'Season 1',
+          episodeCount: 3,
+          episodes: [
+            { episodeNumber: 1, title: 'Pilot' },
+            { episodeNumber: 2, title: "Cat's in the Bag..." },
+            { episodeNumber: 3, title: "...And the Bag's in the River" },
+          ],
+        },
+      ],
+    })
 
-    await seedDownloadWithTracks(
+    await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/tv/Breaking.Bad.S01E01.mkv',
@@ -382,7 +457,25 @@ describe('Player — TV episode resolution', () => {
   })
 
   test('throws when episode has no tracks', async () => {
-    const { media, episodes } = await seedTvMedia()
+    const { media, episodes } = await TestSeed.library.tv({
+      tmdbId: 1396,
+      title: 'Breaking Bad',
+      year: 2008,
+      imdbId: 'tt0903747',
+      rootFolder: '/tv',
+      seasons: [
+        {
+          seasonNumber: 1,
+          title: 'Season 1',
+          episodeCount: 3,
+          episodes: [
+            { episodeNumber: 1, title: 'Pilot' },
+            { episodeNumber: 2, title: "Cat's in the Bag..." },
+            { episodeNumber: 3, title: "...And the Bag's in the River" },
+          ],
+        },
+      ],
+    })
 
     const player = new Player({ id: media.id, episode_id: episodes[2].id })
 

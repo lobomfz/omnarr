@@ -2,6 +2,7 @@ import dayjs from 'dayjs'
 import { Download, Film } from 'lucide-react'
 
 import { Formatters } from '@/lib/formatters'
+import { Tooltip } from '@/web/components/ui/tooltip'
 import { STATUS_BADGE } from '@/web/constants/downloads'
 import { TRACK_COLOR, TRACK_ICON } from '@/web/constants/tracks'
 import { cn } from '@/web/lib/cn'
@@ -41,9 +42,11 @@ export function DownloadGroup(props: {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-foreground truncate">
-                {name ?? props.download.source_id}
-              </span>
+              <Tooltip content={name ?? props.download.source_id}>
+                <span className="text-sm font-bold text-foreground truncate">
+                  {name ?? props.download.source_id}
+                </span>
+              </Tooltip>
 
               {props.episodeLabel && (
                 <span className="text-[10px] font-mono font-medium text-muted-foreground flex-shrink-0">
@@ -114,9 +117,11 @@ function FileRow(props: { file: FileItem }) {
   return (
     <div className="px-6 py-4 border-b border-white/5 last:border-b-0">
       <div className="flex items-center justify-between gap-4">
-        <span className="text-sm font-medium text-foreground truncate">
-          {fileName}
-        </span>
+        <Tooltip content={fileName}>
+          <span className="text-sm font-medium text-foreground truncate">
+            {fileName}
+          </span>
+        </Tooltip>
 
         <div className="flex items-center gap-3 text-[11px] font-mono text-muted-foreground flex-shrink-0">
           {props.file.duration && (

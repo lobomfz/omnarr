@@ -4,19 +4,16 @@ import { createRouterClient } from '@orpc/server'
 
 import { router } from '@/api/router'
 import '@/api/arktype'
-import { database } from '@/db/connection'
-
 import '../mocks/tmdb'
 import '../mocks/beyond-hd'
 import '../mocks/yts'
 import '../mocks/superflix'
+import { TestSeed } from '../helpers/seed'
 
 const client = createRouterClient(router)
 
 beforeEach(() => {
-  database.reset('releases')
-  database.reset('search_results')
-  database.reset('tmdb_media')
+  TestSeed.reset()
 })
 
 describe('releases.search', () => {

@@ -3,17 +3,12 @@ import { rm } from 'fs/promises'
 
 import { PubSub } from '@/api/pubsub'
 import { SubtitleMatcher } from '@/core/subtitle-matcher'
-import { database, db } from '@/db/connection'
-import { DbDownloads } from '@/db/downloads'
-import { DbMedia } from '@/db/media'
-import { DbMediaFiles } from '@/db/media-files'
-import { DbMediaTracks } from '@/db/media-tracks'
+import { db } from '@/db/connection'
 import { DbMediaVad } from '@/db/media-vad'
 import { DbReleases } from '@/db/releases'
-import { DbTmdbMedia } from '@/db/tmdb-media'
 import { config } from '@/lib/config'
-import { deriveId } from '@/lib/utils'
 
+import { TestSeed } from '../helpers/seed'
 import { SubdlMock } from '../mocks/subdl'
 
 const tracksDir = config.root_folders!.tracks!
@@ -21,55 +16,30 @@ const tracksDir = config.root_folders!.tracks!
 const VAD_TIMESTAMPS = new Float32Array([5.0, 5.5, 500.0, 500.5])
 
 async function setupMedia() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    imdb_id: 'tt0133093',
-    year: 1999,
-  })
+  const media = await TestSeed.library.matrix()
 
-  const media = await DbMedia.create({
-    id: deriveId('603:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/tmp/omnarr-test-movies',
-  })
-
-  const download = await DbDownloads.create({
-    media_id: media.id,
-    source_id: 'VIDEO_HASH_001',
-    download_url: 'magnet:VIDEO_HASH_001',
-    status: 'completed',
-    content_path: '/movies/The Matrix (1999)',
-  })
-
-  const file = await DbMediaFiles.create({
-    media_id: media.id,
-    download_id: download.id,
-    path: '/movies/The Matrix (1999)/movie.mkv',
-    size: 8_000_000_000,
-    duration: 8160,
-  })
-
-  await DbMediaTracks.createMany([
-    {
-      media_file_id: file.id,
-      stream_index: 0,
-      stream_type: 'video',
-      codec_name: 'h264',
-      is_default: true,
-      width: 1920,
-      height: 1080,
-    },
-    {
-      media_file_id: file.id,
-      stream_index: 1,
-      stream_type: 'audio',
-      codec_name: 'aac',
-      is_default: true,
-    },
-  ])
+  const { file } = await TestSeed.player.downloadWithTracks(
+    media.id,
+    'VIDEO_HASH_001',
+    '/movies/The Matrix (1999)/movie.mkv',
+    [
+      {
+        stream_index: 0,
+        stream_type: 'video',
+        codec_name: 'h264',
+        is_default: true,
+        width: 1920,
+        height: 1080,
+      },
+      {
+        stream_index: 1,
+        stream_type: 'audio',
+        codec_name: 'aac',
+        is_default: true,
+      },
+    ],
+    { duration: 8160 }
+  )
 
   await DbMediaVad.create({
     media_file_id: file.id,
@@ -136,7 +106,7 @@ async function cleanSubtitles() {
 }
 
 beforeEach(async () => {
-  database.reset()
+  TestSeed.reset()
   await cleanSubtitles()
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })
@@ -288,46 +258,26 @@ describe('SubtitleMatcher.match', () => {
   test('returns empty tested when no subtitles found', async () => {
     await setupMedia()
 
-    // Use a media with different IMDB that has no subtitles in mock
-    const tmdb2 = await DbTmdbMedia.upsert({
-      tmdb_id: 9999,
-      media_type: 'movie',
+    const media2 = await TestSeed.library.movie({
+      tmdbId: 9999,
       title: 'No Subs Movie',
-      imdb_id: 'tt9999999',
       year: 2024,
+      imdbId: 'tt9999999',
     })
 
-    const media2 = await DbMedia.create({
-      id: deriveId('9999:movie'),
-      tmdb_media_id: tmdb2.id,
-      media_type: 'movie',
-      root_folder: '/tmp/omnarr-test-movies',
-    })
-
-    const dl = await DbDownloads.create({
-      media_id: media2.id,
-      source_id: 'VID_9999',
-      download_url: 'magnet:VID_9999',
-      status: 'completed',
-      content_path: '/movies/nosubs',
-    })
-
-    const file = await DbMediaFiles.create({
-      media_id: media2.id,
-      download_id: dl.id,
-      path: '/movies/nosubs/movie.mkv',
-      size: 1_000_000,
-    })
-
-    await DbMediaTracks.createMany([
-      {
-        media_file_id: file.id,
-        stream_index: 0,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-    ])
+    const { file } = await TestSeed.player.downloadWithTracks(
+      media2.id,
+      'VID_9999',
+      '/movies/nosubs/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+      ]
+    )
 
     await DbMediaVad.create({
       media_file_id: file.id,
@@ -345,47 +295,28 @@ describe('SubtitleMatcher.match', () => {
 
 describe('SubtitleMatcher.match edge cases', () => {
   test('throws when media has no VAD data', async () => {
-    const tmdb = await DbTmdbMedia.upsert({
-      tmdb_id: 700,
-      media_type: 'movie',
+    const media = await TestSeed.library.movie({
+      tmdbId: 700,
       title: 'No VAD Movie',
-      imdb_id: 'tt0700000',
       year: 2000,
+      imdbId: 'tt0700000',
     })
 
-    const media = await DbMedia.create({
-      id: deriveId('700:movie'),
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: '/tmp/omnarr-test-movies',
-    })
-
-    const download = await DbDownloads.create({
-      media_id: media.id,
-      source_id: 'VID_NOVAD',
-      download_url: 'magnet:VID_NOVAD',
-      status: 'completed',
-      content_path: '/movies/novad',
-    })
-
-    const file = await DbMediaFiles.create({
-      media_id: media.id,
-      download_id: download.id,
-      path: '/movies/novad/movie.mkv',
-      size: 1_000_000,
-    })
-
-    await DbMediaTracks.createMany([
-      {
-        media_file_id: file.id,
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'VID_NOVAD',
+      '/movies/novad/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+      ]
+    )
 
     const matcher = new SubtitleMatcher({ id: media.id })
 
@@ -426,48 +357,29 @@ describe('SubtitleMatcher.match edge cases', () => {
   })
 
   test('proceeds with default order when no reference release exists', async () => {
-    const tmdb = await DbTmdbMedia.upsert({
-      tmdb_id: 800,
-      media_type: 'movie',
+    const media = await TestSeed.library.movie({
+      tmdbId: 800,
       title: 'No Release Movie',
-      imdb_id: 'tt0800000',
       year: 2001,
+      imdbId: 'tt0800000',
     })
 
-    const media = await DbMedia.create({
-      id: deriveId('800:movie'),
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: '/tmp/omnarr-test-movies',
-    })
-
-    const download = await DbDownloads.create({
-      media_id: media.id,
-      source_id: 'VID_NOREL',
-      download_url: 'magnet:VID_NOREL',
-      status: 'completed',
-      content_path: '/movies/norelease',
-    })
-
-    const file = await DbMediaFiles.create({
-      media_id: media.id,
-      download_id: download.id,
-      path: '/movies/norelease/movie.mkv',
-      size: 1_000_000,
-      duration: 8160,
-    })
-
-    await DbMediaTracks.createMany([
-      {
-        media_file_id: file.id,
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-    ])
+    const { file } = await TestSeed.player.downloadWithTracks(
+      media.id,
+      'VID_NOREL',
+      '/movies/norelease/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+      ],
+      { duration: 8160 }
+    )
 
     await DbMediaVad.create({
       media_file_id: file.id,

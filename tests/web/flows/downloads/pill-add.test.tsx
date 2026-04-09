@@ -10,23 +10,19 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { database } from '@/db/connection'
 import { deriveId } from '@/lib/utils'
 
+import { TestSeed } from '../../../helpers/seed'
 import { QBittorrentMock } from '../../../mocks/qbittorrent'
 import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
-import type { UserEvent } from '../../testing-library';
+import type { UserEvent } from '../../testing-library'
 import { cleanup, waitFor } from '../../testing-library'
-import {
-  resetDownloadState,
-  seedMatrixInLibrary,
-  seedMatrixSearchResult,
-} from './helpers'
 
 beforeEach(() => {
-  resetDownloadState()
+  TestSeed.reset()
 })
 
-afterEach(() => {
-  cleanup()
+afterEach(async () => {
+  await cleanup()
 })
 
 async function selectReleaseAndDownload(user: UserEvent, sourceId: string) {
@@ -48,7 +44,7 @@ async function selectReleaseAndDownload(user: UserEvent, sourceId: string) {
 
 describe('downloads pill reactive state', () => {
   test('adding torrent for media not in library shows pill immediately', async () => {
-    const searchId = await seedMatrixSearchResult()
+    const searchId = await TestSeed.search.matrix()
 
     const { user } = mountApp(`/search/${searchId}`)
 
@@ -63,7 +59,7 @@ describe('downloads pill reactive state', () => {
   })
 
   test('adding torrent for media already in library increments pill counter', async () => {
-    await seedMatrixInLibrary()
+    await TestSeed.library.matrix()
     const mediaId = deriveId('603:movie')
 
     const { user } = mountApp(`/media/${mediaId}`)
@@ -103,7 +99,7 @@ describe('downloads pill reactive state', () => {
       })
       .execute()
 
-    const searchId = await seedMatrixSearchResult()
+    const searchId = await TestSeed.search.matrix()
 
     const { user } = mountApp(`/search/${searchId}`)
 
@@ -126,7 +122,7 @@ describe('downloads pill reactive state', () => {
   })
 
   test('adding two releases in quick succession shows both in pill', async () => {
-    await seedMatrixInLibrary()
+    await TestSeed.library.matrix()
     const mediaId = deriveId('603:movie')
 
     const { user } = mountApp(`/media/${mediaId}`)

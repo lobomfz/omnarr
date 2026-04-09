@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import dayjs from 'dayjs'
 
-import { database, db } from '@/db/connection'
+import { db } from '@/db/connection'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 
+import { TestSeed } from '../helpers/seed'
+
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 describe('DbTmdbMedia.getByTmdbId', () => {

@@ -4,14 +4,13 @@ import { createRouterClient } from '@orpc/server'
 
 import { router } from '@/api/router'
 import '@/api/arktype'
-import { database } from '@/db/connection'
-
+import { TestSeed } from '../helpers/seed'
 import '../mocks/tmdb'
 
 const client = createRouterClient(router)
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 describe('tmdb.search', () => {

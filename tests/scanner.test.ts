@@ -12,19 +12,14 @@ import { join } from 'path'
 
 import { PubSub } from '@/api/pubsub'
 import { Scanner } from '@/core/scanner'
-import { database } from '@/db/connection'
-import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
-import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'
-import { DbSeasons } from '@/db/seasons'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/lib/utils'
 
 import { MediaFixtures } from './fixtures/media'
+import { TestSeed } from './helpers/seed'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-test-'))
 const refMkv = join(tmpDir, 'ref.mkv')
@@ -156,81 +151,21 @@ afterAll(async () => {
 })
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 async function seedMedia(contentPath: string) {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    imdb_id: 'tt0133093',
-    year: 1999,
-  })
-
-  const media = await DbMedia.create({
-    id: deriveId('603:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/movies',
-  })
-
-  await DbDownloads.create({
-    media_id: media.id,
-    source_id: 'test_hash',
-    download_url: 'magnet:test',
-    status: 'completed',
-    content_path: contentPath,
-  })
+  const media = await TestSeed.library.matrix()
+  await TestSeed.downloads.completed(media.id, { contentPath })
 
   return media
 }
 
 async function seedTvMedia(contentPath: string) {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 1396,
-    media_type: 'tv',
-    title: 'Breaking Bad',
-    imdb_id: 'tt0903747',
-    year: 2008,
-  })
-
-  const media = await DbMedia.create({
-    id: deriveId('1396:tv'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'tv',
-    root_folder: '/tv',
-  })
-
-  const seasons = await DbSeasons.upsert([
-    {
-      tmdb_media_id: tmdb.id,
-      season_number: 1,
-      title: 'Season 1',
-      episode_count: 7,
-    },
-  ])
-
-  await DbEpisodes.upsert([
-    { season_id: seasons[0].id, episode_number: 1, title: 'Pilot' },
-    {
-      season_id: seasons[0].id,
-      episode_number: 2,
-      title: "Cat's in the Bag...",
-    },
-    {
-      season_id: seasons[0].id,
-      episode_number: 3,
-      title: "...And the Bag's in the River",
-    },
-  ])
-
-  await DbDownloads.create({
-    media_id: media.id,
-    source_id: 'tv_test_hash',
-    download_url: 'magnet:test',
-    status: 'completed',
-    content_path: contentPath,
+  const media = await TestSeed.library.breakingBad()
+  await TestSeed.downloads.completed(media.id, {
+    contentPath,
+    sourceId: 'tv_test_hash',
   })
 
   return media
@@ -310,12 +245,9 @@ describe('new Scanner().scan — file discovery', () => {
   test('discovers files from multiple content_paths', async () => {
     const media = await seedMedia(join(tmpDir, 'multi/dl1'))
 
-    await DbDownloads.create({
-      media_id: media.id,
-      source_id: 'second_hash',
-      download_url: 'magnet:test2',
-      status: 'completed',
-      content_path: join(tmpDir, 'multi/dl2'),
+    await TestSeed.downloads.completed(media.id, {
+      sourceId: 'second_hash',
+      contentPath: join(tmpDir, 'multi/dl2'),
     })
 
     const files = await new Scanner().scan(media.id)

@@ -5,6 +5,7 @@ import { DbEpisodes } from '@/db/episodes'
 import { DbEvents } from '@/db/events'
 import { DbMedia } from '@/db/media'
 import { Scheduler } from '@/jobs/scheduler'
+import { Formatters } from '@/lib/formatters'
 import { OmnarrError } from '@/shared/errors'
 
 export class RipperDownload implements DownloadSource {
@@ -100,7 +101,7 @@ export class RipperDownload implements DownloadSource {
       entity_type: 'download',
       entity_id: data.source_id,
       event_type: 'created',
-      message: `Download started: ${data.title} S${String(data.season_number).padStart(2, '0')} (${episodes.length} episodes)`,
+      message: `Download started: ${data.title} ${Formatters.seasonEpisodeTag(data.season_number, null)} (${episodes.length} episodes)`,
     })
 
     await DownloadEvents.publishMany(downloads.map((d) => d.id))

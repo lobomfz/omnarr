@@ -1,35 +1,17 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
-import { database } from '@/db/connection'
 import { DbEvents } from '@/db/events'
 import { DbMedia } from '@/db/media'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/lib/utils'
+
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
-
-async function seedMedia() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    imdb_id: 'tt0133093',
-    year: 1999,
-  })
-
-  return await DbMedia.create({
-    id: deriveId('603:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/movies',
-  })
-}
 
 describe('DbEvents.create', () => {
   test('creates an event with all fields', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     const event = await DbEvents.create({
       media_id: media.id,
@@ -61,7 +43,7 @@ describe('DbEvents.create', () => {
   })
 
   test('creates an event with metadata', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     const event = await DbEvents.create({
       media_id: media.id,
@@ -78,7 +60,7 @@ describe('DbEvents.create', () => {
 
 describe('DbEvents.getByMediaId', () => {
   test('returns events for a media ordered by id desc', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbEvents.create({
       media_id: media.id,
@@ -112,7 +94,7 @@ describe('DbEvents.getByMediaId', () => {
 
 describe('DbEvents.markRead', () => {
   test('marks specified events as read', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     const e1 = await DbEvents.create({
       media_id: media.id,
@@ -148,7 +130,7 @@ describe('DbEvents.markRead', () => {
   })
 
   test('only marks specified ids, leaves others unread', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     const e1 = await DbEvents.create({
       media_id: media.id,
@@ -179,7 +161,7 @@ describe('DbEvents.markRead', () => {
 
 describe('cascade delete', () => {
   test('deleting media cascades to events', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     await DbEvents.create({
       media_id: media.id,

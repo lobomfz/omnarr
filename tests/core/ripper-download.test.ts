@@ -1,76 +1,24 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { RipperDownload } from '@/core/ripper-download'
-import { database, db } from '@/db/connection'
+import { database } from '@/db/connection'
 import { DbEvents } from '@/db/events'
-import { DbMedia } from '@/db/media'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { ripperQueue } from '@/jobs/queues'
 import { config } from '@/lib/config'
-import { deriveId } from '@/lib/utils'
+
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
-  ripperQueue.clear()
+  TestSeed.reset()
 })
-
-async function seedMedia(tmdbId: number, imdbId: string) {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: tmdbId,
-    media_type: 'movie',
-    title: 'Ripper Source Test',
-    imdb_id: imdbId,
-    year: 2020,
-  })
-
-  return await DbMedia.create({
-    id: deriveId(`${tmdbId}:movie`),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/tmp/omnarr-test-movies',
-  })
-}
-
-async function seedTvMedia() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 903747,
-    media_type: 'tv',
-    title: 'Breaking Bad',
-    imdb_id: 'tt0903747',
-    year: 2008,
-  })
-
-  const media = await DbMedia.create({
-    id: deriveId('903747:tv'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'tv',
-    root_folder: '/tv',
-  })
-
-  const season = await db
-    .insertInto('seasons')
-    .values({
-      tmdb_media_id: tmdb.id,
-      season_number: 1,
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
-
-  await db
-    .insertInto('episodes')
-    .values([
-      { season_id: season.id, episode_number: 1 },
-      { season_id: season.id, episode_number: 2 },
-      { season_id: season.id, episode_number: 3 },
-    ])
-    .execute()
-
-  return media
-}
 
 describe('RipperDownload.enqueue', () => {
   test('creates download record and intention event', async () => {
-    const media = await seedMedia(10001, 'tt0000001')
+    const media = await TestSeed.library.movie({
+      tmdbId: 10001,
+      title: 'Ripper Source Test',
+      year: 2020,
+      imdbId: 'tt0000001',
+    })
 
     const result = await new RipperDownload().enqueue({
       source_id: 'superflix:tt0000001',
@@ -105,7 +53,25 @@ describe('RipperDownload.enqueue', () => {
 
 describe('RipperDownload.enqueueSeason', () => {
   test('creates one download per episode', async () => {
-    const media = await seedTvMedia()
+    const { media } = await TestSeed.library.tv({
+      tmdbId: 903747,
+      title: 'Breaking Bad',
+      year: 2008,
+      imdbId: 'tt0903747',
+      rootFolder: '/tv',
+      seasons: [
+        {
+          seasonNumber: 1,
+          title: 'Season 1',
+          episodeCount: 3,
+          episodes: [
+            { episodeNumber: 1, title: 'Pilot' },
+            { episodeNumber: 2, title: "Cat's in the Bag..." },
+            { episodeNumber: 3, title: "...And the Bag's in the River" },
+          ],
+        },
+      ],
+    })
 
     const result = await new RipperDownload().enqueue({
       source_id: 'superflix:tt0903747:1',
@@ -145,7 +111,25 @@ describe('RipperDownload.enqueueSeason', () => {
   })
 
   test('throws when season has no episodes', async () => {
-    const media = await seedTvMedia()
+    const { media } = await TestSeed.library.tv({
+      tmdbId: 903747,
+      title: 'Breaking Bad',
+      year: 2008,
+      imdbId: 'tt0903747',
+      rootFolder: '/tv',
+      seasons: [
+        {
+          seasonNumber: 1,
+          title: 'Season 1',
+          episodeCount: 3,
+          episodes: [
+            { episodeNumber: 1, title: 'Pilot' },
+            { episodeNumber: 2, title: "Cat's in the Bag..." },
+            { episodeNumber: 3, title: "...And the Bag's in the River" },
+          ],
+        },
+      ],
+    })
 
     await expect(() =>
       new RipperDownload().enqueue({

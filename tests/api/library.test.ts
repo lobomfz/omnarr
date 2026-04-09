@@ -4,35 +4,22 @@ import { createRouterClient } from '@orpc/server'
 
 import { router } from '@/api/router'
 import '@/api/arktype'
-import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
-import { DbMedia } from '@/db/media'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/lib/utils'
+
+import { TestSeed } from '../helpers/seed'
 
 const client = createRouterClient(router)
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 async function seedMovie() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    imdb_id: 'tt0133093',
-    year: 1999,
-    poster_path: '/abc123.jpg',
-    backdrop_path: '/backdrop.jpg',
+  return await TestSeed.library.matrix({
+    rootFolder: '/movies',
+    posterPath: '/abc123.jpg',
+    backdropPath: '/backdrop.jpg',
     overview: 'A computer hacker learns about reality.',
-  })
-
-  return await DbMedia.create({
-    id: deriveId('603:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/movies',
   })
 }
 

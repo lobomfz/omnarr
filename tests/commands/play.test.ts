@@ -3,12 +3,11 @@ import { describe, expect, test, beforeEach } from 'bun:test'
 import { testCommand } from '@bunli/test'
 
 import { PlayCommand } from '@/commands/play'
-import { database } from '@/db/connection'
 
-import { seedMedia, seedTvMedia, seedDownloadWithTracks } from '../player/seed'
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 describe('play command', () => {
@@ -23,7 +22,7 @@ describe('play command', () => {
   })
 
   test('errors when media has no scanned tracks', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
     const result = await testCommand(PlayCommand, {
       args: [media.id],
@@ -45,24 +44,29 @@ describe('play command', () => {
   })
 
   test('errors when --video index is out of range', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+      ]
+    )
 
     const result = await testCommand(PlayCommand, {
       args: [media.id],
@@ -74,24 +78,29 @@ describe('play command', () => {
   })
 
   test('errors when --sub is used but no subtitle tracks exist', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+      ]
+    )
 
     const result = await testCommand(PlayCommand, {
       args: [media.id],
@@ -103,24 +112,29 @@ describe('play command', () => {
   })
 
   test('errors when --audio index is out of range', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+      ]
+    )
 
     const result = await testCommand(PlayCommand, {
       args: [media.id],
@@ -134,7 +148,25 @@ describe('play command', () => {
 
 describe('play command — TV', () => {
   test('errors when TV show played without --season/--episode', async () => {
-    const { media } = await seedTvMedia()
+    const { media } = await TestSeed.library.tv({
+      tmdbId: 1396,
+      title: 'Breaking Bad',
+      year: 2008,
+      imdbId: 'tt0903747',
+      rootFolder: '/tv',
+      seasons: [
+        {
+          seasonNumber: 1,
+          title: 'Season 1',
+          episodeCount: 3,
+          episodes: [
+            { episodeNumber: 1, title: 'Pilot' },
+            { episodeNumber: 2, title: "Cat's in the Bag..." },
+            { episodeNumber: 3, title: "...And the Bag's in the River" },
+          ],
+        },
+      ],
+    })
 
     const result = await testCommand(PlayCommand, {
       args: [media.id],
@@ -147,7 +179,25 @@ describe('play command — TV', () => {
   })
 
   test('errors when episode does not exist', async () => {
-    const { media } = await seedTvMedia()
+    const { media } = await TestSeed.library.tv({
+      tmdbId: 1396,
+      title: 'Breaking Bad',
+      year: 2008,
+      imdbId: 'tt0903747',
+      rootFolder: '/tv',
+      seasons: [
+        {
+          seasonNumber: 1,
+          title: 'Season 1',
+          episodeCount: 3,
+          episodes: [
+            { episodeNumber: 1, title: 'Pilot' },
+            { episodeNumber: 2, title: "Cat's in the Bag..." },
+            { episodeNumber: 3, title: "...And the Bag's in the River" },
+          ],
+        },
+      ],
+    })
 
     const result = await testCommand(PlayCommand, {
       args: [media.id],
@@ -159,9 +209,27 @@ describe('play command — TV', () => {
   })
 
   test('errors when episode has no associated file', async () => {
-    const { media, episodes } = await seedTvMedia()
+    const { media, episodes } = await TestSeed.library.tv({
+      tmdbId: 1396,
+      title: 'Breaking Bad',
+      year: 2008,
+      imdbId: 'tt0903747',
+      rootFolder: '/tv',
+      seasons: [
+        {
+          seasonNumber: 1,
+          title: 'Season 1',
+          episodeCount: 3,
+          episodes: [
+            { episodeNumber: 1, title: 'Pilot' },
+            { episodeNumber: 2, title: "Cat's in the Bag..." },
+            { episodeNumber: 3, title: "...And the Bag's in the River" },
+          ],
+        },
+      ],
+    })
 
-    await seedDownloadWithTracks(
+    await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/tv/Breaking.Bad.S01E01.mkv',

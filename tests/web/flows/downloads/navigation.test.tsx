@@ -5,35 +5,38 @@ import '../../../mocks/subdl'
 import '../../../mocks/superflix'
 import '../../../mocks/tmdb'
 import '../../../mocks/yts'
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  setDefaultTimeout,
+  test,
+} from 'bun:test'
 
 import { ripperQueue } from '@/jobs/queues'
 import { deriveId } from '@/lib/utils'
 
+import { TestSeed } from '../../../helpers/seed'
 import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
 import { cleanup, waitFor } from '../../testing-library'
-import {
-  resetDownloadState,
-  seedBreakingBadInLibrary,
-  seedDownload,
-  seedMatrixInLibrary,
-  seedMatrixSearchResult,
-  seedRipperDownload,
-} from './helpers'
+import { seedDownload, seedRipperDownload } from './helpers'
 
 beforeEach(() => {
-  resetDownloadState()
+  TestSeed.reset()
   ripperQueue.clear()
 })
 
-afterEach(() => {
-  cleanup()
+setDefaultTimeout(10_000)
+
+afterEach(async () => {
+  await cleanup()
 })
 
 describe('cross-cutting navigation and mixed sources', () => {
   test('navigation away and back preserves current progress display', async () => {
-    await seedMatrixInLibrary()
+    await TestSeed.library.matrix()
     const mediaId = deriveId('603:movie')
 
     await seedRipperDownload({
@@ -79,7 +82,7 @@ describe('cross-cutting navigation and mixed sources', () => {
   })
 
   test('download started on search page is reflected on detail page after navigation', async () => {
-    const searchId = await seedMatrixSearchResult()
+    const searchId = await TestSeed.search.matrix()
     const mediaId = deriveId('603:movie')
 
     const { user, router } = mountApp(`/search/${searchId}`)
@@ -118,7 +121,7 @@ describe('cross-cutting navigation and mixed sources', () => {
   })
 
   test('clicking pill popover entry navigates to media detail and closes popover', async () => {
-    await seedMatrixInLibrary()
+    await TestSeed.library.matrix()
     const mediaId = deriveId('603:movie')
 
     await seedRipperDownload({
@@ -173,7 +176,7 @@ describe('cross-cutting navigation and mixed sources', () => {
       progress: 0.4,
     })
 
-    const bb = await seedBreakingBadInLibrary()
+    const bb = await TestSeed.library.breakingBad()
     await seedRipperDownload({
       mediaId: bb.id,
       sourceId: 'ripper:parallel:1',
@@ -212,7 +215,7 @@ describe('cross-cutting navigation and mixed sources', () => {
       status: 'downloading',
     })
 
-    const bb = await seedBreakingBadInLibrary()
+    const bb = await TestSeed.library.breakingBad()
 
     await seedRipperDownload({
       mediaId: bb.id,

@@ -14,9 +14,8 @@ import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
 import { PubSub } from '@/api/pubsub'
 import { Exporter } from '@/core/exporter'
-import { database } from '@/db/connection'
 
-import { seedMedia, seedDownloadWithTracks, seedVad } from '../player/seed'
+import { TestSeed } from '../helpers/seed'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-export-'))
 
@@ -25,30 +24,35 @@ afterAll(async () => {
 })
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 describe('Exporter — command building', () => {
   test('single file produces correct inputs and maps', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-        language: 'eng',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          language: 'eng',
+        },
+      ]
+    )
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -64,9 +68,9 @@ describe('Exporter — command building', () => {
   })
 
   test('different-download file gets -itsoffset before input', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    const { file: videoFile } = await seedDownloadWithTracks(
+    const { file: videoFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/movies/video.mkv',
@@ -88,7 +92,7 @@ describe('Exporter — command building', () => {
       ]
     )
 
-    const { file: audioFile } = await seedDownloadWithTracks(
+    const { file: audioFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash2',
       '/tracks/audio_pt.mka',
@@ -103,8 +107,8 @@ describe('Exporter — command building', () => {
       ]
     )
 
-    await seedVad(videoFile.id, 42)
-    await seedVad(audioFile.id, 42)
+    await TestSeed.player.vad(videoFile.id, 42)
+    await TestSeed.player.vad(audioFile.id, 42)
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -124,24 +128,29 @@ describe('Exporter — command building', () => {
   })
 
   test('same-download file gets no -itsoffset', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+      ]
+    )
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -152,24 +161,29 @@ describe('Exporter — command building', () => {
   })
 
   test('codec is -c copy', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+      ]
+    )
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -183,26 +197,31 @@ describe('Exporter — command building', () => {
   })
 
   test('stream metadata is set per output stream', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-        language: 'eng',
-        title: 'English 5.1',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          language: 'eng',
+          title: 'English 5.1',
+        },
+      ]
+    )
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -215,32 +234,37 @@ describe('Exporter — command building', () => {
   })
 
   test('default disposition is set for is_default tracks', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-        language: 'eng',
-      },
-      {
-        stream_index: 2,
-        stream_type: 'audio',
-        codec_name: 'ac3',
-        is_default: false,
-        language: 'por',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          language: 'eng',
+        },
+        {
+          stream_index: 2,
+          stream_type: 'audio',
+          codec_name: 'ac3',
+          is_default: false,
+          language: 'por',
+        },
+      ]
+    )
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -253,31 +277,36 @@ describe('Exporter — command building', () => {
   })
 
   test('streams ordered: video then audio then subtitle', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-      {
-        stream_index: 2,
-        stream_type: 'subtitle',
-        codec_name: 'subrip',
-        is_default: false,
-        language: 'eng',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+        {
+          stream_index: 2,
+          stream_type: 'subtitle',
+          codec_name: 'subrip',
+          is_default: false,
+          language: 'eng',
+        },
+      ]
+    )
 
     const exporter = new Exporter({ id: media.id })
     const resolved = await exporter.resolveTracks({})
@@ -300,24 +329,29 @@ describe('Exporter — output validation', () => {
 
     await Bun.write(existingFile, 'dummy')
 
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', '/movies/movie.mkv', [
-      {
-        stream_index: 0,
-        stream_type: 'video',
-        codec_name: 'h264',
-        is_default: true,
-        width: 1920,
-        height: 1080,
-      },
-      {
-        stream_index: 1,
-        stream_type: 'audio',
-        codec_name: 'aac',
-        is_default: true,
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'hash1',
+      '/movies/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
+      ]
+    )
 
     const exporter = new Exporter({ id: media.id })
 
@@ -349,9 +383,9 @@ describe('Exporter — integration', () => {
   })
 
   test('produces a valid MKV with all expected streams', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', refMkv, [
+    await TestSeed.player.downloadWithTracks(media.id, 'hash1', refMkv, [
       {
         stream_index: 0,
         stream_type: 'video',
@@ -385,9 +419,9 @@ describe('Exporter — integration', () => {
   })
 
   test('publishes export_progress events with correct identity', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await seedDownloadWithTracks(media.id, 'hash1', refMkv, [
+    await TestSeed.player.downloadWithTracks(media.id, 'hash1', refMkv, [
       {
         stream_index: 0,
         stream_type: 'video',

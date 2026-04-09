@@ -12,11 +12,10 @@ import { join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
-import { database } from '@/db/connection'
 import { Player } from '@/player/player'
 
 import { MediaFixtures } from '../fixtures/media'
-import { seedMedia, seedDownloadWithTracks } from './seed'
+import { TestSeed } from '../helpers/seed'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-start-'))
 const refMkv = join(tmpDir, 'ref.mkv')
@@ -45,7 +44,7 @@ beforeAll(async () => {
 })
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 afterAll(async () => {
@@ -54,12 +53,12 @@ afterAll(async () => {
 
 describe('Player — start', () => {
   test('resolves tracks, generates HLS, and serves playable URL', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
     const filePath = join(tmpDir, 'start/movie.mkv')
 
     await MediaFixtures.copy(refMkv, filePath)
 
-    await seedDownloadWithTracks(
+    await TestSeed.player.downloadWithTracks(
       media.id,
       'start_hash',
       filePath,
@@ -114,14 +113,14 @@ describe('Player — start', () => {
   })
 
   test('subtitle served via HLS media playlist, not raw VTT', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
     const filePath = join(tmpDir, 'start-subs-hls/movie.mkv')
     const srtPath = join(tmpDir, 'start-subs-hls/sub.srt')
 
     await MediaFixtures.copy(refSubsMkv, filePath)
     await Bun.write(srtPath, '1\n00:00:00,000 --> 00:00:00,100\nTest\n')
 
-    await seedDownloadWithTracks(
+    await TestSeed.player.downloadWithTracks(
       media.id,
       'subhls_hash',
       filePath,
@@ -144,7 +143,7 @@ describe('Player — start', () => {
       { duration: refSubsDuration, keyframes: refSubsKeyframes }
     )
 
-    await seedDownloadWithTracks(media.id, 'subhls_sub', srtPath, [
+    await TestSeed.player.downloadWithTracks(media.id, 'subhls_sub', srtPath, [
       {
         stream_index: 0,
         stream_type: 'subtitle',
@@ -173,14 +172,14 @@ describe('Player — start', () => {
   })
 
   test('includes subtitle in master playlist when selected', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
     const filePath = join(tmpDir, 'start-subs/movie.mkv')
     const srtPath = join(tmpDir, 'start-subs/sub.srt')
 
     await MediaFixtures.copy(refSubsMkv, filePath)
     await Bun.write(srtPath, '1\n00:00:00,000 --> 00:00:00,100\nTest\n')
 
-    await seedDownloadWithTracks(
+    await TestSeed.player.downloadWithTracks(
       media.id,
       'startsub_hash',
       filePath,
@@ -203,15 +202,20 @@ describe('Player — start', () => {
       { duration: refSubsDuration, keyframes: refSubsKeyframes }
     )
 
-    await seedDownloadWithTracks(media.id, 'startsub_sub', srtPath, [
-      {
-        stream_index: 0,
-        stream_type: 'subtitle',
-        codec_name: 'subrip',
-        is_default: false,
-        language: 'por',
-      },
-    ])
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'startsub_sub',
+      srtPath,
+      [
+        {
+          stream_index: 0,
+          stream_type: 'subtitle',
+          codec_name: 'subrip',
+          is_default: false,
+          language: 'por',
+        },
+      ]
+    )
 
     const player = new Player({ id: media.id })
     const result = await player.start({ sub: 0 }, { port: 0 })

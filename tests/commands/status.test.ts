@@ -11,6 +11,7 @@ import { envVariables } from '@/lib/env'
 import { deriveId } from '@/lib/utils'
 
 import '../mocks/qbittorrent'
+import { TestSeed } from '../helpers/seed'
 import { QBittorrentMock } from '../mocks/qbittorrent'
 
 const MOVIE_ID = deriveId('603:movie')
@@ -23,27 +24,7 @@ const TV_EP_DL_URL = 'https://beyond-hd.me/dl/bb_s01e01'
 const TV_PACK_DL_URL = 'https://beyond-hd.me/dl/bb_s01'
 
 async function setupMovieDownload() {
-  const tmdb = await db
-    .insertInto('tmdb_media')
-    .values({
-      tmdb_id: 603,
-      media_type: 'movie',
-      title: 'The Matrix',
-      year: 1999,
-      imdb_id: 'tt0133093',
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
-
-  await db
-    .insertInto('media')
-    .values({
-      id: MOVIE_ID,
-      tmdb_media_id: tmdb.id,
-      media_type: 'movie',
-      root_folder: '/tmp/omnarr-test-movies',
-    })
-    .execute()
+  await TestSeed.library.matrix()
 
   await db
     .insertInto('releases')
@@ -60,55 +41,15 @@ async function setupMovieDownload() {
     })
     .execute()
 
-  await db
-    .insertInto('downloads')
-    .values({
-      media_id: MOVIE_ID,
-      source_id: MOVIE_SOURCE_ID,
-      download_url: MOVIE_DL_URL,
-      source: 'torrent',
-      status: 'downloading',
-    })
-    .execute()
-
-  await QBittorrentMock.db
-    .insertInto('torrents')
-    .values({
-      hash: 'abc123',
-      url: MOVIE_DL_URL,
-      savepath: '',
-      category: 'omnarr',
-      progress: 0,
-      dlspeed: 0,
-      eta: 0,
-      state: 'downloading',
-      content_path: '/abc123',
-    })
-    .execute()
+  await TestSeed.downloads.torrent({
+    mediaId: MOVIE_ID,
+    sourceId: MOVIE_SOURCE_ID,
+    downloadUrl: MOVIE_DL_URL,
+  })
 }
 
 async function setupTvDownload() {
-  const tmdb = await db
-    .insertInto('tmdb_media')
-    .values({
-      tmdb_id: 1399,
-      media_type: 'tv',
-      title: 'Breaking Bad',
-      year: 2008,
-      imdb_id: 'tt0903747',
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
-
-  await db
-    .insertInto('media')
-    .values({
-      id: TV_ID,
-      tmdb_media_id: tmdb.id,
-      media_type: 'tv',
-      root_folder: '/tmp/tv',
-    })
-    .execute()
+  await TestSeed.library.breakingBad({ withEpisodes: false })
 
   await db
     .insertInto('releases')
@@ -143,73 +84,27 @@ async function setupTvDownload() {
 }
 
 async function insertTvEpisodeDownload() {
-  await db
-    .insertInto('downloads')
-    .values({
-      media_id: TV_ID,
-      source_id: TV_EP_SOURCE_ID,
-      download_url: TV_EP_DL_URL,
-      source: 'torrent',
-      status: 'downloading',
-      season_number: 1,
-      episode_number: 1,
-    })
-    .execute()
-
-  await QBittorrentMock.db
-    .insertInto('torrents')
-    .values({
-      hash: 'bb_hash_s01e01',
-      url: TV_EP_DL_URL,
-      savepath: '',
-      category: 'omnarr',
-      progress: 0,
-      dlspeed: 0,
-      eta: 0,
-      state: 'downloading',
-      content_path: '/bb_s01e01',
-    })
-    .execute()
+  await TestSeed.downloads.torrent({
+    mediaId: TV_ID,
+    sourceId: TV_EP_SOURCE_ID,
+    downloadUrl: TV_EP_DL_URL,
+    seasonNumber: 1,
+    episodeNumber: 1,
+  })
 }
 
 async function insertTvSeasonPackDownload() {
-  await db
-    .insertInto('downloads')
-    .values({
-      media_id: TV_ID,
-      source_id: TV_PACK_SOURCE_ID,
-      download_url: TV_PACK_DL_URL,
-      source: 'torrent',
-      status: 'downloading',
-      season_number: 1,
-    })
-    .execute()
-
-  await QBittorrentMock.db
-    .insertInto('torrents')
-    .values({
-      hash: 'bb_hash_s01',
-      url: TV_PACK_DL_URL,
-      savepath: '',
-      category: 'omnarr',
-      progress: 0,
-      dlspeed: 0,
-      eta: 0,
-      state: 'downloading',
-      content_path: '/bb_s01',
-    })
-    .execute()
+  await TestSeed.downloads.torrent({
+    mediaId: TV_ID,
+    sourceId: TV_PACK_SOURCE_ID,
+    downloadUrl: TV_PACK_DL_URL,
+    seasonNumber: 1,
+  })
 }
 
 describe('status command', () => {
   beforeEach(() => {
-    database.reset('media_tracks')
-    database.reset('media_files')
-    database.reset('downloads')
-    database.reset('releases')
-    database.reset('media')
-    database.reset('tmdb_media')
-    QBittorrentMock.reset()
+    TestSeed.reset()
   })
 
   test('syncs progress from qbittorrent', async () => {

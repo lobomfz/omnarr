@@ -4,35 +4,16 @@ import { testCommand } from '@bunli/test'
 
 import '../helpers/api-server'
 import { ScanCommand } from '@/commands/scan'
-import { database } from '@/db/connection'
-import { DbMedia } from '@/db/media'
-import { DbTmdbMedia } from '@/db/tmdb-media'
-import { deriveId } from '@/lib/utils'
+
+import { TestSeed } from '../helpers/seed'
 
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
-
-async function seedMedia() {
-  const tmdb = await DbTmdbMedia.upsert({
-    tmdb_id: 603,
-    media_type: 'movie',
-    title: 'The Matrix',
-    imdb_id: 'tt0133093',
-    year: 1999,
-  })
-
-  return await DbMedia.create({
-    id: deriveId('603:movie'),
-    tmdb_media_id: tmdb.id,
-    media_type: 'movie',
-    root_folder: '/movies',
-  })
-}
 
 describe('scan command', () => {
   test('enqueues scan for existing media', async () => {
-    const media = await seedMedia()
+    const media = await TestSeed.library.matrix()
 
     const result = await testCommand(ScanCommand, {
       args: [String(media.id)],
