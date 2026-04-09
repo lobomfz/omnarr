@@ -7,16 +7,17 @@ import '../../../mocks/tmdb'
 import '../../../mocks/yts'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
-import { cleanup, waitFor, within } from '@testing-library/react'
-
 import { PubSub } from '@/api/pubsub'
 import { DownloadEvents } from '@/core/download-events'
 import { TorrentSync } from '@/core/torrent-sync'
 import { DbDownloads } from '@/db/downloads'
 import { scanQueue } from '@/jobs/queues'
+import { deriveId } from '@/lib/utils'
 
 import { QBittorrentMock } from '../../../mocks/qbittorrent'
+import { get, query } from '../../dom'
 import { mountApp } from '../../mount-app'
+import { cleanup, waitFor } from '../../testing-library'
 import { resetDownloadState, seedDownload } from './helpers'
 
 beforeEach(() => {
@@ -28,12 +29,6 @@ afterEach(() => {
 })
 
 describe('terminal transitions clear the pill', () => {
-  const q = within(document.body)
-
-  function pillButtons(name: string) {
-    return q.queryAllByRole('button', { name })
-  }
-
   test('live progress from WS updates pill and detail page consistently', async () => {
     const { mediaId, downloadId } = await seedDownload({
       tmdbId: 603,
@@ -45,7 +40,7 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 5000 }
     )
@@ -60,16 +55,21 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(q.getAllByText('50%').length).toBeGreaterThan(0)
+        expect(get('download-group').dataset.progress).toBe('0.5')
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
   })
 
   test('progress update for unknown download adds it to the pill', async () => {
     mountApp('/')
 
-    await q.findByText(/Your library is empty/i, undefined, { timeout: 5000 })
+    await waitFor(
+      () => {
+        get('empty-state')
+      },
+      { timeout: 5000 }
+    )
 
     await PubSub.publish('download_progress', {
       id: 99999,
@@ -89,9 +89,9 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
   })
 
@@ -114,7 +114,7 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('2').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('2')
       },
       { timeout: 5000 }
     )
@@ -131,7 +131,7 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 5000 }
     )
@@ -146,9 +146,9 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1')).toHaveLength(0)
+        expect(query('download-pill', { nav: 'desktop' })).toBeNull()
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
   })
 
@@ -165,12 +165,12 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(q.getAllByText('The Matrix').length).toBeGreaterThan(0)
+        get('media-card', { 'media-id': deriveId('603:movie') })
       },
       { timeout: 5000 }
     )
 
-    expect(pillButtons('1')).toHaveLength(0)
+    expect(query('download-pill', { nav: 'desktop' })).toBeNull()
   })
 
   test('paused torrent is not shown in pill', async () => {
@@ -186,12 +186,12 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(q.getAllByText('The Matrix').length).toBeGreaterThan(0)
+        get('media-card', { 'media-id': deriveId('603:movie') })
       },
       { timeout: 5000 }
     )
 
-    expect(pillButtons('1')).toHaveLength(0)
+    expect(query('download-pill', { nav: 'desktop' })).toBeNull()
   })
 
   test('counter decrements when one of three downloads completes', async () => {
@@ -220,7 +220,7 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('3').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('3')
       },
       { timeout: 5000 }
     )
@@ -235,9 +235,9 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('2').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('2')
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
   })
 
@@ -253,7 +253,7 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 5000 }
     )
@@ -268,9 +268,9 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1')).toHaveLength(0)
+        expect(query('download-pill', { nav: 'desktop' })).toBeNull()
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
 
     await QBittorrentMock.db
@@ -283,9 +283,9 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
   })
 

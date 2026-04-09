@@ -16,7 +16,7 @@ function useInProgressDownloads() {
   return useQuery(orpc.downloads.listInProgress.queryOptions({}))
 }
 
-export function DownloadPill() {
+export function DownloadPill(props: { nav: 'desktop' | 'mobile' }) {
   useDownloadProgressSubscription()
 
   const { data } = useInProgressDownloads()
@@ -34,6 +34,9 @@ export function DownloadPill() {
       <PopoverTrigger asChild>
         <button
           type="button"
+          data-component="download-pill"
+          data-nav={props.nav}
+          data-count={String(data.length)}
           className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-full transition-all duration-[var(--duration-fast)] text-muted-foreground hover:text-white hover:bg-white/5 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <Download className="size-3.5 text-primary" />
@@ -76,6 +79,8 @@ function PillEntry(props: {
       <Link
         to="/media/$id"
         params={{ id: props.download.media_id }}
+        data-component="pill-entry"
+        data-media-id={props.download.media_id}
         className="flex items-center gap-3 px-4 py-3 border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors duration-[var(--duration-fast)]"
       >
         <div className="flex-1 min-w-0">

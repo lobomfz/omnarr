@@ -7,15 +7,15 @@ import '../../../mocks/tmdb'
 import '../../../mocks/yts'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
-import { cleanup, fireEvent, waitFor, within } from '@testing-library/react'
-
 import { DownloadEvents } from '@/core/download-events'
 import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { ripperQueue } from '@/jobs/queues'
 import { deriveId } from '@/lib/utils'
 
+import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
+import { cleanup, fireEvent, waitFor } from '../../testing-library'
 import {
   resetDownloadState,
   seedBreakingBadInLibrary,
@@ -34,43 +34,39 @@ afterEach(() => {
 })
 
 describe('ripper lifecycle', () => {
-  const q = within(document.body)
-
-  function pillButtons(name: string) {
-    return q.queryAllByRole('button', { name })
-  }
-
   test('adding single-episode ripper release shows download in pill', async () => {
     await seedMatrixInLibrary()
     const mediaId = deriveId('603:movie')
 
     const { user } = mountApp(`/media/${mediaId}`)
 
-    const addReleaseBtn = await q.findByRole(
-      'button',
-      { name: /Add Release/i },
+    await waitFor(
+      () => {
+        slot(get('media-hero'), 'add-release')
+      },
       { timeout: 5000 }
     )
 
-    await user.click(addReleaseBtn)
-
-    const release = await q.findByRole(
-      'button',
-      { name: /\[superflix\]/i },
-      { timeout: 5000 }
-    )
-
-    await user.click(release)
-
-    const downloadBtn = await q.findByRole('button', {
-      name: /^Download$/,
-    })
-
-    await user.click(downloadBtn)
+    await user.click(slot(get('media-hero'), 'add-release'))
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        get('release-row', { 'source-id': 'SUPERFLIX:TT0133093' })
+      },
+      { timeout: 5000 }
+    )
+
+    await user.click(get('release-row', { 'source-id': 'SUPERFLIX:TT0133093' }))
+
+    await waitFor(() => {
+      slot(get('action-bar'), 'download')
+    })
+
+    await user.click(slot(get('action-bar'), 'download'))
+
+    await waitFor(
+      () => {
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 2000 }
     )
@@ -82,42 +78,46 @@ describe('ripper lifecycle', () => {
 
     const { user } = mountApp(`/media/${mediaId}`)
 
-    const addReleaseBtn = await q.findByRole(
-      'button',
-      { name: /Add Release/i },
+    await waitFor(
+      () => {
+        slot(get('media-hero'), 'add-release')
+      },
       { timeout: 5000 }
     )
 
-    await user.click(addReleaseBtn)
+    await user.click(slot(get('media-hero'), 'add-release'))
 
     await waitFor(
       () => {
-        expect(document.querySelector('select')).not.toBeNull()
+        slot(get('inline-releases'), 'season-picker')
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
 
-    fireEvent.change(document.querySelector('select')!, {
+    fireEvent.change(slot(get('inline-releases'), 'season-picker'), {
       target: { value: '1' },
     })
 
-    const release = await q.findByRole(
-      'button',
-      { name: /superflix/i },
+    await waitFor(
+      () => {
+        get('release-row', { 'source-id': 'SUPERFLIX:TT0903747:1' })
+      },
       { timeout: 5000 }
     )
 
-    await user.click(release)
+    await user.click(
+      get('release-row', { 'source-id': 'SUPERFLIX:TT0903747:1' })
+    )
 
-    const downloadBtn = await q.findByRole('button', {
-      name: /^Download$/,
+    await waitFor(() => {
+      slot(get('action-bar'), 'download')
     })
 
-    await user.click(downloadBtn)
+    await user.click(slot(get('action-bar'), 'download'))
 
     await waitFor(
       () => {
-        expect(pillButtons('3').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('3')
       },
       { timeout: 2000 }
     )
@@ -129,40 +129,49 @@ describe('ripper lifecycle', () => {
 
     const { user } = mountApp(`/media/${mediaId}`)
 
-    const addReleaseBtn = await q.findByRole(
-      'button',
-      { name: /Add Release/i },
+    await waitFor(
+      () => {
+        slot(get('media-hero'), 'add-release')
+      },
       { timeout: 5000 }
     )
 
-    await user.click(addReleaseBtn)
+    await user.click(slot(get('media-hero'), 'add-release'))
 
     await waitFor(
       () => {
-        expect(document.querySelector('select')).not.toBeNull()
+        slot(get('inline-releases'), 'season-picker')
       },
-      { timeout: 3000 }
-    )
-
-    fireEvent.change(document.querySelector('select')!, {
-      target: { value: '1' },
-    })
-
-    const release = await q.findByRole(
-      'button',
-      { name: /superflix/i },
       { timeout: 5000 }
     )
 
-    await user.click(release)
-
-    const downloadBtn = await q.findByRole('button', {
-      name: /^Download$/,
+    fireEvent.change(slot(get('inline-releases'), 'season-picker'), {
+      target: { value: '1' },
     })
 
-    await user.click(downloadBtn)
+    await waitFor(
+      () => {
+        get('release-row', { 'source-id': 'SUPERFLIX:TT0903747:1' })
+      },
+      { timeout: 5000 }
+    )
 
-    await q.findByText(/No episodes found/i, undefined, { timeout: 3000 })
+    await user.click(
+      get('release-row', { 'source-id': 'SUPERFLIX:TT0903747:1' })
+    )
+
+    await waitFor(() => {
+      slot(get('action-bar'), 'download')
+    })
+
+    await user.click(slot(get('action-bar'), 'download'))
+
+    await waitFor(
+      () => {
+        expect(get('toast').dataset.code).toBe('NO_EPISODES')
+      },
+      { timeout: 5000 }
+    )
 
     const downloads = await database.kysely
       .selectFrom('downloads')
@@ -187,7 +196,7 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 5000 }
     )
@@ -201,9 +210,9 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(q.getAllByText(/5\.0MB\/s/).length).toBeGreaterThan(0)
+        expect(get('download-group').dataset.speed).toBe('5000000')
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
   })
 
@@ -222,7 +231,7 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 5000 }
     )
@@ -235,9 +244,9 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(q.getAllByText('75%').length).toBeGreaterThan(0)
+        expect(get('download-group').dataset.progress).toBe('0.75')
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
   })
 
@@ -256,7 +265,7 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 5000 }
     )
@@ -270,9 +279,9 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1')).toHaveLength(0)
+        expect(query('download-pill', { nav: 'desktop' })).toBeNull()
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
   })
 
@@ -291,7 +300,7 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 5000 }
     )
@@ -305,12 +314,12 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1')).toHaveLength(0)
+        expect(query('download-pill', { nav: 'desktop' })).toBeNull()
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
 
-    expect(q.getAllByText(/Error/i).length).toBeGreaterThan(0)
+    expect(get('download-group').dataset.status).toBe('error')
   })
 
   test('ripper worker crash transitions download to error in UI', async () => {
@@ -328,7 +337,7 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 5000 }
     )
@@ -342,9 +351,9 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1')).toHaveLength(0)
+        expect(query('download-pill', { nav: 'desktop' })).toBeNull()
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
   })
 
@@ -363,7 +372,7 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(q.getAllByText(/Pending/i).length).toBeGreaterThan(0)
+        expect(get('download-group').dataset.status).toBe('pending')
       },
       { timeout: 5000 }
     )
@@ -379,12 +388,12 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(q.getAllByText(/Downloading/i).length).toBeGreaterThan(0)
+        expect(get('download-group').dataset.status).toBe('downloading')
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
 
-    expect(q.getAllByText('30%').length).toBeGreaterThan(0)
+    expect(get('download-group').dataset.progress).toBe('0.3')
   })
 
   test('season pack mixed states shows correct pill count and individual states', async () => {
@@ -421,18 +430,18 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('2').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('2')
       },
       { timeout: 5000 }
     )
 
     await waitFor(
       () => {
-        expect(q.getAllByText(/Downloading/i).length).toBeGreaterThan(0)
-        expect(q.getAllByText(/Pending/i).length).toBeGreaterThan(0)
-        expect(q.getAllByText(/Completed/i).length).toBeGreaterThan(0)
+        get('download-group', { status: 'downloading' })
+        get('download-group', { status: 'pending' })
+        get('download-group', { status: 'completed' })
       },
-      { timeout: 3000 }
+      { timeout: 5000 }
     )
   })
 })

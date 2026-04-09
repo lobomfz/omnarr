@@ -34,12 +34,56 @@ const noRawThrow = {
   },
 }
 
+const noDomQueries = {
+  meta: {
+    type: 'problem',
+    docs: {
+      description:
+        'Disallow document.querySelector/querySelectorAll in test files. Use get/query from tests/web/dom.ts.',
+    },
+  },
+  create(context) {
+    return {
+      CallExpression(node) {
+        const callee = node.callee
+
+        if (callee.type !== 'MemberExpression') {
+          return
+        }
+
+        if (
+          callee.object?.type !== 'Identifier' ||
+          callee.object.name !== 'document'
+        ) {
+          return
+        }
+
+        if (callee.property?.type !== 'Identifier') {
+          return
+        }
+
+        const name = callee.property.name
+
+        if (name !== 'querySelector' && name !== 'querySelectorAll') {
+          return
+        }
+
+        context.report({
+          node,
+          message: `Use get/query from tests/web/dom.ts instead of document.${name}.`,
+        })
+      },
+    }
+  },
+}
+
 const plugin = {
   meta: {
     name: 'omnarr',
   },
   rules: {
     'no-raw-throw': noRawThrow,
+    'no-dom-queries': noDomQueries,
   },
 }
 

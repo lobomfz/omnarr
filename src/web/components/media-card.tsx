@@ -8,6 +8,13 @@ export function MediaCard(props: { media: MediaItem }) {
     <Link
       to="/media/$id"
       params={{ id: props.media.id }}
+      data-component="media-card"
+      data-media-id={props.media.id}
+      data-error-count={
+        props.media.unread_error_count
+          ? String(props.media.unread_error_count)
+          : undefined
+      }
       className="group block cursor-pointer"
     >
       <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-card shadow-elevation-1 transition-all duration-[var(--duration-normal)] ease-[var(--ease-apple)] group-hover:shadow-[0_0_20px_rgba(255,255,255,0.1)] group-hover:ring-1 group-hover:ring-inset group-hover:ring-white/10 group-hover:-translate-y-1 group-hover:scale-[1.01]">

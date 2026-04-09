@@ -2,10 +2,11 @@ import './setup-dom'
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 
 import { useQueryCache } from '@/web/lib/use-query-cache'
+
+import { renderHook } from './testing-library'
 
 let queryClient: QueryClient
 let wrapper: (props: { children: ReactNode }) => ReactNode

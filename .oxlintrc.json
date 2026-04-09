@@ -55,6 +55,42 @@
       "rules": {
         "omnarr/no-raw-throw": "off"
       }
+    },
+    {
+      "files": ["tests/web/**"],
+      "jsPlugins": [
+        { "name": "omnarr", "specifier": "./oxlint/omnarr-plugin.js" }
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@testing-library/react",
+                "message": "Import from tests/web/testing-library.ts instead."
+              },
+              {
+                "name": "@testing-library/user-event",
+                "message": "Import from tests/web/testing-library.ts instead."
+              }
+            ]
+          }
+        ],
+        "omnarr/no-dom-queries": "error"
+      }
+    },
+    {
+      "files": ["tests/web/testing-library.ts"],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    },
+    {
+      "files": ["tests/web/dom.ts"],
+      "rules": {
+        "omnarr/no-dom-queries": "off"
+      }
     }
   ]
 }

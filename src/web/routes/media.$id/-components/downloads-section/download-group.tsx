@@ -21,7 +21,14 @@ export function DownloadGroup(props: {
   const isError = props.download.status === 'error'
 
   return (
-    <div className="rounded-xl glass-liquid overflow-hidden border border-white/5">
+    <div
+      data-component="download-group"
+      data-status={props.download.status}
+      data-progress={String(props.download.progress)}
+      data-speed={String(props.download.speed)}
+      data-error-at={props.download.error_at ?? undefined}
+      className="rounded-xl glass-liquid overflow-hidden border border-white/5"
+    >
       <div className="px-6 py-5">
         <div className="flex items-start gap-3">
           <div className="mt-0.5">

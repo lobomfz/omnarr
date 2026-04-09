@@ -55,7 +55,7 @@ function Nav() {
           <Search className="size-3.5" />
           Search
         </Link>
-        <DownloadPill />
+        <DownloadPill nav="desktop" />
       </nav>
 
       <nav className="sticky top-0 z-50 flex md:hidden items-center justify-between h-14 px-4 glass-liquid border-b border-white/10">
@@ -67,7 +67,7 @@ function Nav() {
           <span className="font-semibold tracking-tight">Omnarr</span>
         </Link>
         <div className="flex items-center gap-1">
-          <DownloadPill />
+          <DownloadPill nav="mobile" />
           <Link
             to="/search"
             className="p-2 rounded-full text-muted-foreground hover:text-white transition-colors duration-[var(--duration-fast)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"

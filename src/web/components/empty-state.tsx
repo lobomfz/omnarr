@@ -1,6 +1,9 @@
 export function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+    <div
+      data-component="empty-state"
+      className="flex flex-col items-center justify-center min-h-[50vh] text-center"
+    >
       <h2 className="text-2xl font-light tracking-tight">
         Your library is empty
       </h2>

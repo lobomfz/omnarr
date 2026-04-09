@@ -12,7 +12,10 @@ export function InlineReleases(props: {
   const [selectedSeason, setSelectedSeason] = useState<number | undefined>()
 
   return (
-    <div className="mb-8 rounded-xl glass-liquid p-4 sm:p-6">
+    <div
+      data-component="inline-releases"
+      className="mb-8 rounded-xl glass-liquid p-4 sm:p-6"
+    >
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Releases</h2>
         <button
@@ -26,6 +29,7 @@ export function InlineReleases(props: {
       {props.media.media_type === 'tv' && props.media.seasons.length > 0 && (
         <div className="mb-4">
           <select
+            data-slot="season-picker"
             value={selectedSeason ?? ''}
             onChange={(e) =>
               setSelectedSeason(

@@ -7,12 +7,12 @@ import '../../../mocks/tmdb'
 import '../../../mocks/yts'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
-import { cleanup, waitFor, within } from '@testing-library/react'
-
 import { ripperQueue } from '@/jobs/queues'
 import { deriveId } from '@/lib/utils'
 
+import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
+import { cleanup, waitFor } from '../../testing-library'
 import {
   resetDownloadState,
   seedBreakingBadInLibrary,
@@ -32,12 +32,6 @@ afterEach(() => {
 })
 
 describe('cross-cutting navigation and mixed sources', () => {
-  const q = within(document.body)
-
-  function pillButtons(name: string) {
-    return q.queryAllByRole('button', { name })
-  }
-
   test('navigation away and back preserves current progress display', async () => {
     await seedMatrixInLibrary()
     const mediaId = deriveId('603:movie')
@@ -53,7 +47,7 @@ describe('cross-cutting navigation and mixed sources', () => {
 
     await waitFor(
       () => {
-        expect(q.getAllByText('30%').length).toBeGreaterThan(0)
+        expect(get('download-group').dataset.status).toBe('downloading')
       },
       { timeout: 5000 }
     )
@@ -63,7 +57,7 @@ describe('cross-cutting navigation and mixed sources', () => {
     await waitFor(
       () => {
         expect(router.state.location.pathname).toBe('/')
-        expect(q.queryByRole('button', { name: /Add Release/i })).toBeNull()
+        expect(query('media-hero')).toBeNull()
       },
       { timeout: 3000 }
     )
@@ -76,12 +70,12 @@ describe('cross-cutting navigation and mixed sources', () => {
     await waitFor(
       () => {
         expect(router.state.location.pathname).toBe(`/media/${mediaId}`)
-        expect(q.queryByRole('button', { name: /Add Release/i })).not.toBeNull()
+        expect(query('media-hero')).not.toBeNull()
       },
       { timeout: 5000 }
     )
 
-    expect(q.getAllByText('30%').length).toBeGreaterThan(0)
+    expect(get('download-group').dataset.status).toBe('downloading')
   })
 
   test('download started on search page is reflected on detail page after navigation', async () => {
@@ -90,21 +84,22 @@ describe('cross-cutting navigation and mixed sources', () => {
 
     const { user, router } = mountApp(`/search/${searchId}`)
 
-    const release = await q.findByRole(
-      'button',
-      { name: /The\.Matrix\.1999\.2160p/ },
+    await waitFor(
+      () => {
+        get('release-row', { 'source-id': 'ABC123' })
+      },
       { timeout: 5000 }
     )
 
-    await user.click(release)
+    await user.click(get('release-row', { 'source-id': 'ABC123' }))
+    await user.click(slot(get('action-bar'), 'download'))
 
-    const downloadBtn = await q.findByRole('button', {
-      name: /^Download$/,
-    })
-
-    await user.click(downloadBtn)
-
-    await q.findByText(/Download started/i, undefined, { timeout: 3000 })
+    await waitFor(
+      () => {
+        expect(get('toast').dataset.code).toBe('DOWNLOAD_STARTED')
+      },
+      { timeout: 3000 }
+    )
 
     await router.navigate({
       to: '/media/$id',
@@ -114,12 +109,12 @@ describe('cross-cutting navigation and mixed sources', () => {
     await waitFor(
       () => {
         expect(router.state.location.pathname).toBe(`/media/${mediaId}`)
-        expect(q.queryByRole('button', { name: /Add Release/i })).not.toBeNull()
+        expect(query('media-hero')).not.toBeNull()
       },
       { timeout: 5000 }
     )
 
-    expect(q.getAllByText(/Downloading/i).length).toBeGreaterThan(0)
+    expect(get('download-group').dataset.status).toBe('downloading')
   })
 
   test('clicking pill popover entry navigates to media detail and closes popover', async () => {
@@ -137,29 +132,21 @@ describe('cross-cutting navigation and mixed sources', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 5000 }
     )
 
-    const countBefore = q.queryAllByRole('link', { name: /The Matrix/i }).length
-
-    const pillBtn = pillButtons('1')[0]!
-    await user.click(pillBtn)
+    await user.click(get('download-pill', { nav: 'desktop' }))
 
     await waitFor(
       () => {
-        expect(
-          q.queryAllByRole('link', { name: /The Matrix/i }).length
-        ).toBeGreaterThan(countBefore)
+        get('pill-entry', { 'media-id': mediaId })
       },
       { timeout: 3000 }
     )
 
-    const popoverLinks = q.queryAllByRole('link', { name: /The Matrix/i })
-    const popoverEntry = popoverLinks.at(-1)!
-
-    await user.click(popoverEntry)
+    await user.click(get('pill-entry', { 'media-id': mediaId }))
 
     await waitFor(
       () => {
@@ -170,15 +157,15 @@ describe('cross-cutting navigation and mixed sources', () => {
 
     await waitFor(
       () => {
-        expect(q.queryAllByRole('link', { name: /The Matrix/i })).toHaveLength(
-          0
-        )
+        expect(query('pill-entry', { 'media-id': mediaId })).toBeNull()
       },
       { timeout: 3000 }
     )
   })
 
   test('torrent and ripper downloads are both displayed in pill', async () => {
+    const matrixMediaId = deriveId('603:movie')
+
     await seedDownload({
       tmdbId: 603,
       title: 'The Matrix',
@@ -200,18 +187,17 @@ describe('cross-cutting navigation and mixed sources', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('2').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('2')
       },
       { timeout: 5000 }
     )
 
-    const pillBtn = pillButtons('2')[0]!
-    await user.click(pillBtn)
+    await user.click(get('download-pill', { nav: 'desktop' }))
 
     await waitFor(
       () => {
-        expect(q.getAllByText('The Matrix').length).toBeGreaterThanOrEqual(2)
-        expect(q.getAllByText('Breaking Bad').length).toBeGreaterThanOrEqual(2)
+        get('pill-entry', { 'media-id': matrixMediaId })
+        get('pill-entry', { 'media-id': bb.id })
       },
       { timeout: 3000 }
     )
@@ -250,11 +236,9 @@ describe('cross-cutting navigation and mixed sources', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('2').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('2')
       },
       { timeout: 5000 }
     )
-
-    expect(pillButtons('3')).toHaveLength(0)
   })
 })

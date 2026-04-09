@@ -7,13 +7,15 @@ import '../../../mocks/tmdb'
 import '../../../mocks/yts'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
-import { cleanup, waitFor, within } from '@testing-library/react'
+import { UserEvent } from '@testing-library/user-event'
 
 import { database } from '@/db/connection'
 import { deriveId } from '@/lib/utils'
 
 import { QBittorrentMock } from '../../../mocks/qbittorrent'
+import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
+import { cleanup, waitFor } from '../../testing-library'
 import {
   resetDownloadState,
   seedMatrixInLibrary,
@@ -28,35 +30,34 @@ afterEach(() => {
   cleanup()
 })
 
+async function selectReleaseAndDownload(user: UserEvent, sourceId: string) {
+  await waitFor(
+    () => {
+      get('release-row', { 'source-id': sourceId })
+    },
+    { timeout: 5000 }
+  )
+
+  await user.click(get('release-row', { 'source-id': sourceId }))
+
+  await waitFor(() => {
+    slot(get('action-bar'), 'download')
+  })
+
+  await user.click(slot(get('action-bar'), 'download'))
+}
+
 describe('downloads pill reactive state', () => {
-  const q = within(document.body)
-
-  function pillButtons(name: string) {
-    return q.queryAllByRole('button', { name })
-  }
-
   test('adding torrent for media not in library shows pill immediately', async () => {
     const searchId = await seedMatrixSearchResult()
 
     const { user } = mountApp(`/search/${searchId}`)
 
-    const release = await q.findByRole(
-      'button',
-      { name: /The\.Matrix\.1999\.2160p/ },
-      { timeout: 5000 }
-    )
-
-    await user.click(release)
-
-    const downloadBtn = await q.findByRole('button', {
-      name: /^Download$/,
-    })
-
-    await user.click(downloadBtn)
+    await selectReleaseAndDownload(user, 'ABC123')
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 2000 }
     )
@@ -68,31 +69,20 @@ describe('downloads pill reactive state', () => {
 
     const { user } = mountApp(`/media/${mediaId}`)
 
-    const addReleaseBtn = await q.findByRole(
-      'button',
-      { name: /Add Release/i },
+    await waitFor(
+      () => {
+        get('media-hero')
+      },
       { timeout: 5000 }
     )
 
-    await user.click(addReleaseBtn)
+    await user.click(slot(get('media-hero'), 'add-release'))
 
-    const release = await q.findByRole(
-      'button',
-      { name: /The\.Matrix\.1999\.2160p/ },
-      { timeout: 5000 }
-    )
-
-    await user.click(release)
-
-    const downloadBtn = await q.findByRole('button', {
-      name: /^Download$/,
-    })
-
-    await user.click(downloadBtn)
+    await selectReleaseAndDownload(user, 'ABC123')
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 2000 }
     )
@@ -118,23 +108,16 @@ describe('downloads pill reactive state', () => {
 
     const { user } = mountApp(`/search/${searchId}`)
 
-    const release = await q.findByRole(
-      'button',
-      { name: /The\.Matrix\.1999\.2160p/ },
-      { timeout: 5000 }
+    await selectReleaseAndDownload(user, 'ABC123')
+
+    await waitFor(
+      () => {
+        expect(get('toast').dataset.code).toBe('TORRENT_REJECTED')
+      },
+      { timeout: 2000 }
     )
 
-    await user.click(release)
-
-    const downloadBtn = await q.findByRole('button', {
-      name: /^Download$/,
-    })
-
-    await user.click(downloadBtn)
-
-    await q.findByText(/Torrent rejected/i, undefined, { timeout: 2000 })
-
-    expect(pillButtons('1')).toHaveLength(0)
+    expect(query('download-pill', { nav: 'desktop' })).toBeNull()
 
     const mediaRows = await database.kysely
       .selectFrom('media')
@@ -149,50 +132,31 @@ describe('downloads pill reactive state', () => {
 
     const { user } = mountApp(`/media/${mediaId}`)
 
-    const addReleaseBtn = await q.findByRole(
-      'button',
-      { name: /Add Release/i },
+    await waitFor(
+      () => {
+        get('media-hero')
+      },
       { timeout: 5000 }
     )
 
-    await user.click(addReleaseBtn)
+    await user.click(slot(get('media-hero'), 'add-release'))
 
-    const release1 = await q.findByRole(
-      'button',
-      { name: /The\.Matrix\.1999\.2160p/ },
-      { timeout: 5000 }
-    )
-
-    await user.click(release1)
-
-    const downloadBtn1 = await q.findByRole('button', {
-      name: /^Download$/,
-    })
-
-    await user.click(downloadBtn1)
+    await selectReleaseAndDownload(user, 'ABC123')
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 2000 }
     )
 
-    const release2 = q.getByRole('button', {
-      name: /The\.Matrix\.1999\.1080p/,
-    })
+    await user.click(get('release-row', { 'source-id': 'DEF456' }))
 
-    await user.click(release2)
-
-    const downloadBtn2 = await q.findByRole('button', {
-      name: /^Download$/,
-    })
-
-    await user.click(downloadBtn2)
+    await user.click(slot(get('action-bar'), 'download'))
 
     await waitFor(
       () => {
-        expect(pillButtons('2').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('2')
       },
       { timeout: 2000 }
     )

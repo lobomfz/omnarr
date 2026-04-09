@@ -32,7 +32,11 @@ function useReleasesSearch(props: {
 
 function useDownloadMutation(props: {
   title: string
-  onToast: (toast: { message: string; type: 'success' | 'error' }) => void
+  onToast: (toast: {
+    message: string
+    type: 'success' | 'error'
+    code: string
+  }) => void
 }) {
   return useMutation(
     orpc.downloads.add.mutationOptions({
@@ -40,12 +44,14 @@ function useDownloadMutation(props: {
         props.onToast({
           message: `Download started: ${props.title}`,
           type: 'success',
+          code: 'DOWNLOAD_STARTED',
         })
       },
       onError: (err) => {
+        const code = isDefinedError(err) ? err.code : 'UNKNOWN'
         const message = isDefinedError(err) ? ERROR_MAP[err.code] : err.message
 
-        props.onToast({ message, type: 'error' })
+        props.onToast({ message, type: 'error', code })
       },
     })
   )
@@ -68,6 +74,7 @@ export function ReleasesSection(props: {
   const [toast, setToast] = useState<{
     message: string
     type: 'success' | 'error'
+    code: string
   } | null>(null)
 
   useEffect(() => {
@@ -144,7 +151,9 @@ export function ReleasesSection(props: {
         onDownload={handleDownload}
       />
 
-      {toast && <Toast message={toast.message} type={toast.type} />}
+      {toast && (
+        <Toast message={toast.message} type={toast.type} code={toast.code} />
+      )}
     </div>
   )
 }

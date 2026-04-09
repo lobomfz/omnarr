@@ -15,7 +15,10 @@ export function ActionBar(props: {
   onDownload: () => void
 }) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 glass-liquid">
+    <div
+      data-component="action-bar"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 glass-liquid"
+    >
       <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 py-4 flex items-center gap-4">
         {props.release ? (
           <SelectedState
@@ -43,6 +46,7 @@ function EmptyState() {
       </p>
       <button
         disabled
+        data-slot="download"
         className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium bg-primary/30 text-white/50 cursor-not-allowed flex-shrink-0"
       >
         <Download className="size-4" />
@@ -102,6 +106,7 @@ function SelectedState(props: {
       <button
         onClick={props.onDownload}
         disabled={props.isPending || props.isSuccess}
+        data-slot="download"
         className={cn(
           'flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-[var(--duration-fast)] flex-shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer',
           props.isSuccess

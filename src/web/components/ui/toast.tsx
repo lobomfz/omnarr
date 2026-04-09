@@ -2,9 +2,17 @@ import { AlertCircle, Check } from 'lucide-react'
 
 import { cn } from '@/web/lib/cn'
 
-export function Toast(props: { message: string; type: 'success' | 'error' }) {
+export function Toast(props: {
+  message: string
+  type: 'success' | 'error'
+  code: string
+}) {
   return (
-    <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[200] animate-in fade-in duration-200">
+    <div
+      data-component="toast"
+      data-code={props.code}
+      className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[200] animate-in fade-in duration-200"
+    >
       <div
         className={cn(
           'rounded-full px-4 py-2.5 text-sm font-medium shadow-2xl backdrop-blur-md border flex items-center gap-2',

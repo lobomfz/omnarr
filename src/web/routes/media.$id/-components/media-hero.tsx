@@ -12,7 +12,10 @@ export function MediaHero(props: {
 
   return (
     <HeroBackdrop backdropPath={props.media.backdrop_path}>
-      <div className="flex gap-5 md:gap-6 max-w-5xl mx-auto w-full">
+      <div
+        data-component="media-hero"
+        className="flex gap-5 md:gap-6 max-w-5xl mx-auto w-full"
+      >
         <div className="w-28 sm:w-32 md:w-36 flex-shrink-0 rounded-xl overflow-hidden shadow-2xl shadow-black/60">
           <PosterImage
             posterPath={props.media.poster_path ?? null}
@@ -74,6 +77,7 @@ export function MediaHero(props: {
 
             <button
               type="button"
+              data-slot="add-release"
               onClick={props.onAddRelease}
               className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold backdrop-blur-sm transition-colors duration-[var(--duration-fast)] hover:bg-white/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
             >

@@ -4,11 +4,11 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
-import { render } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { Suspense } from 'react'
 
 import { routeTree } from '@/web/routeTree.gen'
+
+import { render, userEvent } from './testing-library'
 
 export function mountApp(initialPath: string) {
   const queryClient = new QueryClient({

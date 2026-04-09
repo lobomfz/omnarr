@@ -20,6 +20,8 @@ export function ReleaseRow(props: {
   return (
     <button
       onClick={props.onSelect}
+      data-component="release-row"
+      data-source-id={props.release.source_id}
       className={cn(
         'w-full text-left rounded-lg glass-liquid px-4 py-3 transition-all duration-[var(--duration-fast)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer',
         props.selected

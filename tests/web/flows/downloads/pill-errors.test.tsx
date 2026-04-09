@@ -7,15 +7,14 @@ import '../../../mocks/tmdb'
 import '../../../mocks/yts'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
-import { cleanup, waitFor, within } from '@testing-library/react'
-import dayjs from 'dayjs'
-
 import { TorrentSync } from '@/core/torrent-sync'
 import { database } from '@/db/connection'
 import { deriveId } from '@/lib/utils'
 
 import { QBittorrentMock } from '../../../mocks/qbittorrent'
+import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
+import { cleanup, waitFor } from '../../testing-library'
 import {
   resetDownloadState,
   seedDownload,
@@ -31,12 +30,6 @@ afterEach(() => {
 })
 
 describe('errors and conflicts', () => {
-  const q = within(document.body)
-
-  function pillButtons(name: string) {
-    return q.queryAllByRole('button', { name })
-  }
-
   test('failed download leaves pill immediately', async () => {
     await seedDownload({
       tmdbId: 603,
@@ -48,7 +41,7 @@ describe('errors and conflicts', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 5000 }
     )
@@ -62,7 +55,7 @@ describe('errors and conflicts', () => {
 
     await waitFor(
       () => {
-        expect(pillButtons('1')).toHaveLength(0)
+        expect(query('download-pill', { nav: 'desktop' })).toBeNull()
       },
       { timeout: 3000 }
     )
@@ -79,7 +72,7 @@ describe('errors and conflicts', () => {
 
     await waitFor(
       () => {
-        expect(q.getAllByText(/Downloading/i).length).toBeGreaterThan(0)
+        expect(get('download-group').dataset.status).toBe('downloading')
       },
       { timeout: 5000 }
     )
@@ -93,7 +86,7 @@ describe('errors and conflicts', () => {
 
     await waitFor(
       () => {
-        expect(q.getAllByText(/Error/i).length).toBeGreaterThan(0)
+        expect(get('download-group').dataset.status).toBe('error')
       },
       { timeout: 3000 }
     )
@@ -105,14 +98,11 @@ describe('errors and conflicts', () => {
       .executeTakeFirstOrThrow()
 
     expect(errorRow.error_at).not.toBeNull()
-
-    const expected = dayjs(errorRow.error_at!).format('YYYY-MM-DD')
-
-    expect(q.getAllByText(new RegExp(expected)).length).toBeGreaterThan(0)
+    expect(get('download-group').dataset.errorAt).toBe(errorRow.error_at!)
   })
 
   test('recovered download reappears in pill after error', async () => {
-    await seedDownload({
+    const { mediaId } = await seedDownload({
       tmdbId: 603,
       title: 'The Matrix',
       sourceId: 'ABC123',
@@ -129,25 +119,25 @@ describe('errors and conflicts', () => {
 
     await waitFor(
       () => {
-        expect(q.getAllByText('The Matrix').length).toBeGreaterThan(0)
+        get('media-card', { 'media-id': mediaId })
       },
       { timeout: 5000 }
     )
 
-    expect(pillButtons('1')).toHaveLength(0)
+    expect(query('download-pill', { nav: 'desktop' })).toBeNull()
 
     await new TorrentSync().sync()
 
     await waitFor(
       () => {
-        expect(pillButtons('1').length).toBeGreaterThan(0)
+        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
       },
       { timeout: 3000 }
     )
   })
 
   test('download error shows error indicator on media card in library grid', async () => {
-    await seedDownload({
+    const { mediaId } = await seedDownload({
       tmdbId: 603,
       title: 'The Matrix',
       sourceId: 'ABC123',
@@ -157,7 +147,7 @@ describe('errors and conflicts', () => {
 
     await waitFor(
       () => {
-        expect(q.getAllByText('The Matrix').length).toBeGreaterThan(0)
+        get('media-card', { 'media-id': mediaId })
       },
       { timeout: 5000 }
     )
@@ -171,8 +161,9 @@ describe('errors and conflicts', () => {
 
     await waitFor(
       () => {
-        const dots = document.querySelectorAll('.bg-destructive')
-        expect(dots.length).toBeGreaterThan(0)
+        expect(
+          get('media-card', { 'media-id': mediaId }).dataset.errorCount
+        ).toBeDefined()
       },
       { timeout: 3000 }
     )
@@ -211,28 +202,30 @@ describe('errors and conflicts', () => {
 
     const { user } = mountApp(`/media/${mediaId}`)
 
-    const addReleaseBtn = await q.findByRole(
-      'button',
-      { name: /Add Release/i },
+    await waitFor(
+      () => {
+        get('media-hero')
+      },
       { timeout: 5000 }
     )
 
-    await user.click(addReleaseBtn)
+    await user.click(slot(get('media-hero'), 'add-release'))
 
-    const release = await q.findByRole(
-      'button',
-      { name: /The\.Matrix\.1999\.2160p/ },
+    await waitFor(
+      () => {
+        get('release-row', { 'source-id': 'ABC123' })
+      },
       { timeout: 5000 }
     )
 
-    await user.click(release)
+    await user.click(get('release-row', { 'source-id': 'ABC123' }))
+    await user.click(slot(get('action-bar'), 'download'))
 
-    const downloadBtn = await q.findByRole('button', {
-      name: /^Download$/,
-    })
-
-    await user.click(downloadBtn)
-
-    await q.findByText(/already/i, undefined, { timeout: 3000 })
+    await waitFor(
+      () => {
+        expect(get('toast').dataset.code).toBe('DUPLICATE_DOWNLOAD')
+      },
+      { timeout: 3000 }
+    )
   })
 })
