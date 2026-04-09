@@ -7,14 +7,13 @@ import '../../../mocks/tmdb'
 import '../../../mocks/yts'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
-import { UserEvent } from '@testing-library/user-event'
-
 import { database } from '@/db/connection'
 import { deriveId } from '@/lib/utils'
 
 import { QBittorrentMock } from '../../../mocks/qbittorrent'
 import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
+import type { UserEvent } from '../../testing-library';
 import { cleanup, waitFor } from '../../testing-library'
 import {
   resetDownloadState,

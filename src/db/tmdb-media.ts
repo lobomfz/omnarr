@@ -52,6 +52,7 @@ export const DbTmdbMedia = {
       .select([
         't.id',
         't.title',
+        't.imdb_id',
         (eb) =>
           eb
             .selectFrom('seasons as s')

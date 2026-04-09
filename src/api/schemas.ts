@@ -1,6 +1,6 @@
 import { type } from '@lobomfz/db'
 
-import { media_type } from '@/db/connection'
+import { indexer_source, media_type } from '@/db/connection'
 
 export const LibrarySchemas = {
   list: type({
@@ -26,6 +26,12 @@ export const ReleasesSchemas = {
   search: type({
     tmdb_id: 'number.integer',
     media_type,
+    'season_number?': 'number.integer',
+  }),
+  searchSingle: type({
+    tmdb_id: 'number.integer',
+    media_type,
+    indexer_source,
     'season_number?': 'number.integer',
   }),
 }

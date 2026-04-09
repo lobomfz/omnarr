@@ -1,6 +1,5 @@
 import { ORPCError } from '@orpc/client'
 import { AlertCircle } from 'lucide-react'
-import { Component, type ReactNode } from 'react'
 
 import { ERROR_MAP } from '@/shared/errors'
 
@@ -25,23 +24,4 @@ export function QueryErrorFallback(props: { error: Error }) {
       </div>
     </div>
   )
-}
-
-export class QueryErrorBoundary extends Component<
-  { children: ReactNode },
-  { error: Error | null }
-> {
-  state: { error: Error | null } = { error: null }
-
-  static getDerivedStateFromError(error: Error) {
-    return { error }
-  }
-
-  render() {
-    if (this.state.error) {
-      return <QueryErrorFallback error={this.state.error} />
-    }
-
-    return this.props.children
-  }
 }

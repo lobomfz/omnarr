@@ -1,8 +1,7 @@
 import { X } from 'lucide-react'
-import { Suspense, useState } from 'react'
+import { useState } from 'react'
 
 import { ReleasesSection } from '@/web/components/releases/releases-section'
-import { ReleasesSkeleton } from '@/web/components/releases/releases-skeleton'
 import type { MediaInfo } from '@/web/types/library'
 
 export function InlineReleases(props: {
@@ -53,14 +52,13 @@ export function InlineReleases(props: {
           Select a season to view releases.
         </p>
       ) : (
-        <Suspense key={selectedSeason ?? 'all'} fallback={<ReleasesSkeleton />}>
-          <ReleasesSection
-            tmdb_id={props.media.tmdb_id}
-            media_type={props.media.media_type}
-            title={props.media.title}
-            season_number={selectedSeason}
-          />
-        </Suspense>
+        <ReleasesSection
+          key={selectedSeason ?? 'all'}
+          tmdb_id={props.media.tmdb_id}
+          media_type={props.media.media_type}
+          title={props.media.title}
+          season_number={selectedSeason}
+        />
       )}
     </div>
   )

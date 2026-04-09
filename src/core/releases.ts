@@ -2,6 +2,7 @@ import { Tmdb } from '@/core/tmdb'
 import type { indexer_source, media_type } from '@/db/connection'
 import { DbMedia } from '@/db/media'
 import { DbReleases } from '@/db/releases'
+import { DbTmdbMedia } from '@/db/tmdb-media'
 import { indexerMap } from '@/integrations/indexers/registry'
 import type { IndexerRelease } from '@/integrations/indexers/types'
 import { TmdbClient } from '@/integrations/tmdb/client'
@@ -80,21 +81,13 @@ export class Releases {
     }
   }
 
-  async search(
+  private async processAndPersist(
     tmdb_id: number,
     type: media_type,
+    releases: SourcedRelease[],
+    label: string,
     filters?: { season?: number }
   ) {
-    if (type === 'tv') {
-      await Tmdb.fetchSeasons(this.tmdb, tmdb_id)
-    }
-
-    const { releases, indexer_status, label } = await this.fetch(
-      tmdb_id,
-      type,
-      filters
-    )
-
     const withSE = releases.map((r) => {
       const parsed = Parsers.seasonEpisode(r.name ?? '')
 
@@ -111,10 +104,75 @@ export class Releases {
 
     Log.info(`releases persisted count=${persisted.length}`)
 
+    return persisted.sort((a, b) => (b.seeders ?? 0) - (a.seeders ?? 0))
+  }
+
+  async search(
+    tmdb_id: number,
+    type: media_type,
+    filters?: { season?: number }
+  ) {
+    if (type === 'tv') {
+      await Tmdb.fetchSeasons(this.tmdb, tmdb_id)
+    }
+
+    const { releases, indexer_status, label } = await this.fetch(
+      tmdb_id,
+      type,
+      filters
+    )
+
     return {
-      releases: persisted.sort((a, b) => (b.seeders ?? 0) - (a.seeders ?? 0)),
+      releases: await this.processAndPersist(
+        tmdb_id,
+        type,
+        releases,
+        label,
+        filters
+      ),
       indexer_status,
     }
+  }
+
+  async searchSingle(
+    tmdb_id: number,
+    type: media_type,
+    source: indexer_source,
+    filters?: { season?: number }
+  ) {
+    const tmdbMedia = await DbTmdbMedia.getByTmdbId(tmdb_id, type)
+
+    if (!tmdbMedia?.imdb_id) {
+      throw new OmnarrError('NO_IMDB_ID')
+    }
+
+    const indexerConfig = config.indexers.find((c) => c.type === source)
+
+    if (!indexerConfig) {
+      throw new OmnarrError('NO_INDEXERS')
+    }
+
+    Log.info(`fetching releases tmdb_id=${tmdb_id} indexer=${source}`)
+
+    const indexer = new indexerMap[source](indexerConfig)
+
+    const results = await indexer.search({
+      tmdb_id: String(tmdb_id),
+      imdb_id: tmdbMedia.imdb_id,
+      season_number: filters?.season,
+    })
+
+    Log.info(`indexer=${source} returned ${results.length} results`)
+
+    const sourced = results.map((r) => ({ ...r, indexer_source: source }))
+
+    return await this.processAndPersist(
+      tmdb_id,
+      type,
+      sourced,
+      tmdbMedia.title,
+      filters
+    )
   }
 
   async searchSubtitles(

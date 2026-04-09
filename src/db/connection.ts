@@ -20,7 +20,12 @@ const download_status = type.enumerated(
   'error'
 )
 const download_source = type.enumerated('torrent', 'ripper', 'subtitle')
-const indexer_source = type.enumerated('beyond-hd', 'yts', 'superflix', 'subdl')
+export const indexer_source = type.enumerated(
+  'beyond-hd',
+  'yts',
+  'superflix',
+  'subdl'
+)
 const event_entity_type = type.enumerated(
   'download',
   'scan',

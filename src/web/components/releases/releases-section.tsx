@@ -1,13 +1,13 @@
 import { isDefinedError } from '@orpc/client'
-import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
-import { AlertCircle, AlertTriangle, SearchX } from 'lucide-react'
+import { useQueries, useMutation } from '@tanstack/react-query'
+import { AlertCircle, AlertTriangle, Loader2, SearchX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { ERROR_MAP } from '@/shared/errors'
 import { orpc } from '@/web/client'
 import { Toast } from '@/web/components/ui/toast'
 import { cn } from '@/web/lib/cn'
-import type { ReleasesResult } from '@/web/types/releases'
+import { useConfig } from '@/web/providers/config-provider'
 
 import { ActionBar } from './action-bar'
 import { ReleaseRow } from './release-row'
@@ -17,17 +17,41 @@ function useReleasesSearch(props: {
   media_type: 'movie' | 'tv'
   season_number?: number
 }) {
-  return useSuspenseQuery(
-    orpc.releases.search.queryOptions({
-      input: {
-        tmdb_id: props.tmdb_id,
-        media_type: props.media_type,
-        ...(props.season_number != null && {
-          season_number: props.season_number,
-        }),
-      },
-    })
+  const config = useConfig()
+
+  const indexers = config.indexers.filter(
+    (i) => i.media_types.includes(props.media_type) && i.source !== 'subtitle'
   )
+
+  const results = useQueries({
+    queries: indexers.map((indexer) =>
+      orpc.releases.searchSingle.queryOptions({
+        input: {
+          tmdb_id: props.tmdb_id,
+          media_type: props.media_type,
+          indexer_source: indexer.type,
+          ...(props.season_number != null && {
+            season_number: props.season_number,
+          }),
+        },
+      })
+    ),
+  })
+
+  const releases = results
+    .flatMap((r) => r.data ?? [])
+    .sort((a, b) => (b.seeders ?? 0) - (a.seeders ?? 0))
+
+  const statuses = indexers.map((indexer, i) => ({
+    name: indexer.type,
+    loading: results[i].isLoading,
+    error: results[i].isError,
+    count: results[i].data?.length ?? 0,
+  }))
+
+  const allSettled = results.every((r) => !r.isLoading)
+
+  return { releases, statuses, allSettled }
 }
 
 function useDownloadMutation(props: {
@@ -63,7 +87,7 @@ export function ReleasesSection(props: {
   title: string
   season_number?: number
 }) {
-  const { data } = useReleasesSearch({
+  const { releases, statuses, allSettled } = useReleasesSearch({
     tmdb_id: props.tmdb_id,
     media_type: props.media_type,
     season_number: props.season_number,
@@ -91,7 +115,7 @@ export function ReleasesSection(props: {
     onToast: setToast,
   })
 
-  const selectedRelease = data.releases.find((r) => r.id === selected)
+  const selectedRelease = releases.find((r) => r.id === selected)
   const isRipper = selectedRelease?.indexer_source === 'superflix'
 
   const handleSelect = (id: string) => {
@@ -110,19 +134,19 @@ export function ReleasesSection(props: {
     })
   }
 
-  const allFailed = data.indexer_status.every((s) => s.error)
+  const allFailed = allSettled && statuses.every((s) => s.error)
 
   return (
     <div className="mt-6 pb-28">
-      <IndexerStatusBar statuses={data.indexer_status} />
+      <IndexerStatusBar statuses={statuses} />
 
-      {allFailed && data.indexer_status.length > 0 ? (
+      {allFailed && statuses.length > 0 ? (
         <CenteredMessage
           icon={<AlertCircle className="size-8 text-destructive" />}
           title="All indexers failed"
           description="Could not reach any configured indexer."
         />
-      ) : data.releases.length === 0 ? (
+      ) : allSettled && releases.length === 0 ? (
         <CenteredMessage
           icon={<SearchX className="size-8 text-muted-foreground" />}
           title="No releases found"
@@ -130,7 +154,7 @@ export function ReleasesSection(props: {
         />
       ) : (
         <div className="mt-4 space-y-2">
-          {data.releases.map((release) => (
+          {releases.map((release) => (
             <ReleaseRow
               key={release.id}
               release={release}
@@ -158,9 +182,14 @@ export function ReleasesSection(props: {
   )
 }
 
-function IndexerStatusBar(props: {
-  statuses: ReleasesResult['indexer_status']
-}) {
+interface IndexerStatus {
+  name: string
+  loading: boolean
+  error: boolean
+  count: number
+}
+
+function IndexerStatusBar(props: { statuses: IndexerStatus[] }) {
   if (props.statuses.length === 0) {
     return null
   }
@@ -174,12 +203,20 @@ function IndexerStatusBar(props: {
             'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium border',
             s.error
               ? 'border-destructive/30 bg-destructive/10 text-destructive'
-              : 'border-white/10 bg-white/5 text-muted-foreground'
+              : s.loading
+                ? 'border-primary/30 bg-primary/10 text-primary'
+                : 'border-white/10 bg-white/5 text-muted-foreground'
           )}
         >
           {s.name}
           <span className="font-bold">
-            {s.error ? <AlertTriangle className="size-3 inline" /> : s.count}
+            {s.loading ? (
+              <Loader2 className="size-3 inline animate-spin" />
+            ) : s.error ? (
+              <AlertTriangle className="size-3 inline" />
+            ) : (
+              s.count
+            )}
           </span>
         </span>
       ))}

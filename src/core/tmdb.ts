@@ -80,6 +80,7 @@ export const Tmdb = {
       runtime: tmdbMedia.runtime,
       vote_average: tmdbMedia.vote_average,
       genres: tmdbMedia.genres?.split(',').filter(Boolean) ?? [],
+      imdb_id: tmdbMedia.imdb_id,
       seasons,
     }
   },

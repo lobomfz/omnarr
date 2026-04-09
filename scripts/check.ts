@@ -36,7 +36,12 @@ async function runTypes() {
 }
 
 async function runLint() {
-  const result = await $`oxlint --fix`.cwd(ROOT).nothrow()
+  const result = await $`oxlint --fix`.cwd(ROOT).quiet().nothrow()
+
+  if (result.exitCode !== 0) {
+    process.stderr.write(result.stderr)
+  }
+
   return result.exitCode
 }
 
@@ -86,11 +91,24 @@ async function runCpd() {
   return 1
 }
 
+const TEST_LOG = '/tmp/omnarr-test-result.log'
+
 async function runTests() {
   const result = await $`bun test`
     .env({ ...Bun.env, AGENT: '1' })
     .cwd(ROOT)
+    .quiet()
     .nothrow()
+
+  const output = result.stdout.toString() + result.stderr.toString()
+  await Bun.write(TEST_LOG, output)
+
+  if (result.exitCode === 0) {
+    console.log('All tests passed.')
+  } else {
+    console.error(`Some tests failed — check log at ${TEST_LOG}`)
+  }
+
   return result.exitCode
 }
 

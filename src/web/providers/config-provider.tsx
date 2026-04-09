@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { createContext } from 'react'
+import { createContext, use } from 'react'
 
 import type { RouterOutputs } from '@/web/client'
 import { orpc } from '@/web/client'
@@ -7,6 +7,10 @@ import { orpc } from '@/web/client'
 type ConfigStatus = RouterOutputs['config']['status']
 
 const ConfigContext = createContext<ConfigStatus>(null!)
+
+export function useConfig() {
+  return use(ConfigContext)
+}
 
 export function ConfigProvider(props: { children: React.ReactNode }) {
   const { data } = useSuspenseQuery(
