@@ -50,7 +50,7 @@ export class TmdbClient {
       poster_path: raw.poster_path,
       backdrop_path: raw.backdrop_path,
       runtime: raw.runtime ?? this.averageRuntime(raw.episode_run_time),
-      vote_average: raw.vote_average ?? null,
+      vote_average: raw.vote_average,
       genres: raw.genres?.map((g) => g.name) ?? [],
     }
   }

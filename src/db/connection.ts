@@ -6,7 +6,9 @@ import { Database, type, generated } from '@lobomfz/db'
 import { envVariables } from '@/lib/env'
 import { Log } from '@/lib/log'
 
-mkdirSync(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
+if (envVariables.OMNARR_DB_PATH !== ':memory:') {
+  mkdirSync(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
+}
 
 export const media_type = type.enumerated('movie', 'tv')
 export const stream_type = type.enumerated('video', 'audio', 'subtitle')

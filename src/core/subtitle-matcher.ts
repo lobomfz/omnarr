@@ -124,7 +124,7 @@ export class SubtitleMatcher extends TrackResolver {
   }
 
   rank<T extends { name: string }>(
-    referenceName: string | null,
+    referenceName: string | null | undefined,
     subtitles: T[]
   ) {
     if (!referenceName || subtitles.length === 0) {
@@ -182,12 +182,12 @@ export class SubtitleMatcher extends TrackResolver {
 
     const result = await query.executeTakeFirst()
 
-    return result?.name ?? null
+    return result?.name
   }
 
   private computeTier(
     refTechnical: string,
-    ref: { group: string | null; source: string | null },
+    ref: { group: string | null; source?: string },
     subtitleName: string
   ) {
     const subTech = Parsers.technicalPart(subtitleName)
@@ -199,10 +199,10 @@ export class SubtitleMatcher extends TrackResolver {
     const sub = Parsers.releaseName(subtitleName)
 
     const groupMatch =
-      ref.group !== null && sub.group !== null && ref.group === sub.group
+      ref.group != null && sub.group != null && ref.group === sub.group
 
     const sourceMatch =
-      ref.source !== null && sub.source !== null && ref.source === sub.source
+      ref.source != null && sub.source != null && ref.source === sub.source
 
     if (groupMatch && sourceMatch) {
       return TIER_GROUP_SOURCE

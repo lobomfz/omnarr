@@ -27,8 +27,8 @@ export const Tmdb = {
 
       return {
         ...r,
-        poster_path: tmdbMatch?.poster_path ?? null,
-        overview: tmdbMatch?.overview ?? null,
+        poster_path: tmdbMatch?.poster_path,
+        overview: tmdbMatch?.overview,
       }
     })
   },

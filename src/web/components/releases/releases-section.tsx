@@ -166,7 +166,7 @@ export function ReleasesSection(props: {
       )}
 
       <ActionBar
-        release={selectedRelease ?? null}
+        release={selectedRelease}
         isRipper={isRipper}
         audioOnly={audioOnly}
         onAudioOnlyChange={setAudioOnly}

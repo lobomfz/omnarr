@@ -6,7 +6,7 @@ import { cn } from '@/web/lib/cn'
 import type { Release } from '@/web/types/releases'
 
 export function ActionBar(props: {
-  release: Release | null
+  release?: Release
   isRipper: boolean
   audioOnly: boolean
   onAudioOnlyChange: (v: boolean) => void

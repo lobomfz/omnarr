@@ -14,7 +14,7 @@ export interface IndexerRelease {
   size: number
   seeders?: number
   imdb_id: string | null
-  resolution: string | null
+  resolution: string | null | undefined
   codec: string | null
   hdr: string[]
   download_url: string

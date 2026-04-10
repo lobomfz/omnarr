@@ -220,7 +220,7 @@ describe('library.getInfo', () => {
 
     const result = await client.library.getInfo({ id })
 
-    expect(result.genres).toBeNull()
+    expect(result.genres).toEqual([])
   })
 
   test('throws when ID does not exist in search_results or tmdb_media', async () => {

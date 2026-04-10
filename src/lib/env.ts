@@ -8,6 +8,9 @@ const xdgDataHome = process.env.XDG_DATA_HOME ?? join(homedir(), '.local/share')
 
 const envSchema = type({
   OMNARR_DB_PATH: type('string').default(join(xdgDataHome, 'omnarr/db.sqlite')),
+  OMNARR_JOBS_PATH: type('string').default(
+    join(xdgDataHome, 'omnarr/jobs.sqlite')
+  ),
   OMNARR_LOG_PATH: type('string').default(
     join(xdgDataHome, 'omnarr/logs/omnarr.log')
   ),

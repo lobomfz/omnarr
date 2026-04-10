@@ -95,7 +95,7 @@ export class Releases {
         ...r,
         source_id: r.source_id.toUpperCase(),
         name: r.name ?? Formatters.releaseName(label, r.indexer_source),
-        season_number: parsed.season_number ?? filters?.season ?? null,
+        season_number: parsed.season_number ?? filters?.season,
         episode_number: parsed.episode_number,
       }
     })

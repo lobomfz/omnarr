@@ -13,7 +13,7 @@ export function Hero(props: { media: MediaInfo }) {
       >
         <div className="w-28 sm:w-32 md:w-36 flex-shrink-0 rounded-xl overflow-hidden shadow-2xl shadow-black/60">
           <PosterImage
-            posterPath={props.media.poster_path ?? null}
+            posterPath={props.media.poster_path}
             title={props.media.title}
             className="aspect-[2/3]"
           />

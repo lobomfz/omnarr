@@ -6,7 +6,7 @@ import { cn } from '@/web/lib/cn'
 type ImageStatus = 'loading' | 'loaded' | 'error'
 
 export function PosterImage(props: {
-  posterPath: string | null
+  posterPath?: string | null
   title: string
   className?: string
 }) {

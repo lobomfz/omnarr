@@ -45,7 +45,7 @@ export class BeyondHdAdapter implements Indexer {
 
   private parseResolution(text: string) {
     const match = text.match(/(\d{3,4}p)/i)
-    return match?.[1]?.toLowerCase() ?? null
+    return match?.[1]?.toLowerCase()
   }
 
   private parseCodec(text: string) {

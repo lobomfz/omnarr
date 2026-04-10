@@ -4,6 +4,7 @@ import {
   expect,
   mock,
   beforeEach,
+  afterEach,
   beforeAll,
   afterAll,
 } from 'bun:test'
@@ -67,6 +68,11 @@ afterAll(async () => {
 
 beforeEach(() => {
   database.reset()
+  mockDevPath = null
+  mockLinkError = null
+})
+
+afterEach(() => {
   mockDevPath = null
   mockLinkError = null
 })
