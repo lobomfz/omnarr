@@ -1,6 +1,7 @@
 import { os } from '@orpc/server'
 
 import { LibrarySchemas, ScanSchemas } from '@/api/schemas'
+import { MediaResolver } from '@/core/media-resolver'
 import { Scanner } from '@/core/scanner'
 import { DbMedia } from '@/db/media'
 
@@ -13,7 +14,10 @@ export const libraryRouter = {
 
   getInfo: os
     .input(LibrarySchemas.getInfo)
-    .handler(({ input }) => DbMedia.getInfo(input.id, input)),
+    .errors({
+      SEARCH_RESULT_NOT_FOUND: {},
+    })
+    .handler(({ input }) => new MediaResolver(input.id, input).resolve()),
 
   rescan: os
     .input(ScanSchemas.rescan)

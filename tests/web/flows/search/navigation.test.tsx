@@ -20,7 +20,7 @@ afterEach(async () => {
 })
 
 describe('library badge and navigation', () => {
-  test('non-library best match has no badge and Open navigates to /search/$id', async () => {
+  test('non-library best match has no badge and Open navigates to /media/$id', async () => {
     const matrixId = deriveId('603:movie')
     const { user, router } = mountApp('/search')
 
@@ -40,7 +40,7 @@ describe('library badge and navigation', () => {
     await user.click(slot(get('best-match'), 'open'))
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(`/search/${matrixId}`)
+      expect(router.state.location.pathname).toBe(`/media/${matrixId}`)
     })
   })
 
@@ -69,7 +69,7 @@ describe('library badge and navigation', () => {
     })
   })
 
-  test('non-library carousel item has no badge and click navigates to /search/$id', async () => {
+  test('non-library carousel item has no badge and click navigates to /media/$id', async () => {
     await TestSeed.library.movie({
       tmdbId: 9998,
       title: 'Indexer Fail Test',
@@ -98,7 +98,7 @@ describe('library badge and navigation', () => {
     await user.click(get('carousel-item', { 'media-id': nonLibraryId }))
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(`/search/${nonLibraryId}`)
+      expect(router.state.location.pathname).toBe(`/media/${nonLibraryId}`)
     })
   })
 

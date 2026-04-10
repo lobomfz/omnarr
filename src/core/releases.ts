@@ -113,7 +113,7 @@ export class Releases {
     filters?: { season?: number }
   ) {
     if (type === 'tv') {
-      await Tmdb.fetchSeasons(this.tmdb, tmdb_id)
+      await Tmdb.fetchSeasons(tmdb_id)
     }
 
     const { releases, indexer_status, label } = await this.fetch(

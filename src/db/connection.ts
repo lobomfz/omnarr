@@ -49,6 +49,7 @@ export const database = new Database({
     tables: {
       tmdb_media: type({
         id: generated('autoincrement'),
+        derived_id: type('string').configure({ unique: true }),
         tmdb_id: 'number',
         media_type,
         title: 'string',
@@ -58,7 +59,7 @@ export const database = new Database({
         'backdrop_path?': 'string',
         'runtime?': 'number.integer',
         'vote_average?': 'number',
-        'genres?': 'string',
+        'genres?': 'string[]',
         imdb_id: 'string',
         fetched_at: generated('now'),
       }),

@@ -18,7 +18,7 @@ import { ripperQueue } from '@/jobs/queues'
 import { deriveId } from '@/lib/utils'
 
 import { TestSeed } from '../../../helpers/seed'
-import { get, query, slot } from '../../dom'
+import { get, query } from '../../dom'
 import { mountApp } from '../../mount-app'
 import { cleanup, waitFor } from '../../testing-library'
 import { seedDownload, seedRipperDownload } from './helpers'
@@ -61,45 +61,6 @@ describe('cross-cutting navigation and mixed sources', () => {
       () => {
         expect(router.state.location.pathname).toBe('/')
         expect(query('media-hero')).toBeNull()
-      },
-      { timeout: 3000 }
-    )
-
-    await router.navigate({
-      to: '/media/$id',
-      params: { id: mediaId },
-    })
-
-    await waitFor(
-      () => {
-        expect(router.state.location.pathname).toBe(`/media/${mediaId}`)
-        expect(query('media-hero')).not.toBeNull()
-      },
-      { timeout: 5000 }
-    )
-
-    expect(get('download-group').dataset.status).toBe('downloading')
-  })
-
-  test('download started on search page is reflected on detail page after navigation', async () => {
-    const searchId = await TestSeed.search.matrix()
-    const mediaId = deriveId('603:movie')
-
-    const { user, router } = mountApp(`/search/${searchId}`)
-
-    await waitFor(
-      () => {
-        get('release-row', { 'source-id': 'ABC123' })
-      },
-      { timeout: 5000 }
-    )
-
-    await user.click(get('release-row', { 'source-id': 'ABC123' }))
-    await user.click(slot(get('action-bar'), 'download'))
-
-    await waitFor(
-      () => {
-        expect(get('toast').dataset.code).toBe('DOWNLOAD_STARTED')
       },
       { timeout: 3000 }
     )

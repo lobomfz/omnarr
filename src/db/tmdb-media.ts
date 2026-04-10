@@ -2,17 +2,20 @@ import type { Insertable } from '@lobomfz/db'
 
 import type { media_type } from '@/db/connection'
 import { db, type DB } from '@/db/connection'
+import { deriveId } from '@/lib/utils'
 
 type InsertExecutor = Pick<typeof db, 'insertInto'>
 
 export const DbTmdbMedia = {
   async upsert(
-    data: Insertable<DB['tmdb_media']>,
+    data: Omit<Insertable<DB['tmdb_media']>, 'derived_id'>,
     executor: InsertExecutor = db
   ) {
+    const derived_id = deriveId(`${data.tmdb_id}:${data.media_type}`)
+
     return await executor
       .insertInto('tmdb_media')
-      .values(data)
+      .values({ ...data, derived_id })
       .onConflict((oc) =>
         oc.columns(['tmdb_id', 'media_type']).doUpdateSet({
           title: data.title,
@@ -28,6 +31,7 @@ export const DbTmdbMedia = {
       )
       .returning([
         'id',
+        'derived_id',
         'tmdb_id',
         'media_type',
         'title',

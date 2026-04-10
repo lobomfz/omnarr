@@ -17,15 +17,6 @@ async function setupMovie() {
   })
 }
 
-async function setupTvShow() {
-  const media = await TestSeed.library.breakingBad()
-
-  await TestSeed.downloads.torrent({
-    mediaId: media.id,
-    sourceId: 'BB_HASH_S01E01',
-  })
-}
-
 describe('library command', () => {
   beforeEach(() => {
     TestSeed.reset()

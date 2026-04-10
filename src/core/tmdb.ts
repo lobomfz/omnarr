@@ -33,59 +33,9 @@ export const Tmdb = {
     })
   },
 
-  async getInfo(id: string) {
-    const searchResult = await DbSearchResults.getById(id)
+  async fetchSeasons(tmdb_id: number) {
+    const client = new TmdbClient()
 
-    if (!searchResult) {
-      throw new OmnarrError('SEARCH_RESULT_NOT_FOUND')
-    }
-
-    const tmdb = new TmdbClient()
-    const details = await tmdb.getDetails(
-      searchResult.tmdb_id,
-      searchResult.media_type
-    )
-
-    const tmdbMedia = await DbTmdbMedia.upsert({
-      tmdb_id: details.tmdb_id,
-      media_type: details.media_type,
-      title: details.title,
-      year: details.year,
-      overview: details.overview,
-      poster_path: details.poster_path,
-      backdrop_path: details.backdrop_path,
-      runtime: details.runtime,
-      vote_average: details.vote_average,
-      genres: details.genres.join(','),
-      imdb_id: details.imdb_id,
-    })
-
-    if (searchResult.media_type === 'tv') {
-      await this.fetchSeasons(tmdb, searchResult.tmdb_id)
-    }
-
-    const seasons =
-      searchResult.media_type === 'tv'
-        ? await DbSeasons.listByTmdbId(searchResult.tmdb_id)
-        : []
-
-    return {
-      tmdb_id: tmdbMedia.tmdb_id,
-      media_type: tmdbMedia.media_type,
-      title: tmdbMedia.title,
-      year: tmdbMedia.year,
-      poster_path: tmdbMedia.poster_path,
-      backdrop_path: tmdbMedia.backdrop_path,
-      overview: tmdbMedia.overview,
-      runtime: tmdbMedia.runtime,
-      vote_average: tmdbMedia.vote_average,
-      genres: tmdbMedia.genres?.split(',').filter(Boolean) ?? [],
-      imdb_id: tmdbMedia.imdb_id,
-      seasons,
-    }
-  },
-
-  async fetchSeasons(tmdb: TmdbClient, tmdb_id: number) {
     const existing = await DbTmdbMedia.getByTmdbId(tmdb_id, 'tv')
 
     if (existing?.seasons_updated_at) {
@@ -97,8 +47,8 @@ export const Tmdb = {
     }
 
     const [showData, externalIds] = await Promise.all([
-      tmdb.getShowWithSeasons(tmdb_id),
-      tmdb.getExternalIds(tmdb_id, 'tv'),
+      client.getShowWithSeasons(tmdb_id),
+      client.getExternalIds(tmdb_id, 'tv'),
     ])
 
     if (!externalIds.imdb_id) {
@@ -107,7 +57,7 @@ export const Tmdb = {
 
     const allEpisodes = await Promise.all(
       showData.seasons.map((s) =>
-        tmdb.getSeasonEpisodes(tmdb_id, s.season_number)
+        client.getSeasonEpisodes(tmdb_id, s.season_number)
       )
     )
 
@@ -123,7 +73,7 @@ export const Tmdb = {
           backdrop_path: showData.backdrop_path,
           runtime: showData.runtime,
           vote_average: showData.vote_average,
-          genres: showData.genres.join(','),
+          genres: showData.genres,
           imdb_id: externalIds.imdb_id!,
         },
         trx

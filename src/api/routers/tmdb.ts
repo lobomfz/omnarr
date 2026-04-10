@@ -7,13 +7,4 @@ export const tmdbRouter = {
   search: os
     .input(TmdbSchemas.search)
     .handler(({ input }) => Tmdb.search(input.query)),
-
-  getInfo: os
-    .input(TmdbSchemas.getInfo)
-    .errors({
-      SEARCH_RESULT_NOT_FOUND: {},
-      NO_IMDB_ID: {},
-      TMDB_UNAVAILABLE: {},
-    })
-    .handler(({ input }) => Tmdb.getInfo(input.id)),
 }

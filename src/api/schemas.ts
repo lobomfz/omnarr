@@ -17,9 +17,6 @@ export const TmdbSchemas = {
   search: type({
     query: 'string >= 3',
   }),
-  getInfo: type({
-    id: 'string',
-  }),
 }
 
 export const ReleasesSchemas = {

@@ -44,9 +44,10 @@ async function selectReleaseAndDownload(user: UserEvent, sourceId: string) {
 
 describe('downloads pill reactive state', () => {
   test('adding torrent for media not in library shows pill immediately', async () => {
-    const searchId = await TestSeed.search.matrix()
+    await TestSeed.search.matrix()
+    const mediaId = deriveId('603:movie')
 
-    const { user } = mountApp(`/search/${searchId}`)
+    const { user } = mountApp(`/media/${mediaId}`)
 
     await selectReleaseAndDownload(user, 'ABC123')
 
@@ -63,15 +64,6 @@ describe('downloads pill reactive state', () => {
     const mediaId = deriveId('603:movie')
 
     const { user } = mountApp(`/media/${mediaId}`)
-
-    await waitFor(
-      () => {
-        get('media-hero')
-      },
-      { timeout: 5000 }
-    )
-
-    await user.click(slot(get('media-hero'), 'add-release'))
 
     await selectReleaseAndDownload(user, 'ABC123')
 
@@ -99,9 +91,10 @@ describe('downloads pill reactive state', () => {
       })
       .execute()
 
-    const searchId = await TestSeed.search.matrix()
+    await TestSeed.search.matrix()
+    const mediaId = deriveId('603:movie')
 
-    const { user } = mountApp(`/search/${searchId}`)
+    const { user } = mountApp(`/media/${mediaId}`)
 
     await selectReleaseAndDownload(user, 'ABC123')
 
@@ -126,15 +119,6 @@ describe('downloads pill reactive state', () => {
     const mediaId = deriveId('603:movie')
 
     const { user } = mountApp(`/media/${mediaId}`)
-
-    await waitFor(
-      () => {
-        get('media-hero')
-      },
-      { timeout: 5000 }
-    )
-
-    await user.click(slot(get('media-hero'), 'add-release'))
 
     await selectReleaseAndDownload(user, 'ABC123')
 

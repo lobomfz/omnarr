@@ -167,7 +167,7 @@ function BestMatch(props: { item: SearchItem; libraryIds: Set<string> }) {
 
         <Link
           data-slot="open"
-          to={inLibrary ? '/media/$id' : '/search/$id'}
+          to="/media/$id"
           params={{ id: props.item.id }}
           className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold backdrop-blur-sm transition-colors duration-[var(--duration-fast)] hover:bg-white/20"
         >
@@ -202,7 +202,7 @@ function ResultsCarousel(props: {
               type="button"
               onClick={() =>
                 navigate({
-                  to: inLibrary ? '/media/$id' : '/search/$id',
+                  to: '/media/$id',
                   params: { id: item.id },
                 })
               }

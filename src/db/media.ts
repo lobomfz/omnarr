@@ -9,9 +9,7 @@ import {
 import { type LibrarySchemas } from '@/api/schemas'
 import { type AliasedDb, db, type DB } from '@/db/connection'
 
-export type MediaInfo = NonNullable<Awaited<ReturnType<typeof DbMedia.getInfo>>>
-
-function selectHasKeyframes(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
+export function selectHasKeyframes(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
   return eb
     .exists(
       eb
@@ -22,7 +20,7 @@ function selectHasKeyframes(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
     .as('has_keyframes')
 }
 
-function selectHasVad(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
+export function selectHasVad(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
   return eb
     .exists(
       eb
@@ -33,7 +31,7 @@ function selectHasVad(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
     .as('has_vad')
 }
 
-function selectTracks(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
+export function selectTracks(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
   return jsonArrayFrom(
     eb
       .selectFrom('media_tracks as mt')
@@ -161,129 +159,6 @@ export const DbMedia = {
       .executeTakeFirst()
 
     return { row }
-  },
-
-  async getInfo(id: string, filters?: { season?: number; episode?: number }) {
-    return await db
-      .selectFrom('media as m')
-      .innerJoin('tmdb_media as t', 't.id', 'm.tmdb_media_id')
-      .where('m.id', '=', id)
-      .select([
-        'm.id',
-        'm.media_type',
-        'm.tmdb_media_id',
-        'm.added_at',
-        't.tmdb_id',
-        't.title',
-        't.year',
-        't.poster_path',
-        't.backdrop_path',
-        't.overview',
-        't.runtime',
-        't.vote_average',
-        't.genres',
-        (eb) =>
-          jsonArrayFrom(
-            eb
-              .selectFrom('downloads as d')
-              .whereRef('d.media_id', '=', 'm.id')
-              .select([
-                'd.id',
-                'd.source_id',
-                'd.source',
-                'd.status',
-                'd.progress',
-                'd.speed',
-                'd.eta',
-                'd.content_path',
-                'd.error_at',
-                'd.season_number',
-                'd.episode_number',
-                'd.started_at',
-                (eb) =>
-                  jsonArrayFrom(
-                    eb
-                      .selectFrom('media_files as mf')
-                      .whereRef('mf.download_id', '=', 'd.id')
-                      .select([
-                        'mf.id',
-                        'mf.path',
-                        'mf.size',
-                        'mf.format_name',
-                        'mf.duration',
-                        selectHasKeyframes,
-                        selectHasVad,
-                        selectTracks,
-                      ])
-                      .orderBy('mf.path')
-                  ).as('files'),
-              ])
-              .orderBy('d.started_at', 'desc')
-          ).as('downloads'),
-        (eb) =>
-          jsonArrayFrom(
-            (() => {
-              let seasonsQuery = eb
-                .selectFrom('seasons as s')
-                .whereRef('s.tmdb_media_id', '=', 'm.tmdb_media_id')
-
-              if (filters?.season !== undefined) {
-                seasonsQuery = seasonsQuery.where(
-                  's.season_number',
-                  '=',
-                  filters.season
-                )
-              }
-
-              return seasonsQuery
-                .select([
-                  's.season_number',
-                  's.title',
-                  (eb) =>
-                    jsonArrayFrom(
-                      (() => {
-                        let episodesQuery = eb
-                          .selectFrom('episodes as e')
-                          .whereRef('e.season_id', '=', 's.id')
-
-                        if (filters?.episode !== undefined) {
-                          episodesQuery = episodesQuery.where(
-                            'e.episode_number',
-                            '=',
-                            filters.episode
-                          )
-                        }
-
-                        return episodesQuery
-                          .select([
-                            'e.episode_number',
-                            'e.title',
-                            (eb) =>
-                              jsonArrayFrom(
-                                eb
-                                  .selectFrom('media_files as mf')
-                                  .whereRef('mf.episode_id', '=', 'e.id')
-                                  .select([
-                                    'mf.path',
-                                    'mf.size',
-                                    'mf.format_name',
-                                    'mf.duration',
-                                    selectHasKeyframes,
-                                    selectHasVad,
-                                    selectTracks,
-                                  ])
-                                  .orderBy('mf.path')
-                              ).as('files'),
-                          ])
-                          .orderBy('e.episode_number')
-                      })()
-                    ).as('episodes'),
-                ])
-                .orderBy('s.season_number')
-            })()
-          ).as('seasons'),
-      ])
-      .executeTakeFirstOrThrow()
   },
 
   async delete(id: string) {

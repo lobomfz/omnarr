@@ -46,15 +46,6 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        slot(get('media-hero'), 'add-release')
-      },
-      { timeout: 5000 }
-    )
-
-    await user.click(slot(get('media-hero'), 'add-release'))
-
-    await waitFor(
-      () => {
         get('release-row', { 'source-id': 'SUPERFLIX:TT0133093' })
       },
       { timeout: 5000 }
@@ -84,21 +75,12 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        slot(get('media-hero'), 'add-release')
+        get('season-picker')
       },
       { timeout: 5000 }
     )
 
-    await user.click(slot(get('media-hero'), 'add-release'))
-
-    await waitFor(
-      () => {
-        slot(get('inline-releases'), 'season-picker')
-      },
-      { timeout: 5000 }
-    )
-
-    fireEvent.change(slot(get('inline-releases'), 'season-picker'), {
+    fireEvent.change(get('season-picker'), {
       target: { value: '1' },
     })
 
@@ -135,21 +117,12 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        slot(get('media-hero'), 'add-release')
+        get('season-picker')
       },
       { timeout: 5000 }
     )
 
-    await user.click(slot(get('media-hero'), 'add-release'))
-
-    await waitFor(
-      () => {
-        slot(get('inline-releases'), 'season-picker')
-      },
-      { timeout: 5000 }
-    )
-
-    fireEvent.change(slot(get('inline-releases'), 'season-picker'), {
+    fireEvent.change(get('season-picker'), {
       target: { value: '1' },
     })
 

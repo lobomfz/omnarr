@@ -113,6 +113,7 @@ describe('subtitles command', () => {
     const tmdb = await db
       .insertInto('tmdb_media')
       .values({
+        derived_id: deriveId('999:movie'),
         tmdb_id: 999,
         media_type: 'movie',
         title: 'No IMDB Movie',

@@ -1,8 +1,10 @@
 import type { Selectable } from '@lobomfz/db'
 
+import type { MediaResolver } from '@/core/media-resolver'
 import type { DB, download_status } from '@/db/connection'
-import type { MediaInfo } from '@/db/media'
 import type { ScanFile } from '@/db/media-files'
+
+type MediaInfo = Awaited<ReturnType<MediaResolver['getMedia']>>
 
 type MediaTrack = Selectable<DB['media_tracks']>
 

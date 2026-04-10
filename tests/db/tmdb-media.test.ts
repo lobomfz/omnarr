@@ -90,7 +90,7 @@ describe('DbTmdbMedia.upsert', () => {
       backdrop_path: '/backdrop.jpg',
       runtime: 136,
       vote_average: 8.7,
-      genres: 'Action,Sci-Fi',
+      genres: ['Action', 'Sci-Fi'],
     })
 
     await DbTmdbMedia.upsert({
@@ -122,7 +122,7 @@ describe('DbTmdbMedia.upsert', () => {
     expect(row.backdrop_path).toBe('/backdrop.jpg')
     expect(row.runtime).toBe(136)
     expect(row.vote_average).toBe(8.7)
-    expect(row.genres).toBe('Action,Sci-Fi')
+    expect(row.genres).toEqual(['Action', 'Sci-Fi'])
   })
 
   test('round-trips backdrop_path', async () => {

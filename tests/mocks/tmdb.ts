@@ -187,20 +187,6 @@ await TmdbMock.db
       release_date: '2020-01-01',
       media_type: 'movie',
     },
-    {
-      id: 7777,
-      title: 'No IMDB Movie',
-      overview: 'Movie missing external imdb id.',
-      release_date: '2021-06-01',
-      media_type: 'movie',
-    },
-    {
-      id: 8888,
-      name: 'Empty Runtime Show',
-      overview: 'TV show without runtime fields.',
-      first_air_date: '2015-09-10',
-      media_type: 'tv',
-    },
   ])
   .execute()
 
@@ -211,8 +197,6 @@ await TmdbMock.db
     { tmdb_id: 1399, imdb_id: 'tt0903747' },
     { tmdb_id: 9998, imdb_id: 'tt0000003' },
     { tmdb_id: 10001, imdb_id: 'tt0000001' },
-    { tmdb_id: 7777 },
-    { tmdb_id: 8888, imdb_id: 'tt0000008' },
   ])
   .execute()
 
@@ -221,7 +205,6 @@ await TmdbMock.db
   .values([
     { tmdb_id: 1399, season_number: 1, name: 'Season 1', episode_count: 7 },
     { tmdb_id: 1399, season_number: 2, name: 'Season 2', episode_count: 13 },
-    { tmdb_id: 8888, season_number: 1, name: 'Season 1', episode_count: 1 },
   ])
   .execute()
 
@@ -248,6 +231,5 @@ await TmdbMock.db
       name: 'Seven Thirty-Seven',
     },
     { tmdb_id: 1399, season_number: 2, episode_number: 2, name: 'Grilled' },
-    { tmdb_id: 8888, season_number: 1, episode_number: 1, name: 'First' },
   ])
   .execute()

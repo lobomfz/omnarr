@@ -18,13 +18,23 @@ function useMediaEvents(mediaId: string) {
   )
 }
 
-export function DownloadsSection(props: { media: MediaInfo }) {
+export function DownloadsSection(props: {
+  media: MediaInfo
+  seasonNumber?: number
+}) {
   const scanProgress = useScanProgress(props.media.id)
   const { data: events } = useMediaEvents(props.media.id)
 
   const scanErrors = events.filter(
     (e) => e.entity_type === 'scan' && e.event_type === 'file_error'
   )
+
+  const downloads =
+    props.seasonNumber == null
+      ? props.media.downloads
+      : props.media.downloads.filter(
+          (d) => d.season_number === props.seasonNumber
+        )
 
   return (
     <div>
@@ -54,13 +64,9 @@ export function DownloadsSection(props: { media: MediaInfo }) {
         </div>
       )}
 
-      {props.media.downloads.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-12">
-          No downloads yet. Click "Add Release" to start one.
-        </p>
-      ) : (
+      {downloads.length ? (
         <div className="space-y-2">
-          {props.media.downloads.map((d) => (
+          {downloads.map((d) => (
             <DownloadGroup
               key={d.id}
               download={d}
@@ -72,6 +78,10 @@ export function DownloadsSection(props: { media: MediaInfo }) {
             />
           ))}
         </div>
+      ) : (
+        <p className="text-sm text-muted-foreground text-center py-12">
+          No downloads yet.
+        </p>
       )}
     </div>
   )

@@ -1,15 +1,10 @@
-import { Play, Plus } from 'lucide-react'
+import { Play } from 'lucide-react'
 
 import { HeroBackdrop } from '@/web/components/hero-backdrop'
 import { PosterImage } from '@/web/components/poster-image'
 import type { MediaInfo } from '@/web/types/library'
 
-export function MediaHero(props: {
-  media: MediaInfo
-  onAddRelease: () => void
-}) {
-  const genres = props.media.genres?.split(',').filter(Boolean) ?? []
-
+export function Hero(props: { media: MediaInfo }) {
   return (
     <HeroBackdrop backdropPath={props.media.backdrop_path}>
       <div
@@ -37,18 +32,17 @@ export function MediaHero(props: {
                 <span>{props.media.runtime} min</span>
               </>
             )}
-            {props.media.vote_average != null &&
-              props.media.vote_average > 0 && (
-                <>
-                  <Dot />
-                  <span>{props.media.vote_average.toFixed(1)}</span>
-                </>
-              )}
+            {!!props.media.vote_average && (
+              <>
+                <Dot />
+                <span>{props.media.vote_average.toFixed(1)}</span>
+              </>
+            )}
           </div>
 
-          {genres.length > 0 && (
+          {!!props.media.genres?.length && (
             <div className="flex flex-wrap gap-1.5 mt-3">
-              {genres.map((genre) => (
+              {props.media.genres.map((genre) => (
                 <span
                   key={genre}
                   className="rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-medium text-white/80 border border-white/5"
@@ -65,26 +59,19 @@ export function MediaHero(props: {
             </p>
           )}
 
-          <div className="flex items-center gap-3 mt-4">
-            <button
-              type="button"
-              disabled
-              className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black opacity-80 cursor-not-allowed"
-            >
-              <Play className="size-4 fill-current" />
-              Watch Now
-            </button>
-
-            <button
-              type="button"
-              data-slot="add-release"
-              onClick={props.onAddRelease}
-              className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold backdrop-blur-sm transition-colors duration-[var(--duration-fast)] hover:bg-white/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-            >
-              <Plus className="size-4" />
-              Add Release
-            </button>
-          </div>
+          {!!props.media.added_at && (
+            <div className="flex items-center gap-3 mt-4">
+              <button
+                type="button"
+                disabled
+                data-slot="watch-now"
+                className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black opacity-80 cursor-not-allowed"
+              >
+                <Play className="size-4 fill-current" />
+                Watch Now
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </HeroBackdrop>

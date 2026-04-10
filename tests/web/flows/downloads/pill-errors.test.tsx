@@ -218,15 +218,6 @@ describe('errors and conflicts', () => {
 
     await waitFor(
       () => {
-        get('media-hero')
-      },
-      { timeout: 5000 }
-    )
-
-    await user.click(slot(get('media-hero'), 'add-release'))
-
-    await waitFor(
-      () => {
         get('release-row', { 'source-id': 'ABC123' })
       },
       { timeout: 5000 }

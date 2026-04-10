@@ -25,10 +25,11 @@ Omnarr is a CLI media manager built with Bun that automates search, download, an
 
 ```bash
 bun dev              # Run the CLI
-bun test             # Run all tests
 bun test tests/db/schema.test.ts  # Run single test file
-bun check            # Type-check (tsgo) + lint (oxlint) + duplicate detection (jscpd on changed files)
+bun check            # Type-check (tsgo) + lint (oxlint) + duplicate detection (jscpd on changed files) + all tests
 ```
+
+Never run `bun test` without a file path — `bun check` is the only way to run the full suite. Running individual test files with `bun test <file>` is fine.
 
 ## Architecture
 
