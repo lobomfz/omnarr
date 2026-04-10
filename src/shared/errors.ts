@@ -11,6 +11,7 @@ export const ERROR_MAP = {
   NO_SUBTITLE_INDEXER: 'No subtitle indexer configured',
   NO_ROOT_FOLDER: 'No root folder configured',
   TORRENT_REJECTED: 'Torrent rejected by download client',
+  TORRENT_NOT_READY: 'Torrent was accepted but not registered in time',
   DOWNLOAD_CLIENT_UNREACHABLE: 'Download client is unreachable',
   TV_REQUIRES_SEASON: 'TV shows require a season number',
   TV_REQUIRES_SEASON_EPISODE: 'TV shows require season and episode numbers',

@@ -1,5 +1,8 @@
-import { Mock } from '@lobomfz/ghostapi'
 import { type } from '@lobomfz/db'
+import { Mock } from '@lobomfz/ghostapi'
+
+let generation = 0
+const pending: Promise<void>[] = []
 
 export const QBittorrentMock = new Mock(
   {
@@ -38,6 +41,11 @@ export const QBittorrentMock = new Mock(
 
       let q = db.selectFrom('torrents').selectAll()
 
+      if (query.hashes) {
+        const hashes = (query.hashes as string).split('|')
+        q = q.where('hash', 'in', hashes)
+      }
+
       if (query.category) {
         q = q.where('category', '=', query.category as string)
       }
@@ -55,7 +63,7 @@ export const QBittorrentMock = new Mock(
       const savepath = data.savepath ?? ''
       const category = data.category ?? ''
       const hash =
-        url.match(/btih:([a-zA-Z0-9]+)/)?.[1]?.toLowerCase() ??
+        url.match(/btih:([^&]+)/)?.[1]?.toLowerCase() ??
         url.split('/').pop() ??
         url
 
@@ -69,23 +77,41 @@ export const QBittorrentMock = new Mock(
         return 'Fails.'
       }
 
-      await db
-        .insertInto('torrents')
-        .values({
-          hash,
-          url,
-          savepath,
-          category,
-          progress: 0,
-          dlspeed: 0,
-          eta: 0,
-          state: 'downloading',
-          content_path: `${savepath}/${hash}`,
+      const gen = generation
+
+      pending.push(
+        Bun.sleep(Math.floor(Math.random() * 150) + 50).then(async () => {
+          if (gen !== generation) {
+            return
+          }
+
+          await db
+            .insertInto('torrents')
+            .values({
+              hash,
+              url,
+              savepath,
+              category,
+              progress: 0,
+              dlspeed: 0,
+              eta: 0,
+              state: 'downloading',
+              content_path: `${savepath}/${hash}`,
+            })
+            .execute()
         })
-        .execute()
+      )
 
       return 'Ok.'
     })
   },
   { port: 19005 }
 )
+
+const originalReset = QBittorrentMock.reset.bind(QBittorrentMock)
+
+QBittorrentMock.reset = () => {
+  generation++
+  pending.length = 0
+  originalReset()
+}

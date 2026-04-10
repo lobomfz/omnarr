@@ -150,5 +150,29 @@ export class QBittorrentClient implements DownloadClient {
 
       throw new OmnarrError('TORRENT_REJECTED', { cause: e })
     })
+
+    await this.waitForTorrent(params.hash)
+  }
+
+  private async waitForTorrent(hash: string) {
+    const maxAttempts = 10
+    const interval = 500
+    const normalizedHash = hash.toLowerCase()
+
+    for (let i = 0; i < maxAttempts; i++) {
+      await Bun.sleep(interval)
+
+      const torrents = await this.request<QBitTorrent[]>({
+        method: 'GET',
+        url: '/api/v2/torrents/info',
+        params: { hashes: normalizedHash },
+      })
+
+      if (torrents.length > 0) {
+        return
+      }
+    }
+
+    throw new OmnarrError('TORRENT_NOT_READY')
   }
 }

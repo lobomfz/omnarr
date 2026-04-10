@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { PubSub } from '@/api/pubsub'
 import { TorrentSync } from '@/core/torrent-sync'
 import { db } from '@/db/connection'
+import { DbDownloads } from '@/db/downloads'
+import { QBittorrentClient } from '@/integrations/qbittorrent/client'
 import { scanQueue } from '@/jobs/queues'
 import { config } from '@/lib/config'
 import { deriveId } from '@/lib/utils'
@@ -207,6 +209,33 @@ describe('TorrentSync', () => {
     expect(events[0].event_type).toBe('error')
     expect(events[1].event_type).toBe('recovered')
     expect(events[1].message).toBe('Torrent sync reconnected')
+  })
+
+  test('does not mark download as error when qBittorrent has not processed the add yet', async () => {
+    await TestSeed.library.matrix()
+
+    const qbt = new QBittorrentClient(config.download_client!)
+
+    await qbt.addTorrent({
+      url: `magnet:?xt=urn:btih:${SOURCE_ID}`,
+      hash: SOURCE_ID,
+    })
+
+    await DbDownloads.create({
+      media_id: MEDIA_ID,
+      source_id: SOURCE_ID,
+      download_url: DOWNLOAD_URL,
+    })
+
+    await new TorrentSync().sync()
+
+    const download = await db
+      .selectFrom('downloads')
+      .selectAll()
+      .executeTakeFirstOrThrow()
+
+    expect(download.status).toBe('downloading')
+    expect(download.error_at).toBeNull()
   })
 
   test('enqueues scan job when torrent completes', async () => {

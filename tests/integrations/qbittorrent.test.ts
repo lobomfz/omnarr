@@ -20,6 +20,7 @@ describe('QBittorrentClient', () => {
   test('addTorrent stores torrent with category', async () => {
     await qbt.addTorrent({
       url: 'magnet:?xt=urn:btih:abc123&dn=Test',
+      hash: 'abc123',
     })
 
     const rows = await QBittorrentMock.db
@@ -209,7 +210,10 @@ describe('QBittorrentClient', () => {
       .execute()
 
     await expect(() =>
-      qbt.addTorrent({ url: 'magnet:?xt=urn:btih:abc123&dn=Test' })
+      qbt.addTorrent({
+        url: 'magnet:?xt=urn:btih:abc123&dn=Test',
+        hash: 'abc123',
+      })
     ).toThrow('TORRENT_REJECTED')
   })
 

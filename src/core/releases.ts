@@ -156,11 +156,16 @@ export class Releases {
 
     const indexer = new indexerMap[source](indexerConfig)
 
-    const results = await indexer.search({
-      tmdb_id: String(tmdb_id),
-      imdb_id: tmdbMedia.imdb_id,
-      season_number: filters?.season,
-    })
+    const results = await indexer
+      .search({
+        tmdb_id: String(tmdb_id),
+        imdb_id: tmdbMedia.imdb_id,
+        season_number: filters?.season,
+      })
+      .catch((err: Error) => {
+        Log.warn(`indexer=${source} failed error="${err.message}"`)
+        return []
+      })
 
     Log.info(`indexer=${source} returned ${results.length} results`)
 

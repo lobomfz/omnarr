@@ -18,6 +18,7 @@ export class TorrentDownload implements DownloadSource {
     await new QBittorrentClient(config.download_client)
       .addTorrent({
         url: data.download_url,
+        hash: data.source_id,
       })
       .catch((err) => {
         Log.warn(
