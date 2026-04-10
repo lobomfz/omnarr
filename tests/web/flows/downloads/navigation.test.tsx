@@ -105,6 +105,10 @@ describe('cross-cutting navigation and mixed sources', () => {
       { timeout: 3000 }
     )
 
+    expect(get('download-pill', { nav: 'desktop' }).getAttribute('aria-expanded')).toBe(
+      'true'
+    )
+
     await user.click(get('pill-entry', { 'media-id': mediaId }))
 
     await waitFor(
