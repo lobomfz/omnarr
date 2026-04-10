@@ -88,6 +88,21 @@ export const DbMediaFiles = {
       .execute()
   },
 
+  async countByMedia(mediaId: string, episodeId?: number) {
+    let query = db
+      .selectFrom('media_files')
+      .select(({ fn }) => fn.countAll<number>().as('count'))
+      .where('media_id', '=', mediaId)
+
+    if (episodeId !== undefined) {
+      query = query.where('episode_id', '=', episodeId)
+    }
+
+    const result = await query.executeTakeFirstOrThrow()
+
+    return result.count
+  },
+
   async deleteByIds(ids: number[]) {
     if (ids.length === 0) {
       return

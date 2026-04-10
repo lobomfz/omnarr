@@ -412,14 +412,23 @@ export class Handler {
       controller.signal
     )
 
+    let strategy: 'hardlink' | 'mux'
+
     try {
-      await exporter.export({ video: opts.video, output: outputPath })
+      strategy = await exporter.export({
+        video: opts.video,
+        output: outputPath,
+      })
     } finally {
       controller.abort()
       await consumer
     }
 
-    this.output({ output: outputPath }, `Exported: ${outputPath}`)
+    if (strategy === 'hardlink') {
+      this.output({ output: outputPath }, `Linked: ${outputPath}`)
+    } else {
+      this.output({ output: outputPath }, `Exported: ${outputPath}`)
+    }
   }
 
   private async consumeExportProgress(

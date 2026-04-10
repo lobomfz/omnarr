@@ -363,6 +363,7 @@ describe('Exporter — output validation', () => {
 
 describe('Exporter — integration', () => {
   let refMkv: string
+  let refAudio: string
 
   beforeAll(async () => {
     refMkv = join(tmpDir, 'ref.mkv')
@@ -379,6 +380,16 @@ describe('Exporter — integration', () => {
       .raw('-metadata:s:a:0', 'language=eng')
       .raw('-metadata:s:a:0', 'title=English Stereo')
       .output(refMkv)
+      .run()
+
+    refAudio = join(tmpDir, 'ref-audio.mka')
+
+    await new FFmpegBuilder({ overwrite: true })
+      .rawInput('-f', 'lavfi')
+      .input('anullsrc=r=48000:cl=stereo')
+      .duration(0.1)
+      .codec('a', 'aac')
+      .output(refAudio)
       .run()
   })
 
@@ -404,6 +415,16 @@ describe('Exporter — integration', () => {
       },
     ])
 
+    await TestSeed.player.downloadWithTracks(media.id, 'hash-extra', refAudio, [
+      {
+        stream_index: 0,
+        stream_type: 'audio',
+        codec_name: 'aac',
+        is_default: false,
+        language: 'por',
+      },
+    ])
+
     const outputPath = join(tmpDir, 'export-test.mkv')
     const exporter = new Exporter({ id: media.id })
 
@@ -411,11 +432,16 @@ describe('Exporter — integration', () => {
 
     const probe = await new FFmpegBuilder().input(outputPath).probe()
 
-    expect(probe.streams).toHaveLength(2)
+    expect(probe.streams).toHaveLength(3)
     expect(probe.streams[0].codec_type).toBe('video')
-    expect(probe.streams[1].codec_type).toBe('audio')
-    expect(probe.streams[1].tags?.language).toBe('eng')
-    expect(probe.streams[1].tags?.title).toBe('English Stereo')
+
+    const audioStreams = probe.streams.filter((s) => s.codec_type === 'audio')
+
+    expect(audioStreams).toHaveLength(2)
+
+    const langs = audioStreams.map((s) => s.tags?.language).sort()
+
+    expect(langs).toEqual(['eng', 'por'])
   })
 
   test('publishes export_progress events with correct identity', async () => {
@@ -435,6 +461,16 @@ describe('Exporter — integration', () => {
         stream_type: 'audio',
         codec_name: 'aac',
         is_default: true,
+      },
+    ])
+
+    await TestSeed.player.downloadWithTracks(media.id, 'hash2', refAudio, [
+      {
+        stream_index: 0,
+        stream_type: 'audio',
+        codec_name: 'aac',
+        is_default: false,
+        language: 'por',
       },
     ])
 
