@@ -14,6 +14,11 @@ import { dirname, join } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
+import { Exporter } from '@/core/exporter'
+import { database } from '@/db/connection'
+
+import { TestSeed } from '../helpers/seed'
+
 const realFs = require('fs/promises')
 
 let mockDevPath: string | null = null
@@ -38,10 +43,6 @@ mock.module('fs/promises', () => ({
     return await realFs.link(src, dest)
   },
 }))
-
-const { Exporter } = await import('@/core/exporter')
-const { database } = await import('@/db/connection')
-const { TestSeed } = await import('../helpers/seed')
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-hardlink-edge-'))
 let refMkv: string
