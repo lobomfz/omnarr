@@ -10,15 +10,12 @@ torrentSyncQueue.schedule('torrent-sync', {
   immediately: true,
 })
 
-export const torrentSyncWorker = new Worker(
-  'torrent-sync',
-  async () => {
-    const result = await sync.sync()
+new Worker('torrent-sync', async () => {
+  const result = await sync.sync()
 
-    if (result.updated > 0) {
-      Log.info(
-        `torrent-sync job updated=${result.updated} completed=${result.completed.length}`
-      )
-    }
+  if (result.updated > 0) {
+    Log.info(
+      `torrent-sync job updated=${result.updated} completed=${result.completed.length}`
+    )
   }
-)
+})

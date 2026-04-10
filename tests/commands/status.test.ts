@@ -36,7 +36,7 @@ async function setupMovieDownload() {
       indexer_source: 'beyond-hd',
       name: 'The.Matrix.1999.2160p.UHD.BluRay.x265-GROUP',
       size: 50_000_000_000,
-      hdr: 'DV/HDR10',
+      hdr: ['DV', 'HDR10'],
       download_url: MOVIE_DL_URL,
     })
     .execute()
@@ -62,7 +62,7 @@ async function setupTvDownload() {
         indexer_source: 'beyond-hd',
         name: 'Breaking.Bad.S01E01.720p.BluRay.x264-GROUP',
         size: 1_000_000_000,
-        hdr: '',
+        hdr: [],
         download_url: TV_EP_DL_URL,
         season_number: 1,
         episode_number: 1,
@@ -75,7 +75,7 @@ async function setupTvDownload() {
         indexer_source: 'beyond-hd',
         name: 'Breaking.Bad.S01.COMPLETE.1080p.BluRay.x265-OTHER',
         size: 30_000_000_000,
-        hdr: '',
+        hdr: [],
         download_url: TV_PACK_DL_URL,
         season_number: 1,
       },

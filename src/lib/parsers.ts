@@ -1,3 +1,5 @@
+import { release_resolution } from '@/db/connection'
+
 const patterns = {
   sxxexx: /s(\d+)\.?e(\d+)/i,
   nxnn: /(?<!\d)(\d{1,2})x(\d+)/i,
@@ -71,6 +73,46 @@ export const Parsers = {
     }
 
     return new Float32Array(pairs)
+  },
+
+  releaseCodec(raw: string | null | undefined) {
+    if (!raw) {
+      return null
+    }
+
+    if (/x265|hevc|h\.?265/i.test(raw)) {
+      return 'x265'
+    }
+
+    if (/x264|avc|h\.?264/i.test(raw)) {
+      return 'x264'
+    }
+
+    if (/av1/i.test(raw)) {
+      return 'av1'
+    }
+
+    return null
+  },
+
+  releaseResolution(raw: string | null | undefined) {
+    if (!raw) {
+      return null
+    }
+
+    const match = /\d{3,4}p/i.exec(raw)
+
+    if (!match) {
+      return null
+    }
+
+    const normalized = match[0].toLowerCase()
+
+    if (release_resolution.allows(normalized)) {
+      return normalized
+    }
+
+    return null
   },
 
   seasonEpisode(name: string) {

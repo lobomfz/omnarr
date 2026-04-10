@@ -99,7 +99,7 @@ async function setupMovieWithRelease(opts?: { url?: string }) {
       indexer_source: 'subdl',
       name: 'The.Matrix.1999.1080p.BluRay-GROUP',
       size: 50000,
-      hdr: '',
+      hdr: [],
       download_url: opts?.url ?? 'http://localhost:19007/subtitle/100-200.zip',
       language: 'EN',
     })
@@ -124,7 +124,7 @@ async function setupTvWithSeasonPackRelease() {
       indexer_source: 'subdl',
       name: 'Breaking.Bad.S01.1080p.BluRay',
       size: 150000,
-      hdr: '',
+      hdr: [],
       download_url: 'http://localhost:19007/subtitle/season-pack.zip',
       language: 'EN',
       season_number: 1,

@@ -42,8 +42,8 @@ export function ReleaseRow(props: {
             {props.release.codec && (
               <Badge variant="codec">{props.release.codec}</Badge>
             )}
-            {props.release.hdr && (
-              <Badge variant="hdr">{props.release.hdr}</Badge>
+            {props.release.hdr.length > 0 && (
+              <Badge variant="hdr">{props.release.hdr.join('/')}</Badge>
             )}
             <Badge variant="neutral">
               {Formatters.size(props.release.size)}

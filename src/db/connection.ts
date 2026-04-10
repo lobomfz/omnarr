@@ -12,6 +12,14 @@ if (envVariables.OMNARR_DB_PATH !== ':memory:') {
 
 export const media_type = type.enumerated('movie', 'tv')
 export const stream_type = type.enumerated('video', 'audio', 'subtitle')
+export const release_codec = type.enumerated('x264', 'x265', 'av1')
+export const release_hdr = type.enumerated('DV', 'HDR10', 'HDR10+', 'HLG')
+export const release_resolution = type.enumerated(
+  '480p',
+  '720p',
+  '1080p',
+  '2160p'
+)
 const download_status = type.enumerated(
   'pending',
   'downloading',
@@ -117,9 +125,9 @@ export const database = new Database({
         size: 'number',
         seeders: type('number').default(0),
         'imdb_id?': 'string',
-        'resolution?': 'string',
-        'codec?': 'string',
-        hdr: 'string',
+        'resolution?': release_resolution,
+        'codec?': release_codec,
+        hdr: release_hdr.array(),
         download_url: 'string',
         'language?': 'string',
         'season_number?': 'number.integer',
@@ -290,6 +298,9 @@ export type download_status = typeof download_status.infer
 export type download_source = typeof download_source.infer
 export type indexer_source = typeof indexer_source.infer
 export type stream_type = typeof stream_type.infer
+export type release_codec = typeof release_codec.infer
+export type release_hdr = typeof release_hdr.infer
+export type release_resolution = typeof release_resolution.infer
 
 export interface AliasedDb extends DB {
   mf: DB['media_files']

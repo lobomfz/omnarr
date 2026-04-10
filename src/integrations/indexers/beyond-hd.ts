@@ -1,9 +1,10 @@
 import { type } from '@lobomfz/db'
 import axios from 'redaxios'
 
-import type { media_type } from '@/db/connection'
+import type { media_type, release_hdr } from '@/db/connection'
 import { envVariables } from '@/lib/env'
 import { Formatters } from '@/lib/formatters'
+import { Parsers } from '@/lib/parsers'
 
 import type { Indexer, IndexerRelease, SearchParams } from './types'
 
@@ -43,27 +44,6 @@ export class BeyondHdAdapter implements Indexer {
 
   constructor(private config: typeof BeyondHdAdapter.schema.infer) {}
 
-  private parseResolution(text: string) {
-    const match = text.match(/(\d{3,4}p)/i)
-    return match?.[1]?.toLowerCase()
-  }
-
-  private parseCodec(text: string) {
-    if (/x265|hevc|h\.?265/i.test(text)) {
-      return 'x265'
-    }
-
-    if (/x264|avc|h\.?264/i.test(text)) {
-      return 'x264'
-    }
-
-    if (/av1/i.test(text)) {
-      return 'AV1'
-    }
-
-    return null
-  }
-
   async search(params: SearchParams) {
     const searchParts = [
       params.query,
@@ -83,7 +63,7 @@ export class BeyondHdAdapter implements Indexer {
     })
 
     return data.results.map((r): IndexerRelease => {
-      const hdr: string[] = []
+      const hdr: release_hdr[] = []
 
       if (r.dv === 1) {
         hdr.push('DV')
@@ -108,8 +88,9 @@ export class BeyondHdAdapter implements Indexer {
         seeders: r.seeders,
         imdb_id: r.imdb_id,
         resolution:
-          this.parseResolution(r.category) ?? this.parseResolution(r.name),
-        codec: this.parseCodec(r.name),
+          Parsers.releaseResolution(r.category) ??
+          Parsers.releaseResolution(r.name),
+        codec: Parsers.releaseCodec(r.name),
         hdr,
         download_url: r.download_url,
       }

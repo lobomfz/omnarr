@@ -39,7 +39,7 @@ export const DbReleases = {
           imdb_id: r.imdb_id,
           resolution: r.resolution,
           codec: r.codec,
-          hdr: r.hdr.join('/'),
+          hdr: r.hdr,
           download_url: r.download_url,
           language: r.language,
           season_number: r.season_number,

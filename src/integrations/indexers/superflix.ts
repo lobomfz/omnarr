@@ -3,6 +3,7 @@ import axios from 'redaxios'
 
 import { envVariables } from '@/lib/env'
 import { Log } from '@/lib/log'
+import { Parsers } from '@/lib/parsers'
 
 import type { Indexer } from './types'
 
@@ -332,7 +333,7 @@ export class SuperflixAdapter implements Indexer {
       return null
     }
 
-    return `${match[2]}p`
+    return Parsers.releaseResolution(`${match[2]}p`)
   }
 
   private extractVideoStream(masterPlaylist: string, referer: string) {
