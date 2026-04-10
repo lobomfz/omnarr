@@ -5,14 +5,7 @@ import '../../../mocks/subdl'
 import '../../../mocks/superflix'
 import '../../../mocks/tmdb'
 import '../../../mocks/yts'
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  setDefaultTimeout,
-  test,
-} from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { TorrentSync } from '@/core/torrent-sync'
 import { database } from '@/db/connection'
@@ -23,13 +16,11 @@ import { QBittorrentMock } from '../../../mocks/qbittorrent'
 import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
 import { act, cleanup, waitFor } from '../../testing-library'
-import { seedDownload, waitForDownloadProgressStream } from './helpers'
+import { flush, seedDownload, waitForDownloadProgressStream } from './helpers'
 
 beforeEach(() => {
   TestSeed.reset()
 })
-
-setDefaultTimeout(10_000)
 
 afterEach(async () => {
   await cleanup()
@@ -62,6 +53,8 @@ describe('errors and conflicts', () => {
     await act(async () => {
       await new TorrentSync().sync()
     })
+
+    await flush()
 
     await waitFor(
       () => {
@@ -97,6 +90,8 @@ describe('errors and conflicts', () => {
     await act(async () => {
       await new TorrentSync().sync()
     })
+
+    await flush()
 
     await waitFor(
       () => {
@@ -146,6 +141,8 @@ describe('errors and conflicts', () => {
       await new TorrentSync().sync()
     })
 
+    await flush()
+
     await waitFor(
       () => {
         expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('1')
@@ -180,6 +177,8 @@ describe('errors and conflicts', () => {
     await act(async () => {
       await new TorrentSync().sync()
     })
+
+    await flush()
 
     await waitFor(
       () => {

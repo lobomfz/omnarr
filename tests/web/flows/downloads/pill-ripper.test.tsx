@@ -23,8 +23,12 @@ import { deriveId } from '@/lib/utils'
 import { TestSeed } from '../../../helpers/seed'
 import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
-import { act, cleanup, fireEvent, waitFor } from '../../testing-library'
-import { seedRipperDownload, waitForDownloadProgressStream } from './helpers'
+import { cleanup, fireEvent, waitFor } from '../../testing-library'
+import {
+  flush,
+  seedRipperDownload,
+  waitForDownloadProgressStream,
+} from './helpers'
 
 beforeEach(() => {
   TestSeed.reset()
@@ -194,6 +198,8 @@ describe('ripper lifecycle', () => {
 
     await DownloadEvents.publish(downloadId)
 
+    await flush()
+
     await waitFor(
       () => {
         expect(get('download-group').dataset.speed).toBe('5000000')
@@ -229,6 +235,8 @@ describe('ripper lifecycle', () => {
     await waitForDownloadProgressStream(queryClient)
 
     await DownloadEvents.publish(downloadId)
+
+    await flush()
 
     await waitFor(
       () => {
@@ -267,6 +275,8 @@ describe('ripper lifecycle', () => {
 
     await DownloadEvents.publish(downloadId)
 
+    await flush()
+
     await waitFor(
       () => {
         expect(query('download-pill', { nav: 'desktop' })).toBeNull()
@@ -303,6 +313,8 @@ describe('ripper lifecycle', () => {
     await waitForDownloadProgressStream(queryClient)
 
     await DownloadEvents.publish(downloadId)
+
+    await flush()
 
     await waitFor(
       () => {
@@ -343,6 +355,8 @@ describe('ripper lifecycle', () => {
 
     await DownloadEvents.publish(downloadId)
 
+    await flush()
+
     await waitFor(
       () => {
         expect(query('download-pill', { nav: 'desktop' })).toBeNull()
@@ -381,9 +395,9 @@ describe('ripper lifecycle', () => {
 
     await waitForDownloadProgressStream(queryClient)
 
-    await act(async () => {
-      await DownloadEvents.publish(downloadId)
-    })
+    await DownloadEvents.publish(downloadId)
+
+    await flush()
 
     await waitFor(
       () => {

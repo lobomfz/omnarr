@@ -7,7 +7,7 @@ import { orpcWs } from '@/web/client'
 
 import { TestSeed } from '../../../helpers/seed'
 import { QBittorrentMock } from '../../../mocks/qbittorrent'
-import { waitFor } from '../../testing-library'
+import { act, waitFor } from '../../testing-library'
 
 export async function seedDownload(opts: {
   tmdbId: number
@@ -74,6 +74,10 @@ export async function seedRipperDownload(opts: {
   })
 
   return { downloadId: download.id }
+}
+
+export async function flush() {
+  await act(() => Bun.sleep(1))
 }
 
 export async function waitForDownloadProgressStream(queryClient: QueryClient) {

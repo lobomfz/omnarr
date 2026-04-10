@@ -5,14 +5,7 @@ import '../../../mocks/subdl'
 import '../../../mocks/superflix'
 import '../../../mocks/tmdb'
 import '../../../mocks/yts'
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  setDefaultTimeout,
-  test,
-} from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { PubSub } from '@/api/pubsub'
 import { DownloadEvents } from '@/core/download-events'
@@ -26,13 +19,11 @@ import { QBittorrentMock } from '../../../mocks/qbittorrent'
 import { get, query } from '../../dom'
 import { mountApp } from '../../mount-app'
 import { act, cleanup, waitFor } from '../../testing-library'
-import { seedDownload, waitForDownloadProgressStream } from './helpers'
+import { flush, seedDownload, waitForDownloadProgressStream } from './helpers'
 
 beforeEach(() => {
   TestSeed.reset()
 })
-
-setDefaultTimeout(10_000)
 
 afterEach(async () => {
   await cleanup()
@@ -64,6 +55,8 @@ describe('terminal transitions clear the pill', () => {
     await waitForDownloadProgressStream(queryClient)
 
     await DownloadEvents.publish(downloadId)
+
+    await flush()
 
     await waitFor(
       () => {
@@ -100,6 +93,8 @@ describe('terminal transitions clear the pill', () => {
       active: true,
       unread_error_count: 0,
     })
+
+    await flush()
 
     await waitFor(
       () => {
@@ -162,6 +157,8 @@ describe('terminal transitions clear the pill', () => {
       await new TorrentSync().sync()
     })
     scanQueue.clear()
+
+    await flush()
 
     await waitFor(
       () => {
@@ -257,6 +254,8 @@ describe('terminal transitions clear the pill', () => {
     })
     scanQueue.clear()
 
+    await flush()
+
     await waitFor(
       () => {
         expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('2')
@@ -294,6 +293,8 @@ describe('terminal transitions clear the pill', () => {
       await new TorrentSync().sync()
     })
 
+    await flush()
+
     await waitFor(
       () => {
         expect(query('download-pill', { nav: 'desktop' })).toBeNull()
@@ -310,6 +311,8 @@ describe('terminal transitions clear the pill', () => {
     await act(async () => {
       await new TorrentSync().sync()
     })
+
+    await flush()
 
     await waitFor(
       () => {

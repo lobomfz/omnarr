@@ -5,14 +5,7 @@ import '../../../mocks/subdl'
 import '../../../mocks/superflix'
 import '../../../mocks/tmdb'
 import '../../../mocks/yts'
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  setDefaultTimeout,
-  test,
-} from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { ripperQueue } from '@/jobs/queues'
 import { deriveId } from '@/lib/utils'
@@ -27,8 +20,6 @@ beforeEach(() => {
   TestSeed.reset()
   ripperQueue.clear()
 })
-
-setDefaultTimeout(10_000)
 
 afterEach(async () => {
   await cleanup()
