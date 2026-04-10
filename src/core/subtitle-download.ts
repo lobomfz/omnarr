@@ -34,7 +34,7 @@ export class SubtitleDownload implements DownloadSource {
     season_number?: number | null
     episode_number?: number | null
   }) {
-    const lang = input.language?.toLowerCase() ?? 'und'
+    const lang = Formatters.language(input.language)
     const sourceHash = deriveId(input.source_id)
     const targetDir = this.resolveTargetDir(
       input.tracks_dir,
@@ -130,7 +130,7 @@ export class SubtitleDownload implements DownloadSource {
   }
 
   private async enqueueSeasonPack(data: DownloadData) {
-    const lang = data.language?.toLowerCase() ?? 'und'
+    const lang = Formatters.language(data.language)
     const sourceHash = deriveId(data.source_id)
 
     const download = await DbDownloads.create({
@@ -162,10 +162,10 @@ export class SubtitleDownload implements DownloadSource {
 
         const epDir = join(
           data.tracks_dir,
-          Formatters.seasonEpisodeTag(
+          Formatters.seasonEpisodeDir(
             parsed.season_number,
             parsed.episode_number
-          ).toLowerCase()
+          )
         )
 
         await mkdir(epDir, { recursive: true })
@@ -219,7 +219,7 @@ export class SubtitleDownload implements DownloadSource {
     if (seasonNumber != null && episodeNumber != null) {
       return join(
         tracks_dir,
-        Formatters.seasonEpisodeTag(seasonNumber, episodeNumber).toLowerCase()
+        Formatters.seasonEpisodeDir(seasonNumber, episodeNumber)
       )
     }
 

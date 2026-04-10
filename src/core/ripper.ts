@@ -68,7 +68,13 @@ export class Ripper {
     return [
       {
         tag: seTag,
-        dir: join(this.ctx.tracks_dir, seTag.toLowerCase()),
+        dir: join(
+          this.ctx.tracks_dir,
+          Formatters.seasonEpisodeDir(
+            this.ctx.season_number,
+            this.ctx.episode_number
+          )
+        ),
         episode: {
           season: this.ctx.season_number,
           episode: this.ctx.episode_number,

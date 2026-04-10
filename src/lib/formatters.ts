@@ -53,6 +53,20 @@ export const Formatters = {
     return `${s}${Formatters.episodeLabel(episodeNumber)}`
   },
 
+  seasonEpisodeDir(
+    seasonNumber: number | null | undefined,
+    episodeNumber: number | null | undefined
+  ) {
+    return Formatters.seasonEpisodeTag(
+      seasonNumber,
+      episodeNumber
+    ).toLowerCase()
+  },
+
+  language(lang?: string | null) {
+    return lang?.toLowerCase() ?? 'unknown'
+  },
+
   mediaTitle(media: {
     title: string
     year: number | null

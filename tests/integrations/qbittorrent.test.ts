@@ -123,7 +123,7 @@ describe('QBittorrentClient', () => {
 
     expect(statuses).toHaveLength(6)
     expect(statuses[0]).toEqual({
-      hash: 'aaa',
+      hash: 'AAA',
       progress: 0.5,
       speed: 1000,
       eta: 600,
@@ -131,7 +131,7 @@ describe('QBittorrentClient', () => {
       content_path: '/dl/aaa',
     })
     expect(statuses[1]).toEqual({
-      hash: 'bbb',
+      hash: 'BBB',
       progress: 1,
       speed: 500,
       eta: 0,
@@ -139,7 +139,7 @@ describe('QBittorrentClient', () => {
       content_path: '/dl/bbb',
     })
     expect(statuses[2]).toEqual({
-      hash: 'ccc',
+      hash: 'CCC',
       progress: 0.3,
       speed: 0,
       eta: 0,
@@ -147,7 +147,7 @@ describe('QBittorrentClient', () => {
       content_path: '/dl/ccc',
     })
     expect(statuses[3]).toEqual({
-      hash: 'ddd',
+      hash: 'DDD',
       progress: 0,
       speed: 0,
       eta: 0,
@@ -155,7 +155,7 @@ describe('QBittorrentClient', () => {
       content_path: '/dl/ddd',
     })
     expect(statuses[4]).toEqual({
-      hash: 'eee',
+      hash: 'EEE',
       progress: 0.4,
       speed: 0,
       eta: 0,
@@ -163,7 +163,7 @@ describe('QBittorrentClient', () => {
       content_path: '/dl/eee',
     })
     expect(statuses[5]).toEqual({
-      hash: 'fff',
+      hash: 'FFF',
       progress: 1,
       speed: 0,
       eta: 0,
@@ -172,7 +172,7 @@ describe('QBittorrentClient', () => {
     })
   })
 
-  test('getTorrentStatuses normalizes hash to lowercase', async () => {
+  test('getTorrentStatuses normalizes hash to uppercase', async () => {
     await QBittorrentMock.db
       .insertInto('torrents')
       .values({
@@ -190,7 +190,7 @@ describe('QBittorrentClient', () => {
 
     const statuses = await qbt.getTorrentStatuses()
 
-    expect(statuses[0].hash).toBe('abc123')
+    expect(statuses[0].hash).toBe('ABC123')
   })
 
   test('addTorrent throws when qBittorrent rejects torrent', async () => {

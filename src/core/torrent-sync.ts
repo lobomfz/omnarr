@@ -40,7 +40,7 @@ export class TorrentSync {
       await this.handleSyncRecovery()
     }
 
-    const statusByHash = new Map(statuses.map((s) => [s.hash.toUpperCase(), s]))
+    const statusByHash = new Map(statuses.map((s) => [s.hash, s]))
     const now = new Date().toISOString()
 
     const completedMediaIds: string[] = []

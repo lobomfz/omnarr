@@ -199,14 +199,10 @@ export class SubtitleMatcher extends TrackResolver {
     const sub = Parsers.releaseName(subtitleName)
 
     const groupMatch =
-      ref.group !== null &&
-      sub.group !== null &&
-      ref.group.toLowerCase() === sub.group.toLowerCase()
+      ref.group !== null && sub.group !== null && ref.group === sub.group
 
     const sourceMatch =
-      ref.source !== null &&
-      sub.source !== null &&
-      ref.source.toLowerCase() === sub.source.toLowerCase()
+      ref.source !== null && sub.source !== null && ref.source === sub.source
 
     if (groupMatch && sourceMatch) {
       return TIER_GROUP_SOURCE

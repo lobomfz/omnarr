@@ -123,7 +123,7 @@ export class QBittorrentClient implements DownloadClient {
       }
 
       return {
-        hash: t.hash.toLowerCase(),
+        hash: t.hash.toUpperCase(),
         progress: t.progress,
         speed: t.dlspeed,
         eta: t.eta,

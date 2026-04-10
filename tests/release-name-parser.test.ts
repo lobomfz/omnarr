@@ -8,82 +8,82 @@ describe('Parsers.releaseName', () => {
       'The.Matrix.1999.1080p.BluRay.x264-GROUP'
     )
 
-    expect(result).toEqual({ group: 'GROUP', source: 'BluRay' })
+    expect(result).toEqual({ group: 'group', source: 'bluray' })
   })
 
   test('extracts group with numbers', () => {
     const result = Parsers.releaseName('Movie.2024.2160p.WEB-DL.x265-FLUX2')
 
-    expect(result).toEqual({ group: 'FLUX2', source: 'WEB-DL' })
+    expect(result).toEqual({ group: 'flux2', source: 'web-dl' })
   })
 
   test('extracts BluRay source variants', () => {
     expect(Parsers.releaseName('Movie.1080p.BluRay-GRP')).toEqual({
-      group: 'GRP',
-      source: 'BluRay',
+      group: 'grp',
+      source: 'bluray',
     })
 
     expect(Parsers.releaseName('Movie.1080p.Blu-Ray-GRP')).toEqual({
-      group: 'GRP',
-      source: 'Blu-Ray',
+      group: 'grp',
+      source: 'blu-ray',
     })
 
     expect(Parsers.releaseName('Movie.1080p.BDRip-GRP')).toEqual({
-      group: 'GRP',
-      source: 'BDRip',
+      group: 'grp',
+      source: 'bdrip',
     })
 
     expect(Parsers.releaseName('Movie.1080p.BRRip-GRP')).toEqual({
-      group: 'GRP',
-      source: 'BRRip',
+      group: 'grp',
+      source: 'brrip',
     })
   })
 
   test('extracts WEB source variants', () => {
     expect(Parsers.releaseName('Movie.1080p.WEB-DL-GRP')).toEqual({
-      group: 'GRP',
-      source: 'WEB-DL',
+      group: 'grp',
+      source: 'web-dl',
     })
 
     expect(Parsers.releaseName('Movie.1080p.WEBRip-GRP')).toEqual({
-      group: 'GRP',
-      source: 'WEBRip',
+      group: 'grp',
+      source: 'webrip',
     })
 
     expect(Parsers.releaseName('Movie.1080p.WEBDL-GRP')).toEqual({
-      group: 'GRP',
-      source: 'WEBDL',
+      group: 'grp',
+      source: 'webdl',
     })
   })
 
   test('extracts HDTV and DVDRip sources', () => {
     expect(Parsers.releaseName('Movie.720p.HDTV-GRP')).toEqual({
-      group: 'GRP',
-      source: 'HDTV',
+      group: 'grp',
+      source: 'hdtv',
     })
 
     expect(Parsers.releaseName('Movie.DVDRip-GRP')).toEqual({
-      group: 'GRP',
-      source: 'DVDRip',
+      group: 'grp',
+      source: 'dvdrip',
     })
   })
 
   test('source matching is case insensitive', () => {
     const result = Parsers.releaseName('Movie.1080p.bluray.x264-GRP')
 
-    expect(result).toEqual({ group: 'GRP', source: 'bluray' })
+    expect(result).toEqual({ group: 'grp', source: 'bluray' })
   })
 
   test('returns null group when no hyphen-group pattern', () => {
     const result = Parsers.releaseName('The.Matrix.1999.1080p.BluRay')
 
-    expect(result).toEqual({ group: null, source: 'BluRay' })
+    expect(result).toEqual({ group: null, source: 'bluray' })
   })
 
   test('returns null source when no known source keyword', () => {
     const result = Parsers.releaseName('Some.Random.Release-GRP')
 
-    expect(result).toEqual({ group: 'GRP', source: null })
+    expect(result).toEqual({ group: 'grp', source: null })
   })
 
   test('returns both null when no parseable metadata', () => {
@@ -97,7 +97,7 @@ describe('Parsers.releaseName', () => {
       'The Matrix 1999 1080p BluRay x264-GROUP'
     )
 
-    expect(result).toEqual({ group: 'GROUP', source: 'BluRay' })
+    expect(result).toEqual({ group: 'group', source: 'bluray' })
   })
 
   test('handles underscores as separators', () => {
@@ -105,19 +105,19 @@ describe('Parsers.releaseName', () => {
       'The_Matrix_1999_1080p_BluRay_x264-GROUP'
     )
 
-    expect(result).toEqual({ group: 'GROUP', source: 'BluRay' })
+    expect(result).toEqual({ group: 'group', source: 'bluray' })
   })
 
   test('does not confuse WEB-DL hyphen with group separator', () => {
     const result = Parsers.releaseName('Movie.2024.1080p.WEB-DL.x265-NOGRP')
 
-    expect(result).toEqual({ group: 'NOGRP', source: 'WEB-DL' })
+    expect(result).toEqual({ group: 'nogrp', source: 'web-dl' })
   })
 
   test('does not confuse Blu-Ray hyphen with group separator', () => {
     const result = Parsers.releaseName('Movie.1080p.Blu-Ray.x264-TEAM')
 
-    expect(result).toEqual({ group: 'TEAM', source: 'Blu-Ray' })
+    expect(result).toEqual({ group: 'team', source: 'blu-ray' })
   })
 
   test('empty string returns both null', () => {
@@ -131,7 +131,7 @@ describe('Parsers.releaseName', () => {
       'Breaking.Bad.S01E01.1080p.BluRay.x264-DEMAND'
     )
 
-    expect(result).toEqual({ group: 'DEMAND', source: 'BluRay' })
+    expect(result).toEqual({ group: 'demand', source: 'bluray' })
   })
 })
 

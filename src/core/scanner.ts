@@ -16,6 +16,7 @@ import { DbMediaKeyframes } from '@/db/media-keyframes'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'
 import { Scheduler } from '@/jobs/scheduler'
+import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
 import { OmnarrError } from '@/shared/errors'
@@ -189,11 +190,15 @@ export class Scanner {
     return { files, resolvedIds }
   }
 
+  private parseExtension(path: string) {
+    return extname(path).slice(1).toLowerCase()
+  }
+
   private async resolveContentPath(contentPath: string) {
     const s = await stat(contentPath)
 
     if (s.isFile()) {
-      if (VALID_EXTENSIONS.has(extname(contentPath).slice(1).toLowerCase())) {
+      if (VALID_EXTENSIONS.has(this.parseExtension(contentPath))) {
         return [contentPath]
       }
 
@@ -242,7 +247,7 @@ export class Scanner {
   ) {
     Log.info(`probing file="${fullPath}"`)
 
-    const ext = extname(fullPath).slice(1).toLowerCase()
+    const ext = this.parseExtension(fullPath)
 
     if (SUBTITLE_EXTENSIONS.has(ext)) {
       const fileSize = (await stat(fullPath)).size
@@ -253,7 +258,7 @@ export class Scanner {
 
       const name = basename(fullPath, extname(fullPath))
       const langMatch = /^sub_([a-z]+)/i.exec(name)
-      const language = langMatch?.[1].toLowerCase()
+      const language = Formatters.language(langMatch?.[1])
 
       await db.transaction().execute(async (trx) => {
         const file = await DbMediaFiles.create(

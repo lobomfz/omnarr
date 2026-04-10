@@ -28,7 +28,7 @@ export const Parsers = {
 
   releaseName(name: string) {
     const sourceMatch = SOURCE_PATTERN.exec(name)
-    const source = sourceMatch?.[1] ?? null
+    const source = sourceMatch?.[1]?.toLowerCase() ?? null
 
     const knownHyphenPositions = new Set<number>()
 
@@ -44,7 +44,7 @@ export const Parsers = {
         const after = name.slice(i + 1)
 
         if (/^[a-z0-9]+$/i.test(after)) {
-          group = after
+          group = after.toLowerCase()
         }
 
         break

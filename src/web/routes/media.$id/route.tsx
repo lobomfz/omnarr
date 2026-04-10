@@ -30,7 +30,11 @@ function useMediaInfo(id: string) {
 
 function MediaContent(props: { id: string }) {
   const { data } = useMediaInfo(props.id)
-  const [selectedSeason, setSelectedSeason] = useState<number | undefined>()
+  const [selectedSeason, setSelectedSeason] = useState<number | undefined>(
+    data.media_type === 'tv'
+      ? data.seasons.find((s) => s.season_number === 1)?.season_number
+      : undefined
+  )
 
   return (
     <>
