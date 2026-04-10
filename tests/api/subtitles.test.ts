@@ -10,14 +10,16 @@ import { db } from '@/db/connection'
 import { config } from '@/lib/config'
 import { deriveId } from '@/lib/utils'
 
-import '../mocks/subdl'
 import { TestSeed } from '../helpers/seed'
+import { SubdlMock } from '../mocks/subdl'
 
 const client = createRouterClient(router)
 const tracksDir = config.root_folders!.tracks!
 
-beforeEach(() => {
+beforeEach(async () => {
   TestSeed.reset()
+  SubdlMock.reset()
+  await SubdlMock.helpers.seed()
 })
 
 describe('subtitles.search', () => {

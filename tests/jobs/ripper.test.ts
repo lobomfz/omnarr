@@ -1,12 +1,11 @@
-import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { rm } from 'fs/promises'
 
-import '@/jobs/workers/ripper'
-import '@/jobs/workers/scan'
 import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEvents } from '@/db/events'
 import { Scheduler } from '@/jobs/scheduler'
+import { ripperWorker } from '@/jobs/workers/ripper'
 import { config } from '@/lib/config'
 
 import '../mocks/superflix'
@@ -14,12 +13,17 @@ import { TestSeed } from '../helpers/seed'
 
 const tracksDir = config.root_folders!.tracks!
 
+beforeAll(() => {
+  ripperWorker.start()
+})
+
 beforeEach(async () => {
   TestSeed.reset()
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })
 
 afterAll(async () => {
+  await ripperWorker.stop()
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })
 

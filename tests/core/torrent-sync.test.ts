@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { PubSub } from '@/api/pubsub'
 import { TorrentSync } from '@/core/torrent-sync'
@@ -33,6 +33,10 @@ describe('TorrentSync', () => {
 
   beforeEach(() => {
     TestSeed.reset()
+    config.download_client!.url = originalUrl
+  })
+
+  afterEach(() => {
     config.download_client!.url = originalUrl
   })
 

@@ -14,7 +14,7 @@ import { DbSearchResults } from '@/db/search-results'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { TmdbClient } from '@/integrations/tmdb/client'
-import { ripperQueue, scanQueue } from '@/jobs/queues'
+import { ripperQueue, scanQueue, subtitleMatchQueue } from '@/jobs/queues'
 import { deriveId } from '@/lib/utils'
 
 import { QBittorrentMock } from '../mocks/qbittorrent'
@@ -425,5 +425,6 @@ export const TestSeed = {
     QBittorrentMock.reset()
     scanQueue.clear()
     ripperQueue.clear()
+    subtitleMatchQueue.clear()
   },
 }

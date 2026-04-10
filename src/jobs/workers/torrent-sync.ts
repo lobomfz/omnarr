@@ -2,6 +2,7 @@ import { TorrentSync } from '@/core/torrent-sync'
 import { Queue, Worker } from '@/jobs/index'
 import { Log } from '@/lib/log'
 
+const sync = new TorrentSync()
 const torrentSyncQueue = new Queue('torrent-sync')
 
 torrentSyncQueue.schedule('torrent-sync', {
@@ -9,14 +10,15 @@ torrentSyncQueue.schedule('torrent-sync', {
   immediately: true,
 })
 
-const sync = new TorrentSync()
+export const torrentSyncWorker = new Worker(
+  'torrent-sync',
+  async () => {
+    const result = await sync.sync()
 
-new Worker('torrent-sync', async () => {
-  const result = await sync.sync()
-
-  if (result.updated > 0) {
-    Log.info(
-      `torrent-sync job updated=${result.updated} completed=${result.completed.length}`
-    )
+    if (result.updated > 0) {
+      Log.info(
+        `torrent-sync job updated=${result.updated} completed=${result.completed.length}`
+      )
+    }
   }
-})
+)

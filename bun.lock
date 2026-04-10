@@ -32,7 +32,7 @@
         "@lobomfz/bunmq": "link:@lobomfz/bunmq",
         "@lobomfz/db": "^0.3.9",
         "@lobomfz/ffmpeg": "link:@lobomfz/ffmpeg",
-        "@lobomfz/ghostapi": "^0.3.4",
+        "@lobomfz/ghostapi": "^0.3.5",
         "@tanstack/router-cli": "^1.166.25",
         "@testing-library/dom": "^10.4.1",
         "@testing-library/react": "^16.3.2",
@@ -264,7 +264,7 @@
 
     "@lobomfz/ffmpeg": ["@lobomfz/ffmpeg@link:@lobomfz/ffmpeg", {}],
 
-    "@lobomfz/ghostapi": ["@lobomfz/ghostapi@0.3.4", "", { "peerDependencies": { "@lobomfz/db": "^0.3.5", "elysia": "^1.0.0" } }, "sha512-gYSyr36zi0PH9sXyJe9KLgArMfD1eM3fDBhAkjv5HR1DS5j4wkDWXh2gcmMKqrLNSTvojjSfe1K5vTnZhe2SXA=="],
+    "@lobomfz/ghostapi": ["@lobomfz/ghostapi@0.3.5", "", { "peerDependencies": { "@lobomfz/db": "^0.3.5", "elysia": "^1.0.0" } }, "sha512-2Ui/MOBSQxxrPjAo5TT6M9259tnV3ghzUO2X5OXa+pL0i2ylct3j8txiSxg88EHdq7gSRi1//ZF3FvrrIRq48g=="],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.3", "", { "dependencies": { "@tybys/wasm-util": "^0.10.1" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-xK9sGVbJWYb08+mTJt3/YV24WxvxpXcXtP6B172paPZ+Ts69Re9dAr7lKwJoeIx8OoeuimEiRZ7umkiUVClmmQ=="],
 

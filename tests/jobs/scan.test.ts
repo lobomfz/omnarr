@@ -1,13 +1,21 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 
-import '@/jobs/workers/scan'
 import { DbEvents } from '@/db/events'
 import { Scheduler } from '@/jobs/scheduler'
+import { scanWorker } from '@/jobs/workers/scan'
 
 import { TestSeed } from '../helpers/seed'
 
+beforeAll(() => {
+  scanWorker.start()
+})
+
 beforeEach(() => {
   TestSeed.reset()
+})
+
+afterAll(async () => {
+  await scanWorker.stop()
 })
 
 async function seedMedia() {

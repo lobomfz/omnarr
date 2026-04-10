@@ -1,13 +1,18 @@
-import { describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { SubdlAdapter } from '@/integrations/indexers/subdl'
 
-import '../mocks/subdl'
+import { SubdlMock } from '../mocks/subdl'
 
 const subdl = new SubdlAdapter({
   type: 'subdl',
   api_key: 'test-api-key',
   languages: ['EN'],
+})
+
+beforeEach(async () => {
+  SubdlMock.reset()
+  await SubdlMock.helpers.seed()
 })
 
 describe('SubdlAdapter', () => {

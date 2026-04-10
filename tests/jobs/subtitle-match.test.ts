@@ -1,16 +1,19 @@
-import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { rm } from 'fs/promises'
 
-import '@/jobs/workers/subtitle-match'
-import '@/jobs/workers/scan'
 import { DbEvents } from '@/db/events'
 import { Scheduler } from '@/jobs/scheduler'
+import { subtitleMatchWorker } from '@/jobs/workers/subtitle-match'
 import { config } from '@/lib/config'
 
 import { TestSeed } from '../helpers/seed'
 import { SubdlMock } from '../mocks/subdl'
 
 const tracksDir = config.root_folders!.tracks!
+
+beforeAll(() => {
+  subtitleMatchWorker.start()
+})
 
 beforeEach(async () => {
   TestSeed.reset()
@@ -19,6 +22,7 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
+  await subtitleMatchWorker.stop()
   await rm(tracksDir, { recursive: true }).catch(() => {})
 })
 

@@ -7,11 +7,13 @@ import { db } from '@/db/connection'
 import { deriveId } from '@/lib/utils'
 
 import '../helpers/api-server'
-import '../mocks/subdl'
 import { TestSeed } from '../helpers/seed'
+import { SubdlMock } from '../mocks/subdl'
 
-beforeEach(() => {
+beforeEach(async () => {
   TestSeed.reset()
+  SubdlMock.reset()
+  await SubdlMock.helpers.seed()
 })
 
 describe('subtitles command', () => {
