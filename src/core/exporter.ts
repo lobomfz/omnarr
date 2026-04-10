@@ -1,7 +1,11 @@
+import { link, stat } from 'fs/promises'
+import { dirname } from 'path'
+
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
 import { PubSub } from '@/api/pubsub'
 import { TrackResolver } from '@/audio/track-resolver'
+import { DbMediaFiles } from '@/db/media-files'
 import { type TracksWithFile } from '@/db/media-tracks'
 import { Log } from '@/lib/log'
 
@@ -71,15 +75,29 @@ export class Exporter extends TrackResolver {
       throw new Error(`Output file already exists: ${opts.output}`)
     }
 
-    const resolved = await this.resolveTracks({ video: opts.video })
-    const offsets = await this.resolveOffsets(resolved)
+    const strategy = await this.resolveStrategy({
+      video: opts.video,
+      output: opts.output,
+    })
+
+    if (strategy.type === 'link') {
+      await link(strategy.sourcePath, opts.output)
+
+      Log.info(`export hardlink output=${opts.output}`)
+
+      return 'hardlink' as const
+    }
 
     Log.info(
-      `export start output=${opts.output} tracks=${1 + resolved.audio.length + resolved.subtitle.length}`
+      `export start output=${opts.output} tracks=${1 + strategy.resolved.audio.length + strategy.resolved.subtitle.length}`
     )
 
-    await this.createBuilder(resolved, offsets, opts.output).run({
-      duration: resolved.video.file_duration ?? 0,
+    await this.createBuilder(
+      strategy.resolved,
+      strategy.offsets,
+      opts.output
+    ).run({
+      duration: strategy.resolved.video.file_duration ?? 0,
       onProgress: (ratio) => {
         PubSub.publish('export_progress', {
           media_id: this.media.id,
@@ -90,6 +108,34 @@ export class Exporter extends TrackResolver {
     })
 
     Log.info(`export complete output=${opts.output}`)
+
+    return 'mux' as const
+  }
+
+  private async resolveStrategy(opts: { video?: number; output: string }) {
+    const resolved = await this.resolveTracks({ video: opts.video })
+
+    const fileCount = await DbMediaFiles.countByMedia(
+      this.media.id,
+      this.media.episode_id
+    )
+
+    if (fileCount === 1) {
+      const sourcePath = resolved.video.file_path
+
+      const [sourceStat, outputDirStat] = await Promise.all([
+        stat(sourcePath),
+        stat(dirname(opts.output)),
+      ])
+
+      if (sourceStat.dev === outputDirStat.dev) {
+        return { type: 'link' as const, sourcePath }
+      }
+    }
+
+    const offsets = await this.resolveOffsets(resolved)
+
+    return { type: 'mux' as const, resolved, offsets }
   }
 
   private createBuilder(
@@ -104,6 +150,7 @@ export class Exporter extends TrackResolver {
     ]
 
     const fileIndex = new Map<string, number>()
+
     let builder = new FFmpegBuilder({ overwrite: true })
 
     for (const track of orderedTracks) {
