@@ -29,3 +29,5 @@ globalThis.AbortSignal = bunAbortSignal
 globalThis.Blob = bunBlob
 globalThis.File = bunFile
 globalThis.ReadableStream = bunReadableStream
+// @ts-expect-error react needs this for testing
+globalThis.IS_REACT_ACT_ENVIRONMENT = true

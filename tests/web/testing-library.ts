@@ -9,7 +9,7 @@ import {
 
 import { TestQueryClients } from './query-clients'
 
-export { render, renderHook, waitFor, fireEvent }
+export { act, render, renderHook, waitFor, fireEvent }
 export {
   default as userEvent,
   type UserEvent,

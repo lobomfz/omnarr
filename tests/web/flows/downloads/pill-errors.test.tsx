@@ -22,7 +22,7 @@ import { TestSeed } from '../../../helpers/seed'
 import { QBittorrentMock } from '../../../mocks/qbittorrent'
 import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
-import { cleanup, waitFor } from '../../testing-library'
+import { act, cleanup, waitFor } from '../../testing-library'
 import { seedDownload, waitForDownloadProgressStream } from './helpers'
 
 beforeEach(() => {
@@ -59,7 +59,9 @@ describe('errors and conflicts', () => {
 
     await waitForDownloadProgressStream(queryClient)
 
-    await new TorrentSync().sync()
+    await act(async () => {
+      await new TorrentSync().sync()
+    })
 
     await waitFor(
       () => {
@@ -92,7 +94,9 @@ describe('errors and conflicts', () => {
 
     await waitForDownloadProgressStream(queryClient)
 
-    await new TorrentSync().sync()
+    await act(async () => {
+      await new TorrentSync().sync()
+    })
 
     await waitFor(
       () => {
@@ -138,7 +142,9 @@ describe('errors and conflicts', () => {
 
     await waitForDownloadProgressStream(queryClient)
 
-    await new TorrentSync().sync()
+    await act(async () => {
+      await new TorrentSync().sync()
+    })
 
     await waitFor(
       () => {
@@ -171,7 +177,9 @@ describe('errors and conflicts', () => {
 
     await waitForDownloadProgressStream(queryClient)
 
-    await new TorrentSync().sync()
+    await act(async () => {
+      await new TorrentSync().sync()
+    })
 
     await waitFor(
       () => {

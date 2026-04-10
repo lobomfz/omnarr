@@ -25,7 +25,7 @@ import { TestSeed } from '../../../helpers/seed'
 import { QBittorrentMock } from '../../../mocks/qbittorrent'
 import { get, query } from '../../dom'
 import { mountApp } from '../../mount-app'
-import { cleanup, waitFor } from '../../testing-library'
+import { act, cleanup, waitFor } from '../../testing-library'
 import { seedDownload, waitForDownloadProgressStream } from './helpers'
 
 beforeEach(() => {
@@ -158,7 +158,9 @@ describe('terminal transitions clear the pill', () => {
 
     await waitForDownloadProgressStream(queryClient)
 
-    await new TorrentSync().sync()
+    await act(async () => {
+      await new TorrentSync().sync()
+    })
     scanQueue.clear()
 
     await waitFor(
@@ -250,7 +252,9 @@ describe('terminal transitions clear the pill', () => {
 
     await waitForDownloadProgressStream(queryClient)
 
-    await new TorrentSync().sync()
+    await act(async () => {
+      await new TorrentSync().sync()
+    })
     scanQueue.clear()
 
     await waitFor(
@@ -286,7 +290,9 @@ describe('terminal transitions clear the pill', () => {
 
     await waitForDownloadProgressStream(queryClient)
 
-    await new TorrentSync().sync()
+    await act(async () => {
+      await new TorrentSync().sync()
+    })
 
     await waitFor(
       () => {
@@ -301,7 +307,9 @@ describe('terminal transitions clear the pill', () => {
       .where('hash', '=', 'abc123')
       .execute()
 
-    await new TorrentSync().sync()
+    await act(async () => {
+      await new TorrentSync().sync()
+    })
 
     await waitFor(
       () => {

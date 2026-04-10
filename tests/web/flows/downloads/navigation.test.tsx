@@ -20,7 +20,7 @@ import { deriveId } from '@/lib/utils'
 import { TestSeed } from '../../../helpers/seed'
 import { get, query } from '../../dom'
 import { mountApp } from '../../mount-app'
-import { cleanup, waitFor } from '../../testing-library'
+import { act, cleanup, waitFor } from '../../testing-library'
 import { seedDownload, seedRipperDownload } from './helpers'
 
 beforeEach(() => {
@@ -55,7 +55,9 @@ describe('cross-cutting navigation and mixed sources', () => {
       { timeout: 5000 }
     )
 
-    await router.navigate({ to: '/' })
+    await act(async () => {
+      await router.navigate({ to: '/' })
+    })
 
     await waitFor(
       () => {
@@ -65,9 +67,11 @@ describe('cross-cutting navigation and mixed sources', () => {
       { timeout: 3000 }
     )
 
-    await router.navigate({
-      to: '/media/$id',
-      params: { id: mediaId },
+    await act(async () => {
+      await router.navigate({
+        to: '/media/$id',
+        params: { id: mediaId },
+      })
     })
 
     await waitFor(

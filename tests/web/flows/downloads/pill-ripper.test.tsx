@@ -23,7 +23,7 @@ import { deriveId } from '@/lib/utils'
 import { TestSeed } from '../../../helpers/seed'
 import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
-import { cleanup, fireEvent, waitFor } from '../../testing-library'
+import { act, cleanup, fireEvent, waitFor } from '../../testing-library'
 import { seedRipperDownload, waitForDownloadProgressStream } from './helpers'
 
 beforeEach(() => {
@@ -58,6 +58,13 @@ describe('ripper lifecycle', () => {
     })
 
     await user.click(slot(get('action-bar'), 'download'))
+
+    await waitFor(
+      () => {
+        expect(get('toast').dataset.code).toBe('DOWNLOAD_STARTED')
+      },
+      { timeout: 2000 }
+    )
 
     await waitFor(
       () => {
@@ -359,6 +366,7 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
+        get('download-pill', { nav: 'desktop' })
         expect(get('download-group').dataset.status).toBe('pending')
       },
       { timeout: 5000 }
@@ -373,7 +381,9 @@ describe('ripper lifecycle', () => {
 
     await waitForDownloadProgressStream(queryClient)
 
-    await DownloadEvents.publish(downloadId)
+    await act(async () => {
+      await DownloadEvents.publish(downloadId)
+    })
 
     await waitFor(
       () => {
