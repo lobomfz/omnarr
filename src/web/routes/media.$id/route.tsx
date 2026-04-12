@@ -1,5 +1,8 @@
+import { ORPCError } from '@orpc/client'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
+import type { ErrorComponentProps } from '@tanstack/react-router'
+import { SearchX } from 'lucide-react'
 import { Suspense, useState } from 'react'
 
 import { orpc } from '@/web/client'
@@ -12,6 +15,7 @@ import { PageSkeleton } from './-components/page-skeleton'
 
 export const Route = createFileRoute('/media/$id')({
   component: MediaPage,
+  errorComponent: MediaError,
 })
 
 function MediaPage() {
@@ -92,4 +96,29 @@ function SeasonPicker(props: {
       ))}
     </select>
   )
+}
+
+function MediaError({ error }: ErrorComponentProps) {
+  const router = useRouter()
+
+  if (error instanceof ORPCError && error.code === 'SEARCH_RESULT_NOT_FOUND') {
+    return (
+      <div
+        data-component="media-not-found"
+        className="flex flex-col items-center justify-center gap-4 py-32 text-muted-foreground"
+      >
+        <SearchX className="size-12" />
+        <p className="text-lg">Media not found</p>
+        <button
+          type="button"
+          onClick={() => router.history.back()}
+          className="text-sm text-primary hover:underline"
+        >
+          Go back
+        </button>
+      </div>
+    )
+  }
+
+  throw error
 }

@@ -1,5 +1,5 @@
 import { isDefinedError } from '@orpc/client'
-import { useQueries, useMutation } from '@tanstack/react-query'
+import { useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, AlertTriangle, Loader2, SearchX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -62,9 +62,12 @@ function useDownloadMutation(props: {
     code: string
   }) => void
 }) {
+  const queryClient = useQueryClient()
+
   return useMutation(
     orpc.downloads.add.mutationOptions({
       onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: orpc.library.getInfo.key() })
         props.onToast({
           message: `Download started: ${props.title}`,
           type: 'success',
@@ -73,7 +76,9 @@ function useDownloadMutation(props: {
       },
       onError: (err) => {
         const code = isDefinedError(err) ? err.code : 'UNKNOWN'
-        const message = isDefinedError(err) ? ERROR_MAP[err.code] : err.message
+        const message = isDefinedError(err)
+          ? ERROR_MAP[err.code].message
+          : err.message
 
         props.onToast({ message, type: 'error', code })
       },

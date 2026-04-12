@@ -1,26 +1,62 @@
 import { ORPCError } from '@orpc/server'
 
 export const ERROR_MAP = {
-  RELEASE_NOT_FOUND: 'Release not found',
-  MEDIA_NOT_FOUND: 'Media not found',
-  SEARCH_RESULT_NOT_FOUND: 'Search result not found',
-  EPISODE_NOT_FOUND: 'Episode not found',
-  DUPLICATE_DOWNLOAD: 'This release is already being downloaded',
-  NO_DOWNLOAD_CLIENT: 'No download client configured',
-  NO_INDEXERS: 'No indexers configured',
-  NO_SUBTITLE_INDEXER: 'No subtitle indexer configured',
-  NO_ROOT_FOLDER: 'No root folder configured',
-  TORRENT_REJECTED: 'Torrent rejected by download client',
-  TORRENT_NOT_READY: 'Torrent was accepted but not registered in time',
-  DOWNLOAD_CLIENT_UNREACHABLE: 'Download client is unreachable',
-  TV_REQUIRES_SEASON: 'TV shows require a season number',
-  TV_REQUIRES_SEASON_EPISODE: 'TV shows require season and episode numbers',
-  NO_SRT_IN_ARCHIVE: 'No .srt file found in subtitle archive',
-  NO_SRT_EPISODE_PATTERN:
-    'No .srt files with episode patterns found in archive',
-  NO_IMDB_ID: 'No IMDB ID found',
-  NO_EPISODES: 'No episodes found for this season',
-  TMDB_UNAVAILABLE: 'Could not reach TMDB',
+  RELEASE_NOT_FOUND: { message: 'Release not found', status: 404 },
+  MEDIA_NOT_FOUND: { message: 'Media not found', status: 404 },
+  SEARCH_RESULT_NOT_FOUND: { message: 'Search result not found', status: 404 },
+  EPISODE_NOT_FOUND: { message: 'Episode not found', status: 404 },
+  DUPLICATE_DOWNLOAD: {
+    message: 'This release is already being downloaded',
+    status: 409,
+  },
+  NO_DOWNLOAD_CLIENT: { message: 'No download client configured', status: 422 },
+  NO_INDEXERS: { message: 'No indexers configured', status: 422 },
+  NO_SUBTITLE_INDEXER: {
+    message: 'No subtitle indexer configured',
+    status: 422,
+  },
+  NO_ROOT_FOLDER: { message: 'No root folder configured', status: 422 },
+  TORRENT_REJECTED: {
+    message: 'Torrent rejected by download client',
+    status: 422,
+  },
+  TORRENT_NOT_READY: {
+    message: 'Torrent was accepted but not registered in time',
+    status: 422,
+  },
+  DOWNLOAD_CLIENT_UNREACHABLE: {
+    message: 'Download client is unreachable',
+    status: 502,
+  },
+  TV_REQUIRES_SEASON: {
+    message: 'TV shows require a season number',
+    status: 422,
+  },
+  TV_REQUIRES_SEASON_EPISODE: {
+    message: 'TV shows require season and episode numbers',
+    status: 422,
+  },
+  NO_SRT_IN_ARCHIVE: {
+    message: 'No .srt file found in subtitle archive',
+    status: 404,
+  },
+  NO_SRT_EPISODE_PATTERN: {
+    message: 'No .srt files with episode patterns found in archive',
+    status: 404,
+  },
+  NO_IMDB_ID: { message: 'No IMDB ID found', status: 422 },
+  NO_EPISODES: { message: 'No episodes found for this season', status: 404 },
+  TMDB_UNAVAILABLE: { message: 'Could not reach TMDB', status: 502 },
 } as const
 
-export class OmnarrError extends ORPCError<keyof typeof ERROR_MAP, undefined> {}
+export function errors<T extends keyof typeof ERROR_MAP>(codes: T[]) {
+  return Object.fromEntries(codes.map((code) => [code, ERROR_MAP[code]])) as {
+    [K in T]: (typeof ERROR_MAP)[K]
+  }
+}
+
+export class OmnarrError extends ORPCError<keyof typeof ERROR_MAP, undefined> {
+  constructor(code: keyof typeof ERROR_MAP, opts?: { cause?: unknown }) {
+    super(code, { status: ERROR_MAP[code].status, cause: opts?.cause })
+  }
+}

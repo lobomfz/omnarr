@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
-import { createRouterClient } from '@orpc/server'
+import { ORPCError, createRouterClient } from '@orpc/server'
 import dayjs from 'dayjs'
 
 import { router } from '@/api/router'
@@ -225,6 +225,16 @@ describe('library.getInfo', () => {
 
   test('throws when ID does not exist in search_results or tmdb_media', async () => {
     await expect(() => client.library.getInfo({ id: 'NOTEXIST' })).toThrow()
+  })
+
+  test('non-existent ID error has proper HTTP status', async () => {
+    const error = await client.library
+      .getInfo({ id: 'NOTEXIST' })
+      .catch((e) => e)
+
+    expect(error).toBeInstanceOf(ORPCError)
+    expect(error).toHaveProperty('code', 'SEARCH_RESULT_NOT_FOUND')
+    expect(error.status).not.toBe(500)
   })
 })
 

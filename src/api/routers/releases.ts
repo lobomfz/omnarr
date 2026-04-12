@@ -2,15 +2,12 @@ import { os } from '@orpc/server'
 
 import { ReleasesSchemas } from '@/api/schemas'
 import { Releases } from '@/core/releases'
+import { errors } from '@/shared/errors'
 
 export const releasesRouter = {
   search: os
     .input(ReleasesSchemas.search)
-    .errors({
-      NO_INDEXERS: {},
-      NO_IMDB_ID: {},
-      TMDB_UNAVAILABLE: {},
-    })
+    .errors(errors(['NO_INDEXERS', 'NO_IMDB_ID', 'TMDB_UNAVAILABLE']))
     .handler(({ input }) =>
       new Releases().search(input.tmdb_id, input.media_type, {
         season: input.season_number,
@@ -19,10 +16,7 @@ export const releasesRouter = {
 
   searchSingle: os
     .input(ReleasesSchemas.searchSingle)
-    .errors({
-      NO_INDEXERS: {},
-      NO_IMDB_ID: {},
-    })
+    .errors(errors(['NO_INDEXERS', 'NO_IMDB_ID']))
     .handler(({ input }) =>
       new Releases().searchSingle(
         input.tmdb_id,
