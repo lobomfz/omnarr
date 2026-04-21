@@ -4,6 +4,7 @@ import { rm } from 'fs/promises'
 import { PubSub } from '@/api/pubsub'
 import { SubtitleMatcher } from '@/core/subtitle-matcher'
 import { db } from '@/db/connection'
+import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'
 import { DbReleases } from '@/db/releases'
 import { config } from '@/lib/config'
@@ -40,9 +41,11 @@ async function setupMedia() {
     ],
     { duration: 8160 }
   )
+  const tracks = await DbMediaTracks.getByMediaFileId(file.id)
+  const audioTrack = tracks.find((track) => track.stream_type === 'audio')!
 
   await DbMediaVad.create({
-    media_file_id: file.id,
+    track_id: audioTrack.id,
     data: new Uint8Array(VAD_TIMESTAMPS.buffer),
   })
 
@@ -278,9 +281,11 @@ describe('SubtitleMatcher.match', () => {
         },
       ]
     )
+    const tracks = await DbMediaTracks.getByMediaFileId(file.id)
+    const audioTrack = tracks.find((track) => track.stream_type === 'audio')!
 
     await DbMediaVad.create({
-      media_file_id: file.id,
+      track_id: audioTrack.id,
       data: new Uint8Array(VAD_TIMESTAMPS.buffer),
     })
 
@@ -320,7 +325,7 @@ describe('SubtitleMatcher.match edge cases', () => {
 
     const matcher = new SubtitleMatcher({ id: media.id })
 
-    await expect(() => matcher.match({})).toThrow(/No VAD data found/)
+     expect(() => matcher.match({})).toThrow(/No VAD data found/)
   })
 
   test('returns all tested attempts with confidence on exhaustion', async () => {
@@ -377,12 +382,20 @@ describe('SubtitleMatcher.match edge cases', () => {
           width: 1920,
           height: 1080,
         },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+        },
       ],
       { duration: 8160 }
     )
+    const tracks = await DbMediaTracks.getByMediaFileId(file.id)
+    const audioTrack = tracks.find((track) => track.stream_type === 'audio')!
 
     await DbMediaVad.create({
-      media_file_id: file.id,
+      track_id: audioTrack.id,
       data: new Uint8Array(VAD_TIMESTAMPS.buffer),
     })
 

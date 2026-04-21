@@ -42,12 +42,14 @@ function applyTranscode(
     video: { codec_name: string }
     audio: { codec_name: string; channels?: number | null }
   },
-  config: { video_crf: number; video_preset: Preset } = DEFAULT_CONFIG
+  config: { video_crf: number; video_preset: Preset } = DEFAULT_CONFIG,
+  audioSpeed = 1
 ) {
   const transcode = new Transcoder(
     tracks,
     new FFmpegBuilder().input('/test/video.mkv'),
-    false
+    false,
+    audioSpeed
   ).parse(config)
 
   return transcode
@@ -82,18 +84,16 @@ describe('Transcoder — codec decisions (CPU)', () => {
     expect(args).not.toContain('-preset')
   })
 
-  test('compatible audio codecs → copy', () => {
+  test('compatible audio codec (aac) → copy', () => {
     mockVaapiDevice(false)
 
-    for (const codec of ['aac', 'ac3', 'eac3']) {
-      const builder = applyTranscode({
-        video: { codec_name: 'h264' },
-        audio: { codec_name: codec },
-      })
-      const args = builder.toArgs()
+    const builder = applyTranscode({
+      video: { codec_name: 'h264' },
+      audio: { codec_name: 'aac' },
+    })
+    const args = builder.toArgs()
 
-      expect(argAfter(args, '-c:a')).toBe('copy')
-    }
+    expect(argAfter(args, '-c:a')).toBe('copy')
   })
 
   test('incompatible video codecs → transcode to libx264', () => {
@@ -113,7 +113,15 @@ describe('Transcoder — codec decisions (CPU)', () => {
   test('incompatible audio codecs → transcode to aac', () => {
     mockVaapiDevice(false)
 
-    for (const codec of ['dts', 'flac', 'truehd', 'pcm_s16le', 'opus']) {
+    for (const codec of [
+      'ac3',
+      'eac3',
+      'dts',
+      'flac',
+      'truehd',
+      'pcm_s16le',
+      'opus',
+    ]) {
       const builder = applyTranscode({
         video: { codec_name: 'h264' },
         audio: { codec_name: codec },
@@ -384,5 +392,84 @@ describe('Transcoder — VAAPI hardware encoding', () => {
 
     expect(args).not.toContain('-hwaccel')
     expect(args).not.toContain('-vaapi_device')
+  })
+})
+
+describe('Transcoder — audioSpeed (CPU)', () => {
+  test('AAC audio + speed=1 → -c:a copy (shortcut preserved)', () => {
+    mockVaapiDevice(false)
+
+    const args = applyTranscode(
+      {
+        video: { codec_name: 'h264' },
+        audio: { codec_name: 'aac' },
+      },
+      DEFAULT_CONFIG,
+      1
+    ).toArgs()
+
+    expect(argAfter(args, '-c:a')).toBe('copy')
+  })
+
+  test('AAC audio + speed != 1 → -c:a aac (copy disabled)', () => {
+    mockVaapiDevice(false)
+
+    const args = applyTranscode(
+      {
+        video: { codec_name: 'h264' },
+        audio: { codec_name: 'aac' },
+      },
+      DEFAULT_CONFIG,
+      1.0448
+    ).toArgs()
+
+    expect(argAfter(args, '-c:a')).toBe('aac')
+  })
+
+  test('AAC audio + speed < 1 → -c:a aac (copy disabled)', () => {
+    mockVaapiDevice(false)
+
+    const args = applyTranscode(
+      {
+        video: { codec_name: 'h264' },
+        audio: { codec_name: 'aac' },
+      },
+      DEFAULT_CONFIG,
+      0.96
+    ).toArgs()
+
+    expect(argAfter(args, '-c:a')).toBe('aac')
+  })
+
+  test('non-AAC audio + speed != 1 → -c:a aac (re-encode as today)', () => {
+    mockVaapiDevice(false)
+
+    const args = applyTranscode(
+      {
+        video: { codec_name: 'h264' },
+        audio: { codec_name: 'dts', channels: 6 },
+      },
+      DEFAULT_CONFIG,
+      1.0448
+    ).toArgs()
+
+    expect(argAfter(args, '-c:a')).toBe('aac')
+    expect(argAfter(args, '-ac')).toBe('6')
+  })
+
+  test('AAC audio with channels + speed != 1 → -c:a aac with -ac preserved', () => {
+    mockVaapiDevice(false)
+
+    const args = applyTranscode(
+      {
+        video: { codec_name: 'h264' },
+        audio: { codec_name: 'aac', channels: 6 },
+      },
+      DEFAULT_CONFIG,
+      1.0448
+    ).toArgs()
+
+    expect(argAfter(args, '-c:a')).toBe('aac')
+    expect(argAfter(args, '-ac')).toBe('6')
   })
 })

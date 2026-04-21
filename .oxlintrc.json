@@ -1,36 +1,8 @@
 {
+  "extends": ["./node_modules/@lobomfz/check/oxlintrc.json"],
   "rules": {
-    "no-unused-vars": "warn",
-    "no-accumulating-spread": "error",
-    "no-await-in-loop": "off",
-    "explicit-length-check": "off",
-    "no-array-callback-reference": "off",
-    "max-lines": ["off", { "max": 500 }],
-    "max-lines-per-function": ["off", { "max": 150 }],
-    "unicorn/consistent-function-scoping": "off",
-    "no-warning-comments": "off",
-    "no-array-sort": "off",
-    "strict-boolean-expressions": "off",
-    "no-confusing-void-expression": "off",
-    "no-misused-promises": "off",
-    "no-floating-promises": "off",
-    "no-loop-func": "off",
-    "eslint/eqeqeq": "off",
-    "complexity": ["warn", { "max": 40 }],
-    "max-depth": ["warn", { "max": 4 }],
-    "max-nested-callbacks": ["warn", { "max": 4 }],
-    "no-map-spread": "off",
-    "no-shadow": "off",
-    "typescript/consistent-type-imports": "error",
-    "no-new": "off"
+    "no-accumulating-spread": "error"
   },
-  "categories": {
-    "correctness": "error",
-    "perf": "error",
-    "suspicious": "error",
-    "pedantic": "error"
-  },
-  "ignorePatterns": ["dist", "node_modules", "*.config.*"],
   "overrides": [
     {
       "files": ["src/**/*.ts"],

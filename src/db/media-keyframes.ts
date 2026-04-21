@@ -11,10 +11,10 @@ export const DbMediaKeyframes = {
     await executor.insertInto('media_keyframes').values(data).execute()
   },
 
-  async getSegmentsByFileId(mediaFileId: number) {
+  async getSegmentsByTrackId(trackId: number) {
     return await db
       .selectFrom('media_keyframes as mk')
-      .where('mk.media_file_id', '=', mediaFileId)
+      .where('mk.track_id', '=', trackId)
       .select(['mk.pts_time', 'mk.duration'])
       .orderBy('mk.pts_time', 'asc')
       .execute()

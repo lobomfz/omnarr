@@ -30,7 +30,6 @@ export class TorrentSync {
     const active = await DbDownloads.listForSync()
 
     if (active.length === 0) {
-      Log.info('sync no-op: no active downloads')
       return { updated: 0, completed: [] }
     }
 

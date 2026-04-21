@@ -144,6 +144,49 @@ describe('library.getInfo', () => {
     expect(dl.files[0].tracks[1].language).toBe('eng')
   })
 
+  test('returns active_scan when a scan is in progress', async () => {
+    const media = await seedMovie()
+
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'done-release',
+      '/downloads/movie-done.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          scan_ratio: 1,
+        },
+      ]
+    )
+
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'active-release',
+      '/downloads/movie.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          scan_ratio: 0.4,
+        },
+      ]
+    )
+
+    const result = await client.library.getInfo({ id: media.id })
+
+    expect(result.active_scan).toEqual({
+      current: 1,
+      total: 2,
+      path: '/downloads/movie.mkv',
+      ratio: 0.4,
+    })
+  })
+
   test('returns populated seasons array for TV shows', async () => {
     await TestSeed.search.breakingBad()
     const id = deriveId('1399:tv')
@@ -224,7 +267,7 @@ describe('library.getInfo', () => {
   })
 
   test('throws when ID does not exist in search_results or tmdb_media', async () => {
-    await expect(() => client.library.getInfo({ id: 'NOTEXIST' })).toThrow()
+     expect(() => client.library.getInfo({ id: 'NOTEXIST' })).toThrow()
   })
 
   test('non-existent ID error has proper HTTP status', async () => {
@@ -240,7 +283,7 @@ describe('library.getInfo', () => {
 
 describe('library.rescan', () => {
   test('throws when media does not exist', async () => {
-    await expect(() => client.library.rescan({ media_id: 'NOTEXIST' })).toThrow(
+     expect(() => client.library.rescan({ media_id: 'NOTEXIST' })).toThrow(
       'MEDIA_NOT_FOUND'
     )
   })

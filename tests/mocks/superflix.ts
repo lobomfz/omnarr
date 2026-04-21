@@ -80,8 +80,8 @@ var INITIAL_CONTENT_ID = ${film.content_id};
 var CONTENT_TYPE = "filme";
 var CSRF_TOKEN = "mock-csrf-token";
 var PAGE_TOKEN = "mock-page-token";
-var API_URL_OPTIONS = "${baseUrl}/player/options";
-var API_URL_SOURCE = "${baseUrl}/player/source";
+var API_URL_OPTIONS = "/player/options";
+var API_URL_SOURCE = "/player/source";
 </script></head><body></body></html>`
 
       return new Response(html, {
@@ -288,8 +288,8 @@ var INITIAL_CONTENT_ID = ${ep.content_id};
 var CONTENT_TYPE = "serie";
 var CSRF_TOKEN = "mock-csrf-token";
 var PAGE_TOKEN = "mock-page-token";
-var API_URL_OPTIONS = "${baseUrl}/player/options";
-var API_URL_SOURCE = "${baseUrl}/player/source";
+var API_URL_OPTIONS = "/player/options";
+var API_URL_SOURCE = "/player/source";
 </script></head><body></body></html>`
 
       return new Response(html, {

@@ -253,14 +253,16 @@ describe('Formatters', () => {
   })
 
   describe('appendDownloads', () => {
-    test('track indices are global across files', () => {
+    test('shows database track ids in info output', () => {
       const lines: string[] = []
 
       const track = (
+        id: number,
         index: number,
         type: 'video' | 'audio',
         codec: string
       ) => ({
+        id,
         stream_index: index,
         stream_type: type,
         codec_name: codec,
@@ -295,7 +297,10 @@ describe('Formatters', () => {
               duration: 7200,
               has_keyframes: true,
               has_vad: true,
-              tracks: [track(0, 'video', 'h264'), track(1, 'audio', 'aac')],
+              tracks: [
+                track(101, 0, 'video', 'h264'),
+                track(205, 1, 'audio', 'aac'),
+              ],
             },
             {
               id: 2,
@@ -305,7 +310,10 @@ describe('Formatters', () => {
               duration: 5400,
               has_keyframes: true,
               has_vad: true,
-              tracks: [track(0, 'video', 'hevc'), track(1, 'audio', 'opus')],
+              tracks: [
+                track(309, 0, 'video', 'hevc'),
+                track(412, 1, 'audio', 'opus'),
+              ],
             },
           ],
         },
@@ -314,8 +322,8 @@ describe('Formatters', () => {
       const hevcLine = lines.find((l) => l.includes('hevc'))
       const opusLine = lines.find((l) => l.includes('opus'))
 
-      expect(hevcLine).toContain('video 1:')
-      expect(opusLine).toContain('audio 1:')
+      expect(hevcLine).toContain('video 309:')
+      expect(opusLine).toContain('audio 412:')
     })
   })
 
@@ -351,6 +359,7 @@ describe('Formatters', () => {
           path: '/movies/movie.mkv',
           size: 8_000_000_000,
           format_name: 'matroska',
+          start_time: null,
           duration: 7200,
           episode_id: null,
           scanned_at: new Date('2026-01-01'),
@@ -358,6 +367,7 @@ describe('Formatters', () => {
           has_vad: true,
           tracks: [
             {
+              id: 1,
               stream_index: 0,
               stream_type: 'video',
               codec_name: 'h264',
@@ -389,6 +399,7 @@ describe('Formatters', () => {
           path: '/movies/movie.mkv',
           size: 1_000_000_000,
           format_name: 'matroska',
+          start_time: null,
           duration: 3600,
           episode_id: null,
           scanned_at: new Date('2026-01-01'),
@@ -425,6 +436,7 @@ describe('Formatters', () => {
                   has_vad: true,
                   tracks: [
                     {
+                      id: 1,
                       stream_index: 0,
                       stream_type: 'video',
                       codec_name: 'hevc',

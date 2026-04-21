@@ -7,11 +7,25 @@ export const DbMediaVad = {
     await executor.insertInto('media_vad').values(data).execute()
   },
 
-  async getByMediaFileId(mediaFileId: number) {
+  async getByTrackId(trackId: number) {
     return await db
       .selectFrom('media_vad as mv')
-      .where('mv.media_file_id', '=', mediaFileId)
+      .where('mv.track_id', '=', trackId)
       .selectAll('mv')
       .executeTakeFirst()
+  },
+
+  async loadVad(trackId: number) {
+    const vad = await DbMediaVad.getByTrackId(trackId)
+
+    if (!vad) {
+      return null
+    }
+
+    return new Float32Array(
+      vad.data.buffer,
+      vad.data.byteOffset,
+      vad.data.byteLength / Float32Array.BYTES_PER_ELEMENT
+    )
   },
 }

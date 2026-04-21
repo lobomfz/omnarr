@@ -87,7 +87,7 @@ describe('SubdlAdapter', () => {
       languages: ['EN'],
     })
 
-    await expect(() => adapter.search({ imdb_id: 'tt0133093' })).toThrow(
+     expect(() => adapter.search({ imdb_id: 'tt0133093' })).toThrow(
       'API key required'
     )
   })

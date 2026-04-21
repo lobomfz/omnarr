@@ -77,7 +77,7 @@ describe('downloads.add', () => {
   })
 
   test('throws when release not found', async () => {
-    await expect(() =>
+     expect(() =>
       client.downloads.add({ release_id: 'NONEXISTENT' })
     ).toThrow('RELEASE_NOT_FOUND')
   })
@@ -85,7 +85,7 @@ describe('downloads.add', () => {
   test('throws when no download client configured', async () => {
     config.download_client = undefined
 
-    await expect(() =>
+     expect(() =>
       client.downloads.add({ release_id: torrentRelease.id })
     ).toThrow('NO_DOWNLOAD_CLIENT')
   })
@@ -93,7 +93,7 @@ describe('downloads.add', () => {
   test('throws when no root folder configured', async () => {
     config.root_folders = {}
 
-    await expect(() =>
+     expect(() =>
       client.downloads.add({ release_id: torrentRelease.id })
     ).toThrow('NO_ROOT_FOLDER')
   })
@@ -104,7 +104,7 @@ describe('downloads.add', () => {
       url: DEAD_PORT_URL,
     }
 
-    await expect(() =>
+     expect(() =>
       client.downloads.add({ release_id: torrentRelease.id })
     ).toThrow()
 
@@ -127,7 +127,7 @@ describe('downloads.add', () => {
     await QBittorrentMock.db.insertInto('torrents').values(torrent).execute()
     await TestSeed.releases.matrix()
 
-    await expect(() =>
+     expect(() =>
       client.downloads.add({ release_id: torrentRelease.id })
     ).toThrow()
 
@@ -146,7 +146,7 @@ describe('downloads.add', () => {
 
     const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
 
-    await expect(() =>
+     expect(() =>
       client.downloads.add({
         release_id: torrentRelease.id,
         media_id: media.id,
@@ -184,7 +184,7 @@ describe('downloads.add', () => {
   })
 
   test('throws when media_id provided but not found', async () => {
-    await expect(() =>
+     expect(() =>
       client.downloads.add({
         release_id: torrentRelease.id,
         media_id: 'NOTEXIST',
@@ -198,7 +198,7 @@ describe('downloads.add', () => {
       url: DEAD_PORT_URL,
     }
 
-    await expect(() =>
+     expect(() =>
       client.downloads.add({ release_id: torrentRelease.id })
     ).toThrow()
 
@@ -253,7 +253,7 @@ describe('downloads.add ripper', () => {
   test('throws when no tracks root folder configured', async () => {
     config.root_folders = { movie: '/movies' }
 
-    await expect(() =>
+     expect(() =>
       client.downloads.add({ release_id: ripperRelease.id })
     ).toThrow('NO_ROOT_FOLDER')
   })
@@ -309,6 +309,30 @@ describe('downloads.add TV ripper', () => {
     expect(events[0].event_type).toBe('created')
     expect(events[0].message).toContain('S01')
     expect(events[0].message).toContain('3 episodes')
+  })
+})
+
+describe('downloads.add TV torrent', () => {
+  let tvTorrentRelease!: SearchedRelease
+  const originalClient = config.download_client
+
+  beforeEach(async () => {
+    TestSeed.reset()
+    config.download_client = originalClient
+    const { releases } = await TestSeed.releases.breakingBad()
+    tvTorrentRelease = releases.find((r) => r.source_id === 'BB_HASH_S01')!
+  })
+
+  test('persists season_number from release onto download record', async () => {
+    const result = await client.downloads.add({
+      release_id: tvTorrentRelease.id,
+    })
+
+    const downloads = await db.selectFrom('downloads').selectAll().execute()
+
+    expect(downloads).toHaveLength(1)
+    expect(downloads[0].media_id).toBe(result.media_id)
+    expect(downloads[0].season_number).toBe(1)
   })
 })
 
@@ -418,7 +442,7 @@ describe('downloads.add duplicate', () => {
   test('rejects duplicate download for same source_id', async () => {
     await client.downloads.add({ release_id: torrentRelease.id })
 
-    await expect(() =>
+     expect(() =>
       client.downloads.add({ release_id: torrentRelease.id })
     ).toThrow('DUPLICATE_DOWNLOAD')
 

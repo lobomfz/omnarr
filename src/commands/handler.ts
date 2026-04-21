@@ -3,7 +3,6 @@ import { resolve } from 'path'
 import { type, type Type } from '@lobomfz/db'
 
 import { PubSub } from '@/api/pubsub'
-import { MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
 import { client } from '@/cli/client'
 import { connectWs } from '@/cli/ws-client'
 import { Exporter } from '@/core/exporter'
@@ -14,12 +13,11 @@ import { DbSearchResults } from '@/db/search-results'
 import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 import { extractSchemaProps } from '@/lib/utils'
-import { Player } from '@/player/player'
 
 export class Handler {
   constructor(
     private positional: string[],
-    private json: boolean | undefined
+    private json?: boolean
   ) {}
 
   private output(data: unknown, display?: string | Record<string, unknown>[]) {
@@ -223,68 +221,6 @@ export class Handler {
     })
 
     console.log(`Scan enqueued for ${media_id}.`)
-  }
-
-  async play(opts: {
-    port?: number
-    video?: number
-    audio?: number
-    sub?: number
-    season?: number
-    episode?: number
-  }) {
-    const { media_id } = this.parseArgs('play', type({ media_id: 'string' }))
-
-    const media = await DbMedia.getById(media_id)
-
-    if (!media) {
-      throw new Error(`Media '${media_id}' not found.`)
-    }
-
-    const episodeId = await this.resolveEpisodeForTv(
-      media,
-      opts.season,
-      opts.episode
-    )
-
-    const player = new Player({ id: media_id, episode_id: episodeId })
-    const result = await player.start(
-      { video: opts.video, audio: opts.audio, sub: opts.sub },
-      { port: opts.port }
-    )
-
-    const displayLines = [
-      Formatters.mediaTitle(media),
-      Formatters.trackSummary('video', result.video),
-      Formatters.trackSummary('audio', result.audio),
-    ]
-
-    if (result.subtitle) {
-      displayLines.push(Formatters.trackSummary('subtitle', result.subtitle))
-    }
-
-    if (result.audioOffset !== 0) {
-      displayLines.push(`audio offset: ${result.audioOffset.toFixed(3)}s`)
-    }
-
-    if (result.subtitleOffset !== 0) {
-      displayLines.push(`subtitle offset: ${result.subtitleOffset.toFixed(3)}s`)
-    }
-
-    if (
-      result.subtitleConfidence !== null &&
-      result.subtitleConfidence < MIN_SYNC_CONFIDENCE
-    ) {
-      displayLines.push(
-        `⚠ subtitle sync confidence is low (${result.subtitleConfidence.toFixed(1)}), subtitles may be out of sync`
-      )
-    }
-
-    displayLines.push('', result.url)
-
-    this.output(result, displayLines.join('\n'))
-
-    await player.play(result.url)
   }
 
   private async resolveEpisodeForTv(

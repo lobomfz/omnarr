@@ -46,6 +46,13 @@ export const ERROR_MAP = {
   },
   NO_IMDB_ID: { message: 'No IMDB ID found', status: 422 },
   NO_EPISODES: { message: 'No episodes found for this season', status: 404 },
+  NO_TRACKS: { message: 'No scanned tracks available', status: 422 },
+  TRACK_NOT_FOUND: { message: 'Track not found', status: 404 },
+  TRACK_EPISODE_MISMATCH: {
+    message: 'All tracks must belong to the same episode',
+    status: 422,
+  },
+  NO_KEYFRAMES: { message: 'Keyframes not found, scan required', status: 422 },
   TMDB_UNAVAILABLE: { message: 'Could not reach TMDB', status: 502 },
 } as const
 

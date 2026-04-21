@@ -85,15 +85,16 @@ describe('HlsServer — on-demand subtitle serving', () => {
         { video_crf: 21, video_preset: 'veryfast' }
       ),
       audioOffset: 0,
+      audioSpeed: 1,
       subtitleOffset: 0,
-      port: 0,
+      subtitleSpeed: 1,
       mediaId: 'ONDEMAND',
     })
 
     await server.start()
 
-    const vttRes = await fetch(
-      server.url.replace('master.m3u8', 'subs_000.vtt')
+    const vttRes = await server.handle(
+      new Request(`http://localhost/hls/ONDEMAND/subs_000.vtt`)
     )
 
     expect(vttRes.status).toBe(200)
@@ -153,15 +154,16 @@ describe('HlsServer — on-demand subtitle serving', () => {
         { video_crf: 21, video_preset: 'veryfast' }
       ),
       audioOffset: 0,
+      audioSpeed: 1,
       subtitleOffset: 0,
-      port: 0,
+      subtitleSpeed: 1,
       mediaId: 'SUBPL',
     })
 
     await server.start()
 
-    const playlistRes = await fetch(
-      server.url.replace('master.m3u8', 'subs.m3u8')
+    const playlistRes = await server.handle(
+      new Request(`http://localhost/hls/SUBPL/subs.m3u8`)
     )
     const playlist = await playlistRes.text()
 
@@ -213,19 +215,82 @@ describe('HlsServer — on-demand subtitle serving', () => {
         { video_crf: 21, video_preset: 'veryfast' }
       ),
       audioOffset: 0,
+      audioSpeed: 1,
       subtitleOffset: 3,
-      port: 0,
+      subtitleSpeed: 1,
       mediaId: 'SUBOFF',
     })
 
     await server.start()
 
     const content = await (
-      await fetch(server.url.replace('master.m3u8', 'subs_000.vtt'))
+      await server.handle(
+        new Request(`http://localhost/hls/SUBOFF/subs_000.vtt`)
+      )
     ).text()
 
     expect(content).toContain('00:00:04.000')
     expect(content).toContain('00:00:05.000')
+
+    await server.stop()
+  })
+
+  test('applies subtitleSpeed to on-demand VTT timestamps', async () => {
+    const filePath = join(tmpDir, 'subs-speed/movie.mkv')
+    const srtPath = join(tmpDir, 'subs-speed/sub.srt')
+
+    await MediaFixtures.copy(refMkv, filePath)
+
+    await Bun.write(srtPath, '1\n00:00:10,000 --> 00:00:12,000\nSpeed cue\n')
+
+    const segments = [{ pts_time: 0, duration: 10 }]
+
+    const server = new HlsServer({
+      resolved: {
+        video: {
+          file_path: filePath,
+          stream_index: 0,
+          codec_name: 'h264',
+          language: null,
+          title: null,
+        },
+        audio: {
+          file_path: filePath,
+          stream_index: 1,
+          codec_name: 'aac',
+          language: 'eng',
+          title: null,
+        },
+        subtitle: {
+          file_path: srtPath,
+          stream_index: 0,
+          codec_name: 'subrip',
+          language: 'por',
+          title: null,
+        },
+      },
+      segments,
+      transcode: await Transcoder.init(
+        { video: { codec_name: 'h264' }, audio: { codec_name: 'aac' } },
+        { video_crf: 21, video_preset: 'veryfast' }
+      ),
+      audioOffset: 0,
+      audioSpeed: 1,
+      subtitleOffset: 0,
+      subtitleSpeed: 2,
+      mediaId: 'SUBSPEED',
+    })
+
+    await server.start()
+
+    const content = await (
+      await server.handle(
+        new Request(`http://localhost/hls/SUBSPEED/subs_000.vtt`)
+      )
+    ).text()
+
+    expect(content).toContain('00:00:05.000')
+    expect(content).toContain('00:00:06.000')
 
     await server.stop()
   })
@@ -276,12 +341,13 @@ describe('HlsServer — on-demand subtitle serving', () => {
         { video_crf: 21, video_preset: 'veryfast' }
       ),
       audioOffset: 0,
+      audioSpeed: 1,
       subtitleOffset: 0,
-      port: 0,
+      subtitleSpeed: 1,
       mediaId: 'SUBASS',
     })
 
-    await expect(() => server.start()).toThrow(/subrip/)
+     expect(() => server.start()).toThrow(/subrip/)
   })
 
   test('MPEGTS offset is derived from segment PES start_time', async () => {
@@ -330,15 +396,16 @@ describe('HlsServer — on-demand subtitle serving', () => {
         { video_crf: 21, video_preset: 'veryfast' }
       ),
       audioOffset: 0,
+      audioSpeed: 1,
       subtitleOffset: 0,
-      port: 0,
+      subtitleSpeed: 1,
       mediaId: 'PES',
     })
 
     await server.start()
 
     const content = await (
-      await fetch(server.url.replace('master.m3u8', 'subs_000.vtt'))
+      await server.handle(new Request(`http://localhost/hls/PES/subs_000.vtt`))
     ).text()
 
     const match = content.match(/MPEGTS:(\d+)/)
@@ -398,17 +465,18 @@ describe('HlsServer — on-demand subtitle serving', () => {
         { video_crf: 21, video_preset: 'veryfast' }
       ),
       audioOffset: 0,
+      audioSpeed: 1,
       subtitleOffset: 0,
-      port: 0,
+      subtitleSpeed: 1,
       mediaId: 'CACHE',
     })
 
     await server.start()
 
-    const vttUrl = server.url.replace('master.m3u8', 'subs_000.vtt')
+    const vttReq = new Request(`http://localhost/hls/CACHE/subs_000.vtt`)
 
-    const first = await (await fetch(vttUrl)).text()
-    const second = await (await fetch(vttUrl)).text()
+    const first = await (await server.handle(vttReq)).text()
+    const second = await (await server.handle(vttReq)).text()
 
     expect(first).toBe(second)
 

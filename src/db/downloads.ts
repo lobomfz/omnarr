@@ -73,6 +73,7 @@ export const DbDownloads = {
     return await db
       .selectFrom('downloads as d')
       .where('d.source', '=', 'torrent')
+      .where('d.status', '!=', 'completed')
       .where((eb) =>
         eb.or([
           eb('d.status', 'in', ['downloading', 'seeding', 'paused']),

@@ -7,6 +7,9 @@ import { Log } from '@/lib/log'
 import { SegmentWatcher, segmentFilename } from '@/player/segment-watcher'
 import type { TranscodeFn } from '@/player/transcoder'
 
+const ATEMPO_MIN = 0.5
+const ATEMPO_MAX = 2.0
+
 export type Segment = { pts_time: number; duration: number }
 
 type HlsSessionOpts = {
@@ -15,6 +18,7 @@ type HlsSessionOpts = {
   videoStreamIndex: number
   audioStreamIndex: number
   audioOffset: number
+  audioSpeed: number
   segments: Segment[]
   outDir: string
   transcode: TranscodeFn
@@ -76,7 +80,7 @@ export class HlsSession {
       }
 
       if (segment.pts_time > 0) {
-        builder = builder.seek(segment.pts_time)
+        builder = builder.seek(this.resolveAudioSeekTime(segment.pts_time))
       }
 
       builder = builder.input(this.opts.audioFilePath)
@@ -89,6 +93,12 @@ export class HlsSession {
 
     builder = this.opts.transcode(builder)
 
+    if (this.opts.audioSpeed !== 1) {
+      for (const step of atempoChain(this.opts.audioSpeed)) {
+        builder = builder.audioFilter(`atempo=${step}`)
+      }
+    }
+
     builder = builder.hls({
       time: hlsTime,
       listSize: 0,
@@ -100,6 +110,13 @@ export class HlsSession {
     }
 
     return builder.output(join(this.opts.outDir, 'ffmpeg_playlist.m3u8'))
+  }
+
+  private resolveAudioSeekTime(videoSeekTime: number) {
+    return Math.max(
+      0,
+      (videoSeekTime - this.opts.audioOffset) * this.opts.audioSpeed
+    )
   }
 
   private async ensureProcessFor(index: number) {
@@ -171,4 +188,31 @@ export class HlsSession {
         Log.error(`process exit handler error=${err.message}`)
       })
   }
+}
+
+function atempoChain(speed: number) {
+  const steps: string[] = []
+  let remaining = speed
+
+  while (remaining > ATEMPO_MAX) {
+    steps.push(formatAtempo(ATEMPO_MAX))
+    remaining = remaining / ATEMPO_MAX
+  }
+
+  while (remaining < ATEMPO_MIN) {
+    steps.push(formatAtempo(ATEMPO_MIN))
+    remaining = remaining / ATEMPO_MIN
+  }
+
+  steps.push(formatAtempo(remaining))
+
+  return steps
+}
+
+function formatAtempo(value: number) {
+  if (value % 1 === 0) {
+    return `${value.toFixed(1)}`
+  }
+
+  return String(Number(value.toFixed(6)))
 }

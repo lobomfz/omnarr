@@ -27,7 +27,7 @@ type MatchAttempt = {
 
 export class SubtitleMatcher extends TrackResolver {
   async match(opts: { lang?: string; season?: number; episode?: number }) {
-    const vadFileId = await this.resolveVadFileId()
+    const vadTrackId = await this.resolveVadTrackId()
     const referenceName = await this.resolveReferenceName()
     const subtitles = await new Releases().searchSubtitles(this.media.id, opts)
     const tested: MatchAttempt[] = []
@@ -80,7 +80,7 @@ export class SubtitleMatcher extends TrackResolver {
       })
 
       const { offset, confidence } = await this.correlateSubtitle(
-        vadFileId,
+        vadTrackId,
         result.path
       )
 
@@ -145,12 +145,16 @@ export class SubtitleMatcher extends TrackResolver {
     return withTier.map((w) => w.sub)
   }
 
-  private async resolveVadFileId() {
+  private async resolveVadTrackId() {
     let query = db
-      .selectFrom('media_files as mf')
-      .innerJoin('media_vad as mv', 'mv.media_file_id', 'mf.id')
+      .selectFrom('media_tracks as mt')
+      .innerJoin('media_vad as mv', 'mv.track_id', 'mt.id')
+      .innerJoin('media_files as mf', 'mf.id', 'mt.media_file_id')
       .where('mf.media_id', '=', this.media.id)
-      .select('mf.id')
+      .where('mt.stream_type', '=', 'audio')
+      .orderBy('mt.is_default', 'desc')
+      .orderBy('mt.stream_index', 'asc')
+      .select('mt.id')
 
     if (this.media.episode_id !== undefined) {
       query = query.where('mf.episode_id', '=', this.media.episode_id)

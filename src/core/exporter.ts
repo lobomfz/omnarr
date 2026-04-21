@@ -43,7 +43,10 @@ export class Exporter extends TrackResolver {
       }
 
       const dlTrack = allTracks.find(
-        (t) => t.download_id === dlId && t.file_id !== resolved.video.file_id
+        (t) =>
+          t.download_id === dlId &&
+          t.stream_type === 'audio' &&
+          t.file_id !== resolved.video.file_id
       )
 
       if (!dlTrack) {
@@ -51,10 +54,7 @@ export class Exporter extends TrackResolver {
         continue
       }
 
-      const result = await this.resolveOffset(
-        resolved.video.file_id,
-        dlTrack.file_id
-      )
+      const result = await this.resolveOffset(resolved.video.id, dlTrack.id)
 
       offsets.set(dlId, result.offset)
     }

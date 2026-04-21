@@ -217,7 +217,7 @@ export class Releases {
 
           return await indexer
             .search({
-              imdb_id: media.imdb_id!,
+              imdb_id: media.imdb_id,
               languages: opts?.lang ? [opts.lang] : undefined,
               season_number: opts?.season,
               episode_number: opts?.episode,

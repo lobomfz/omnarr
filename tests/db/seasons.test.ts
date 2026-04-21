@@ -82,6 +82,78 @@ describe('DbSeasons', () => {
     expect(seasons).toHaveLength(2)
   })
 
+  test('listByTmdbId returns seasons ordered by season_number', async () => {
+    const tmdb = await seedTmdbMedia()
+
+    await DbSeasons.upsert([
+      {
+        tmdb_media_id: tmdb.id,
+        season_number: 3,
+        title: 'Season 3',
+        episode_count: 13,
+      },
+      {
+        tmdb_media_id: tmdb.id,
+        season_number: 1,
+        title: 'Season 1',
+        episode_count: 7,
+      },
+      {
+        tmdb_media_id: tmdb.id,
+        season_number: 2,
+        title: 'Season 2',
+        episode_count: 13,
+      },
+    ])
+
+    const seasons = await DbSeasons.listByTmdbId(tmdb.tmdb_id)
+
+    expect(seasons).toHaveLength(3)
+    expect(seasons[0].season_number).toBe(1)
+    expect(seasons[0].title).toBe('Season 1')
+    expect(seasons[0].episode_count).toBe(7)
+    expect(seasons[1].season_number).toBe(2)
+    expect(seasons[2].season_number).toBe(3)
+  })
+
+  test('listByTmdbId returns empty array for non-existent tmdb_id', async () => {
+    const seasons = await DbSeasons.listByTmdbId(999999)
+
+    expect(seasons).toHaveLength(0)
+  })
+
+  test('listByTmdbId is scoped to the requested tmdb_id', async () => {
+    const tmdb1 = await seedTmdbMedia()
+
+    const tmdb2 = await DbTmdbMedia.upsert({
+      tmdb_id: 62560,
+      media_type: 'tv',
+      title: 'Mr. Robot',
+      imdb_id: 'tt4158110',
+      year: 2015,
+    })
+
+    await DbSeasons.upsert([
+      {
+        tmdb_media_id: tmdb1.id,
+        season_number: 1,
+        title: 'BB S1',
+        episode_count: 7,
+      },
+      {
+        tmdb_media_id: tmdb2.id,
+        season_number: 1,
+        title: 'MR S1',
+        episode_count: 10,
+      },
+    ])
+
+    const seasons = await DbSeasons.listByTmdbId(tmdb1.tmdb_id)
+
+    expect(seasons).toHaveLength(1)
+    expect(seasons[0].title).toBe('BB S1')
+  })
+
   test('cascade deletes when tmdb_media is deleted', async () => {
     const tmdb = await seedTmdbMedia()
 

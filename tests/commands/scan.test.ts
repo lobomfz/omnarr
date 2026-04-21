@@ -16,7 +16,7 @@ describe('scan command', () => {
     const media = await TestSeed.library.matrix()
 
     const result = await testCommand(ScanCommand, {
-      args: [String(media.id)],
+      args: [media.id],
       flags: {},
     })
 

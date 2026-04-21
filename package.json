@@ -3,27 +3,51 @@
   "version": "0.2",
   "description": "CLI media manager",
   "bin": "./dist/omnarr",
-  "type": "module",
   "files": [
     "dist",
     "config.schema.json"
   ],
+  "type": "module",
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "dev": "bun run src/index.ts",
     "build": "bun run scripts/build.ts",
-    "check": "bun run scripts/check.ts",
+    "check": "check-lobomfz",
     "generate-schema": "bun run scripts/generate-schema.ts",
     "dev:web": "concurrently 'tsr watch' 'bun --watch src/web/server.ts'",
     "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@orpc/client": "^1.13.13",
+    "@orpc/experimental-publisher": "^1.13.13",
+    "@orpc/server": "^1.13.13",
+    "@orpc/tanstack-query": "^1.13.13",
+    "@radix-ui/react-popover": "^1.1.15",
+    "@tanstack/react-pacer": "^0.21.1",
+    "@tanstack/react-query": "^5.96.1",
+    "@tanstack/react-router": "^1.168.10",
+    "arktype": "^2.2.0",
+    "clsx": "^2.1.1",
+    "fflate": "^0.8.2",
+    "fuzzball": "^2.2.3",
+    "hls.js": "^1.6.15",
+    "lucide-react": "^1.7.0",
+    "onnxruntime-node": "^1.24.3",
+    "p-queue": "^9.1.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@bunli/core": "^0.9.0",
     "@bunli/test": "^0.6.0",
     "@happy-dom/global-registrator": "^20.8.9",
     "@lobomfz/bunmq": "link:@lobomfz/bunmq",
+    "@lobomfz/check": "link:@lobomfz/check",
     "@lobomfz/db": "^0.3.9",
     "@lobomfz/ffmpeg": "link:@lobomfz/ffmpeg",
     "@lobomfz/ghostapi": "^0.3.5",
@@ -42,32 +66,12 @@
     "knip": "^6.2.0",
     "oxfmt": "^0.43.0",
     "oxlint": "^1.58.0",
+    "oxlint-tsgolint": "^0.21.1",
     "redaxios": "^0.5.1",
     "tailwindcss": "^4.2.2"
   },
   "overrides": {
     "@opentui/core": "0.1.92"
-  },
-  "dependencies": {
-    "@fontsource-variable/inter": "^5.2.8",
-    "@fontsource-variable/jetbrains-mono": "^5.2.8",
-    "@orpc/client": "^1.13.13",
-    "@orpc/experimental-publisher": "^1.13.13",
-    "@orpc/server": "^1.13.13",
-    "@orpc/tanstack-query": "^1.13.13",
-    "@radix-ui/react-popover": "^1.1.15",
-    "@tanstack/react-pacer": "^0.21.1",
-    "@tanstack/react-query": "^5.96.1",
-    "@tanstack/react-router": "^1.168.10",
-    "clsx": "^2.1.1",
-    "fflate": "^0.8.2",
-    "fuzzball": "^2.2.3",
-    "lucide-react": "^1.7.0",
-    "onnxruntime-node": "^1.24.3",
-    "p-queue": "^9.1.1",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "tailwind-merge": "^3.5.0"
   },
   "trustedDependencies": [
     "onnxruntime-node"

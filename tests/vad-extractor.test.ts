@@ -1,4 +1,11 @@
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test'
+import {
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  afterAll,
+} from 'bun:test'
 import { mkdir, mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -7,6 +14,10 @@ import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
 import { PubSub } from '@/api/pubsub'
 import { VadExtractor } from '@/audio/vad-extractor'
+import { ScanProgress } from '@/core/scan-progress'
+import { DbMediaTracks } from '@/db/media-tracks'
+
+import { TestSeed } from './helpers/seed'
 
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-vad-'))
 const silentMkv = join(tmpDir, 'silent.mkv')
@@ -46,48 +57,80 @@ afterAll(async () => {
   await rm(tmpDir, { recursive: true })
 })
 
+const noopPublish = {
+  media_id: 'test',
+  media_file_id: 0,
+  track_id: 0,
+}
+
 describe('VadExtractor.extract', () => {
   test('returns Float32Array for silent audio', async () => {
-    const result = await new VadExtractor({
-      media_id: 'ABCDEF',
-      path: silentMkv,
-    }).extract()
+    const result = await new VadExtractor(
+      { path: silentMkv },
+      noopPublish
+    ).extract()
 
     expect(result).toBeInstanceOf(Float32Array)
     expect(result.length).toBe(0)
   })
 
   test('timestamps are in ascending order with start < end', async () => {
-    const result = await new VadExtractor({
-      media_id: 'ABCDEF',
-      path: speechMkv,
-    }).extract()
+    const result = await new VadExtractor(
+      { path: speechMkv },
+      noopPublish
+    ).extract()
 
     expect(result).toBeInstanceOf(Float32Array)
 
     for (let i = 0; i < result.length; i += 2) {
-      expect(result[i]!).toBeLessThan(result[i + 1]!)
+      expect(result[i]).toBeLessThan(result[i + 1])
     }
 
     for (let i = 2; i < result.length; i += 2) {
-      expect(result[i]!).toBeGreaterThanOrEqual(result[i - 1]!)
+      expect(result[i]).toBeGreaterThanOrEqual(result[i - 1])
     }
   })
 
   test('result length is always even (start/end pairs)', async () => {
-    const result = await new VadExtractor({
-      media_id: 'ABCDEF',
-      path: speechMkv,
-    }).extract()
+    const result = await new VadExtractor(
+      { path: speechMkv },
+      noopPublish
+    ).extract()
 
     expect(result.length % 2).toBe(0)
   })
+})
 
-  test('publishes scan_file_progress events with step=vad and correct identity', async () => {
+describe('VadExtractor.extract — publish', () => {
+  beforeEach(() => {
+    TestSeed.reset()
+  })
+
+  test('updates track scan_ratio and publishes aggregated scan_file_progress', async () => {
+    const media = await TestSeed.library.matrix()
+
+    const { file } = await TestSeed.player.downloadWithTracks(
+      media.id,
+      'matrix-silent',
+      silentMkv,
+      [
+        {
+          stream_index: 0,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          scan_ratio: 0,
+        },
+      ]
+    )
+
+    const tracks = await DbMediaTracks.getByMediaFileId(file.id)
+    const audioTrack = tracks.find((t) => t.stream_type === 'audio')!
+
     const events: {
       media_id: string
       path: string
-      step: 'keyframes' | 'vad'
+      current_step: 'keyframes' | 'vad'
       ratio: number
     }[] = []
     const ac = new AbortController()
@@ -101,21 +144,37 @@ describe('VadExtractor.extract', () => {
       }
     })().catch(() => {})
 
-    await new VadExtractor({
-      media_id: 'ABCDEF',
+    await new VadExtractor(
+      { path: silentMkv },
+      {
+        media_id: media.id,
+        media_file_id: file.id,
+        track_id: audioTrack.id,
+      }
+    ).extract({ duration: 2 })
+
+    await ScanProgress.publishTrack({
+      media_id: media.id,
+      media_file_id: file.id,
+      track_id: audioTrack.id,
       path: silentMkv,
-    }).extract({ duration: 2 })
+      current_step: 'vad',
+      ratio: 1,
+    })
 
     await Bun.sleep(50)
     ac.abort()
     await collecting
 
     const vadEvents = events.filter(
-      (e) => e.step === 'vad' && e.path === silentMkv
+      (e) => e.current_step === 'vad' && e.path === silentMkv
     )
 
     expect(vadEvents.length).toBeGreaterThan(0)
-    expect(vadEvents.every((e) => e.media_id === 'ABCDEF')).toBe(true)
+    expect(vadEvents.every((e) => e.media_id === media.id)).toBe(true)
     expect(vadEvents.every((e) => e.ratio >= 0 && e.ratio <= 1)).toBe(true)
+
+    const after = await DbMediaTracks.getById(audioTrack.id)
+    expect(after?.scan_ratio).toBe(1)
   })
 })

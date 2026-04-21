@@ -3,11 +3,11 @@ import { join } from 'path'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 import { InferenceSession, Tensor } from 'onnxruntime-node'
 
-import { PubSub } from '@/api/pubsub'
 import {
   SILERO_SAMPLE_RATE,
   SILERO_WINDOW_SAMPLES,
 } from '@/audio/vad-constants'
+import { ScanProgress } from '@/core/scan-progress'
 
 export { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES }
 
@@ -45,7 +45,17 @@ export class VadExtractor {
   private currentSpeech: { start?: number; end?: number } = {}
   private speeches: { start: number; end: number }[] = []
 
-  constructor(private id: { media_id: string; path: string }) {}
+  constructor(
+    private input: {
+      path: string
+      stream_index?: number
+    },
+    private publish: {
+      media_id: string
+      media_file_id: number
+      track_id: number
+    }
+  ) {}
 
   private async processChunk(chunk: Float32Array) {
     this.inputWithContext.set(this.context, 0)
@@ -63,14 +73,14 @@ export class VadExtractor {
     const results = await session.run(feeds)
     const outputNames = session.outputNames
 
-    this.state.set(results[outputNames[1]!]!.data as Float32Array)
+    this.state.set(results[outputNames[1]].data as Float32Array)
     this.context.set(
       this.inputWithContext.subarray(
         this.inputWithContext.length - CONTEXT_SIZE
       )
     )
 
-    return (results[outputNames[0]!]!.data as Float32Array)[0]!
+    return (results[outputNames[0]].data as Float32Array)[0]
   }
 
   private async processFrame(frame: Float32Array, curSample: number) {
@@ -98,12 +108,12 @@ export class VadExtractor {
       this.currentSpeech.end = this.tempEnd
 
       if (
-        this.currentSpeech.end! - this.currentSpeech.start! >=
+        this.currentSpeech.end - this.currentSpeech.start! >=
         MIN_SPEECH_SAMPLES
       ) {
         this.speeches.push({
           start: this.currentSpeech.start!,
-          end: this.currentSpeech.end!,
+          end: this.currentSpeech.end,
         })
       }
 
@@ -115,12 +125,12 @@ export class VadExtractor {
 
   private padSpeeches(totalSamples: number) {
     for (let i = 0; i < this.speeches.length; i++) {
-      const speech = this.speeches[i]!
-      const prevEnd = i === 0 ? 0 : this.speeches[i - 1]!.end
+      const speech = this.speeches[i]
+      const prevEnd = i === 0 ? 0 : this.speeches[i - 1].end
       const nextStart =
         i === this.speeches.length - 1
           ? totalSamples
-          : this.speeches[i + 1]!.start
+          : this.speeches[i + 1].start
 
       speech.start = Math.max(
         0,
@@ -137,8 +147,8 @@ export class VadExtractor {
     const result = new Float32Array(this.speeches.length * 2)
 
     for (let i = 0; i < this.speeches.length; i++) {
-      result[i * 2] = this.speeches[i]!.start / SILERO_SAMPLE_RATE
-      result[i * 2 + 1] = this.speeches[i]!.end / SILERO_SAMPLE_RATE
+      result[i * 2] = this.speeches[i].start / SILERO_SAMPLE_RATE
+      result[i * 2 + 1] = this.speeches[i].end / SILERO_SAMPLE_RATE
     }
 
     return result
@@ -152,8 +162,12 @@ export class VadExtractor {
       : 0
 
     const stream = new FFmpegBuilder()
-      .input(this.id.path)
-      .map('0:a:0')
+      .input(this.input.path)
+      .map(
+        this.input.stream_index === undefined
+          ? '0:a:0'
+          : `0:${this.input.stream_index}`
+      )
       .raw('-ac', '1', '-ar', String(SILERO_SAMPLE_RATE))
       .format('f32le')
       .pipe()
@@ -182,12 +196,9 @@ export class VadExtractor {
       pending = merged.slice(offset)
 
       if (totalExpectedSamples > 0) {
-        PubSub.publish('scan_file_progress', {
-          media_id: this.id.media_id,
-          path: this.id.path,
-          step: 'vad',
-          ratio: Math.min(processedSamples / totalExpectedSamples, 1),
-        })
+        await this.publishProgress(
+          Math.min(processedSamples / totalExpectedSamples, 1)
+        )
       }
     }
 
@@ -237,5 +248,16 @@ export class VadExtractor {
     this.padSpeeches(totalSamples)
 
     return this.toTimestamps()
+  }
+
+  private async publishProgress(ratio: number) {
+    await ScanProgress.publishTrack({
+      media_id: this.publish.media_id,
+      media_file_id: this.publish.media_file_id,
+      track_id: this.publish.track_id,
+      path: this.input.path,
+      current_step: 'vad',
+      ratio,
+    })
   }
 }

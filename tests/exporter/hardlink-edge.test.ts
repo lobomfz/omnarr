@@ -139,6 +139,6 @@ describe('Exporter — hardlink failure', () => {
 
     const exporter = new Exporter({ id: media.id })
 
-    await expect(() => exporter.export({ output: outputPath })).toThrow(/EPERM/)
+     expect(() => exporter.export({ output: outputPath })).toThrow(/EPERM/)
   })
 })

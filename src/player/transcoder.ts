@@ -1,10 +1,10 @@
 import { access } from 'fs/promises'
 
-import type { FFmpegBuilder} from '@lobomfz/ffmpeg';
+import type { FFmpegBuilder } from '@lobomfz/ffmpeg'
 import { type Preset } from '@lobomfz/ffmpeg'
 
 const HLS_VIDEO_CODECS = new Set(['h264'])
-const HLS_AUDIO_CODECS = new Set(['aac', 'ac3', 'eac3'])
+const HLS_AUDIO_CODECS = new Set(['aac'])
 const VAAPI_DEVICE = '/dev/dri/renderD128'
 
 type TracksInput = {
@@ -20,17 +20,22 @@ export class Transcoder {
   constructor(
     private tracks: TracksInput,
     private builder: FFmpegBuilder,
-    private HAS_VAAPI: boolean
+    private HAS_VAAPI: boolean,
+    private audioSpeed = 1
   ) {}
 
-  static async init(tracks: TracksInput, config: TranscodeConfig) {
+  static async init(
+    tracks: TracksInput,
+    config: TranscodeConfig,
+    audioSpeed = 1
+  ) {
     const HAS_VAAPI = await access(VAAPI_DEVICE).then(
       () => true,
       () => false
     )
 
     return (builder: FFmpegBuilder) =>
-      new Transcoder(tracks, builder, HAS_VAAPI).parse(config)
+      new Transcoder(tracks, builder, HAS_VAAPI, audioSpeed).parse(config)
   }
 
   parse(config: TranscodeConfig) {
@@ -63,7 +68,10 @@ export class Transcoder {
   }
 
   private applyAudio() {
-    if (HLS_AUDIO_CODECS.has(this.tracks.audio.codec_name)) {
+    if (
+      this.audioSpeed === 1 &&
+      HLS_AUDIO_CODECS.has(this.tracks.audio.codec_name)
+    ) {
       this.builder = this.builder.codec('a', 'copy')
       return
     }

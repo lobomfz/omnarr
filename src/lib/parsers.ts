@@ -23,7 +23,7 @@ export const Parsers = {
       return name
     }
 
-    const keywordStart = match.index! + match[0].indexOf(match[1]!)
+    const keywordStart = match.index + match[0].indexOf(match[1])
 
     return name.slice(keywordStart)
   },
@@ -35,7 +35,7 @@ export const Parsers = {
     const knownHyphenPositions = new Set<number>()
 
     for (const m of name.matchAll(COMPOUND_SOURCE_HYPHEN)) {
-      const matchStart = m[1] ? m.index! + m[0].indexOf(m[1]) : m.index!
+      const matchStart = m[1] ? m.index + m[0].indexOf(m[1]) : m.index
       knownHyphenPositions.add(matchStart + 3)
     }
 
@@ -65,9 +65,9 @@ export const Parsers = {
 
     while ((match = pattern.exec(content)) !== null) {
       const start =
-        +match[1]! * 3600 + +match[2]! * 60 + +match[3]! + +match[4]! / 1000
+        +match[1] * 3600 + +match[2] * 60 + +match[3] + +match[4] / 1000
       const end =
-        +match[5]! * 3600 + +match[6]! * 60 + +match[7]! + +match[8]! / 1000
+        +match[5] * 3600 + +match[6] * 60 + +match[7] + +match[8] / 1000
 
       pairs.push(start, end)
     }

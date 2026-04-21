@@ -47,6 +47,15 @@ export const DbEvents = {
       .execute()
   },
 
+  async deleteScanErrors(mediaId: string) {
+    await db
+      .deleteFrom('events')
+      .where('media_id', '=', mediaId)
+      .where('entity_type', '=', 'scan')
+      .where('event_type', '=', 'file_error')
+      .execute()
+  },
+
   async markRead(ids: number[]) {
     if (ids.length === 0) {
       return 0

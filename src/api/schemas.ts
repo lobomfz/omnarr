@@ -70,6 +70,15 @@ export const SubtitlesSchemas = {
   }),
 }
 
+export const PlayerSchemas = {
+  start: type({
+    media_id: 'string',
+    video: 'number.integer',
+    audio: 'number.integer',
+    'sub?': 'number.integer',
+  }),
+}
+
 export const EventsSchemas = {
   getByMediaId: type({
     media_id: 'string',

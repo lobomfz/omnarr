@@ -34,6 +34,14 @@ export class SuperflixAdapter implements Indexer {
 
   private base = envVariables.SUPERFLIX_API_URL
 
+  private resolveUrl(url: string) {
+    if (url.startsWith('http')) {
+      return url
+    }
+
+    return `${this.base}${url}`
+  }
+
   search: Indexer['search'] = async (params) => {
     if (!params.imdb_id) {
       return []
@@ -206,7 +214,7 @@ export class SuperflixAdapter implements Indexer {
   private async getVideoId(page: PageData) {
     const { data } = await axios<{ data: { options: { ID: number }[] } }>({
       method: 'post',
-      url: page.optionsUrl,
+      url: this.resolveUrl(page.optionsUrl),
       data: new URLSearchParams({
         contentid: page.contentId,
         type: page.contentType,
@@ -237,7 +245,7 @@ export class SuperflixAdapter implements Indexer {
   private async getPlayer(videoId: string, page: PageData) {
     const { data } = await axios<{ data: { video_url: string } }>({
       method: 'post',
-      url: page.sourceUrl,
+      url: this.resolveUrl(page.sourceUrl),
       data: new URLSearchParams({
         video_id: videoId,
         page_token: page.pageToken,

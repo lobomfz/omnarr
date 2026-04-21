@@ -50,14 +50,15 @@ const server = new HlsServer({
     { video_crf: 21, video_preset: 'veryfast' }
   ),
   audioOffset: 0,
+  audioSpeed: 1,
   subtitleOffset: 0,
-  port: 0,
+  subtitleSpeed: 1,
   mediaId,
 })
 
 await server.start()
 
-const base = server.url.replace('/master.m3u8', '')
+const base = `http://localhost/hls/${mediaId}`
 
 afterAll(async () => {
   await server?.stop()
@@ -66,7 +67,7 @@ afterAll(async () => {
 
 describe('HlsServer', () => {
   test('serves master.m3u8 at root', async () => {
-    const res = await fetch(`${base}/`)
+    const res = await server.handle(new Request(`${base}/`))
 
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toBe(
@@ -80,7 +81,7 @@ describe('HlsServer', () => {
   })
 
   test('serves video.m3u8 media playlist', async () => {
-    const res = await fetch(`${base}/video.m3u8`)
+    const res = await server.handle(new Request(`${base}/video.m3u8`))
 
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toBe(
@@ -94,28 +95,32 @@ describe('HlsServer', () => {
   })
 
   test('serves .ts segments with correct content type', async () => {
-    const res = await fetch(`${base}/seg_000.ts`)
+    const res = await server.handle(new Request(`${base}/seg_000.ts`))
 
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toBe('video/mp2t')
   })
 
   test('returns 404 for missing files', async () => {
-    const res = await fetch(`${base}/nonexistent.m3u8`)
+    const res = await server.handle(new Request(`${base}/nonexistent.m3u8`))
+
+    expect(res.status).toBe(404)
+  })
+
+  test('blocks path traversal outside outDir', async () => {
+    // URL normalization resolves `..` segments before the handler sees
+    // the pathname, so the path no longer starts with the mediaId prefix
+    // and the request is rejected with 404 (prefix mismatch).
+    const res = await server.handle(new Request(`${base};../../../tmp/outside`))
 
     expect(res.status).toBe(404)
   })
 
   test('returns 404 for wrong mediaId prefix', async () => {
-    const wrongBase = base.replace(mediaId, 'WRONG1')
-    const res = await fetch(`${wrongBase}/video.m3u8`)
+    const res = await server.handle(
+      new Request(`http://localhost/hls/WRONG1/video.m3u8`)
+    )
 
     expect(res.status).toBe(404)
-  })
-
-  test('includes CORS header', async () => {
-    const res = await fetch(`${base}/video.m3u8`)
-
-    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
   })
 })

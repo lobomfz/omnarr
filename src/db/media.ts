@@ -14,7 +14,8 @@ export function selectHasKeyframes(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
     .exists(
       eb
         .selectFrom('media_keyframes as mk')
-        .whereRef('mk.media_file_id', '=', 'mf.id')
+        .innerJoin('media_tracks as mt', 'mt.id', 'mk.track_id')
+        .whereRef('mt.media_file_id', '=', 'mf.id')
         .selectAll()
     )
     .as('has_keyframes')
@@ -25,7 +26,8 @@ export function selectHasVad(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
     .exists(
       eb
         .selectFrom('media_vad as mv')
-        .whereRef('mv.media_file_id', '=', 'mf.id')
+        .innerJoin('media_tracks as mt', 'mt.id', 'mv.track_id')
+        .whereRef('mt.media_file_id', '=', 'mf.id')
         .selectAll()
     )
     .as('has_vad')
@@ -37,6 +39,7 @@ export function selectTracks(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
       .selectFrom('media_tracks as mt')
       .whereRef('mt.media_file_id', '=', 'mf.id')
       .select([
+        'mt.id',
         'mt.stream_index',
         'mt.stream_type',
         'mt.codec_name',

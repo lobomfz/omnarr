@@ -13,10 +13,34 @@ export const DbMediaTracks = {
 
   async createMany(data: Insertable<DB['media_tracks']>[], executor = db) {
     if (data.length === 0) {
-      return
+      return []
     }
 
-    await executor.insertInto('media_tracks').values(data).execute()
+    return await executor
+      .insertInto('media_tracks')
+      .values(data)
+      .returningAll()
+      .execute()
+  },
+
+  async updateScanRatio(trackId: number, ratio: number | null) {
+    await db
+      .updateTable('media_tracks')
+      .set({ scan_ratio: ratio })
+      .where('id', '=', trackId)
+      .execute()
+  },
+
+  async aggregateScanRatioByFile(mediaFileId: number) {
+    const row = await db
+      .selectFrom('media_tracks as mt')
+      .where('mt.media_file_id', '=', mediaFileId)
+      .where('mt.stream_type', 'in', ['video', 'audio'])
+      .where('mt.scan_ratio', 'is not', null)
+      .select((eb) => eb.fn.avg<number>('mt.scan_ratio').as('ratio'))
+      .executeTakeFirst()
+
+    return row?.ratio ?? 0
   },
 
   async getByMediaFileId(mediaFileId: number) {
@@ -25,6 +49,14 @@ export const DbMediaTracks = {
       .where('mt.media_file_id', '=', mediaFileId)
       .selectAll('mt')
       .execute()
+  },
+
+  async getById(id: number) {
+    return await db
+      .selectFrom('media_tracks as mt')
+      .where('mt.id', '=', id)
+      .selectAll('mt')
+      .executeTakeFirst()
   },
 
   async getByMediaId(mediaId: string) {
@@ -36,12 +68,13 @@ export const DbMediaTracks = {
       .execute()
   },
 
-  async getWithFile(filter: { media_id: string; episode_id?: number }) {
+  async getWithFile(filter: { media_id: string; episode_id?: number | null }) {
     let query = db
       .selectFrom('media_tracks as t')
       .innerJoin('media_files as f', 'f.id', 't.media_file_id')
       .where('f.media_id', '=', filter.media_id)
       .select([
+        't.id',
         't.stream_index',
         't.stream_type',
         't.codec_name',
@@ -60,11 +93,21 @@ export const DbMediaTracks = {
       .orderBy('f.download_id', 'desc')
       .orderBy('t.stream_index', 'asc')
 
-    if (filter.episode_id !== undefined) {
+    if (filter.episode_id != null) {
       query = query.where('f.episode_id', '=', filter.episode_id)
     }
 
     return await query.execute()
+  },
+
+  async getFileContext(mediaId: string, trackIds: number[]) {
+    return await db
+      .selectFrom('media_tracks as t')
+      .innerJoin('media_files as f', 'f.id', 't.media_file_id')
+      .where('t.id', 'in', trackIds)
+      .where('f.media_id', '=', mediaId)
+      .select(['t.id', 'f.episode_id'])
+      .execute()
   },
 }
 

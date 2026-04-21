@@ -4,12 +4,13 @@ import type { MediaResolver } from '@/core/media-resolver'
 import type { DB, download_status } from '@/db/connection'
 import type { ScanFile } from '@/db/media-files'
 
-type MediaInfo = Awaited<ReturnType<MediaResolver['getMedia']>>
+type MediaInfo = Awaited<ReturnType<MediaResolver['resolve']>>
 
 type MediaTrack = Selectable<DB['media_tracks']>
 
 type TrackDisplay = Pick<
   MediaTrack,
+  | 'id'
   | 'stream_index'
   | 'stream_type'
   | 'codec_name'
@@ -233,8 +234,6 @@ export const Formatters = {
   },
 
   appendDownloads(lines: string[], downloads: MediaInfo['downloads']) {
-    const typeCounters: Record<string, number> = {}
-
     for (const d of downloads) {
       lines.push('')
 
@@ -256,9 +255,7 @@ export const Formatters = {
         lines.push(`  ${f.path} (${Formatters.fileStats(f)})`)
 
         for (const t of f.tracks) {
-          const idx = typeCounters[t.stream_type] ?? 0
-          typeCounters[t.stream_type] = idx + 1
-          lines.push(Formatters.trackParts(t, '    ', idx).join(' '))
+          lines.push(Formatters.trackPartsWithId(t, '    ').join(' '))
         }
 
         const status: string[] = []
@@ -296,17 +293,13 @@ export const Formatters = {
 
         lines.push(`  ${epNum}${epTitle}`)
 
-        const typeCounters: Record<string, number> = {}
-
         for (const f of e.files) {
           lines.push(
             `    ${f.path.split('/').at(-1)} (${Formatters.fileStats(f)})`
           )
 
           for (const t of f.tracks) {
-            const idx = typeCounters[t.stream_type] ?? 0
-            typeCounters[t.stream_type] = idx + 1
-            lines.push(Formatters.trackParts(t, '      ', idx).join(' '))
+            lines.push(Formatters.trackPartsWithId(t, '      ').join(' '))
           }
         }
       }
@@ -340,37 +333,37 @@ export const Formatters = {
     return parts.join(' ')
   },
 
-  trackParts(t: TrackDisplay, prefix = '', typeIndex?: number) {
-    const parts: string[] = []
-
-    if (typeIndex === undefined) {
-      parts.push(`${prefix}#${t.stream_index}`, t.stream_type)
-    } else {
-      parts.push(`${prefix}${t.stream_type} ${typeIndex}:`)
-    }
-
-    parts.push(t.codec_name)
-
-    if (t.language) {
-      parts.push(t.language)
-    }
-
-    if (t.title) {
-      parts.push(`"${t.title}"`)
-    }
-
-    if (t.width && t.height) {
-      parts.push(`${t.width}x${t.height}`)
-    }
-
-    if (t.channel_layout) {
-      parts.push(t.channel_layout)
-    }
-
-    if (t.is_default) {
-      parts.push('[default]')
-    }
-
-    return parts
+  trackParts(t: TrackDisplay, prefix = '') {
+    return [`${prefix}#${t.stream_index}`, t.stream_type, ...trackBaseParts(t)]
   },
+
+  trackPartsWithId(t: TrackDisplay, prefix = '') {
+    return [`${prefix}${t.stream_type} ${t.id}:`, ...trackBaseParts(t)]
+  },
+}
+
+function trackBaseParts(t: TrackDisplay) {
+  const parts: string[] = [t.codec_name]
+
+  if (t.language) {
+    parts.push(t.language)
+  }
+
+  if (t.title) {
+    parts.push(`"${t.title}"`)
+  }
+
+  if (t.width && t.height) {
+    parts.push(`${t.width}x${t.height}`)
+  }
+
+  if (t.channel_layout) {
+    parts.push(t.channel_layout)
+  }
+
+  if (t.is_default) {
+    parts.push('[default]')
+  }
+
+  return parts
 }

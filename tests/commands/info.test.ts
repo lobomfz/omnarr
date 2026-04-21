@@ -19,6 +19,7 @@ import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMediaFiles } from '@/db/media-files'
+import { DbMediaTracks } from '@/db/media-tracks'
 import { DbSeasons } from '@/db/seasons'
 
 import { MediaFixtures } from '../fixtures/media'
@@ -174,10 +175,10 @@ describe('info command', () => {
     expect(result.exitCode).not.toBe(0)
   })
 
-  test('shows per-type track indices matching play command numbering', async () => {
+  test('shows database track ids in formatted output', async () => {
     const media = await TestSeed.library.matrix()
 
-    await TestSeed.player.downloadWithTracks(
+    const { file } = await TestSeed.player.downloadWithTracks(
       media.id,
       'hash1',
       '/movies/movie.mkv',
@@ -207,14 +208,23 @@ describe('info command', () => {
       ]
     )
 
+    const tracks = await DbMediaTracks.getByMediaFileId(file.id)
+    const video = tracks.find((track) => track.stream_type === 'video')
+    const defaultAudio = tracks.find(
+      (track) => track.stream_type === 'audio' && track.language === 'eng'
+    )
+    const secondaryAudio = tracks.find(
+      (track) => track.stream_type === 'audio' && track.language === 'por'
+    )
+
     const result = await testCommand(InfoCommand, {
       args: [media.id],
       flags: {},
     })
 
-    expect(result.stdout).toContain('video 0:')
-    expect(result.stdout).toContain('audio 0:')
-    expect(result.stdout).toContain('audio 1:')
+    expect(result.stdout).toContain(`video ${video!.id}:`)
+    expect(result.stdout).toContain(`audio ${defaultAudio!.id}:`)
+    expect(result.stdout).toContain(`audio ${secondaryAudio!.id}:`)
   })
 })
 

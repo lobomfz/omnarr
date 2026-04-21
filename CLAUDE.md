@@ -25,11 +25,11 @@ Omnarr is a CLI media manager built with Bun that automates search, download, an
 
 ```bash
 bun dev              # Run the CLI
-bun test tests/db/schema.test.ts  # Run single test file
 bun check            # Type-check (tsgo) + lint (oxlint) + duplicate detection (jscpd on changed files) + all tests
+bun check tests/core/scan.test.ts  # Run specific test file(s) only
 ```
 
-Never run `bun test` without a file path — `bun check` is the only way to run the full suite. Running individual test files with `bun test <file>` is fine.
+Never run `bun test` directly — `bun check` is the only way to run tests. Without args it runs the full suite (types + lint + cpd + tests). With file args it runs only those test files. Output is saved to `/tmp/omnarr-test-result.log` — use Read/Grep on that file to inspect results instead of re-running or piping.
 
 ## Architecture
 
@@ -77,7 +77,7 @@ This is a small codebase. Use direct tool calls (Read, Grep, Glob) instead of Ex
 ## Gotchas
 
 - CLI option inputs are ALWAYS strings. For numeric options, use `type('string.numeric.parse | undefined')` — NOT `type('number | undefined')`. The `string.numeric.parse` morph transforms the string input into a number at parse time.
-- Never pipe `bun check` output. No `| tail`, `| grep`, `| head`, `2>&1 |` — run it plain. The output is already concise.
+- Never pipe `bun check` output. No `| tail`, `| grep`, `| head`, `2>&1 |` — run it plain. Inspect `/tmp/omnarr-test-result.log` after.
 
 ## Conventions
 

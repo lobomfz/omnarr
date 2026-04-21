@@ -2,9 +2,42 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 
 import { orpc, orpcWs } from '@/web/client'
+import type { ScanFileProgressLatest } from '@/web/constants/scan'
 import { useQueryCache } from '@/web/lib/use-query-cache'
+import type { MediaInfo } from '@/web/types/library'
 
-export function useScanProgress(mediaId: string) {
+export function useScanFileProgress(
+  mediaId: string,
+  currentPath: string | undefined,
+  initialScan?: MediaInfo['active_scan'] | null
+): ScanFileProgressLatest | null {
+  const { data } = useQuery(
+    orpcWs.scanFileProgress.experimental_streamedOptions({ retry: false })
+  )
+
+  if (!currentPath) {
+    return null
+  }
+
+  const latest = data?.findLast(
+    (e) => e.media_id === mediaId && e.path === currentPath
+  )
+
+  if (latest) {
+    return { current_step: latest.current_step, ratio: latest.ratio }
+  }
+
+  if (initialScan?.path === currentPath && initialScan.ratio != null) {
+    return { ratio: initialScan.ratio }
+  }
+
+  return null
+}
+
+export function useScanProgress(
+  mediaId: string,
+  initialScan?: MediaInfo['active_scan'] | null
+) {
   const cache = useQueryCache()
 
   const { data } = useQuery(
@@ -13,19 +46,45 @@ export function useScanProgress(mediaId: string) {
     })
   )
 
-  const latest = data?.findLast((e) => e.media_id === mediaId)
+  const { data: completedEvents } = useQuery(
+    orpcWs.scanCompleted.experimental_streamedOptions({
+      retry: false,
+    })
+  )
+
+  const latestCompleted = completedEvents?.findLast(
+    (e) => e.media_id === mediaId
+  )
 
   useEffect(() => {
-    if (!latest || latest.current < latest.total) {
+    if (!latestCompleted) {
       return
     }
 
     cache.invalidate(
       orpc.library.getInfo.queryOptions({ input: { id: mediaId } })
     )
-  }, [latest?.current, latest?.total, mediaId, cache])
 
-  if (!latest || latest.current >= latest.total) {
+    cache.invalidate(
+      orpc.events.getByMediaId.queryOptions({ input: { media_id: mediaId } })
+    )
+  }, [latestCompleted, mediaId, cache])
+
+  const latest = data?.findLast((e) => e.media_id === mediaId)
+
+  if (!latest) {
+    if (!initialScan) {
+      return null
+    }
+
+    return {
+      current: initialScan.current,
+      total: initialScan.total,
+      path: initialScan.path,
+    }
+  }
+
+  if (latest.current >= latest.total) {
     return null
   }
 

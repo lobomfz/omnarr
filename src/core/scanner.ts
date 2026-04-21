@@ -6,6 +6,7 @@ import PQueue from 'p-queue'
 
 import { PubSub } from '@/api/pubsub'
 import { VadExtractor } from '@/audio/vad-extractor'
+import { ScanProgress } from '@/core/scan-progress'
 import { db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
@@ -36,6 +37,8 @@ export class Scanner {
       throw new OmnarrError('MEDIA_NOT_FOUND')
     }
 
+    await DbEvents.deleteScanErrors(mediaId)
+
     Scheduler.scan(mediaId, force)
 
     return { media_id: mediaId }
@@ -56,28 +59,34 @@ export class Scanner {
 
     Log.info(`scan started media_id=${mediaId}`)
 
-    if (opts?.force) {
-      const deleted = await DbMediaFiles.deleteByMediaId(mediaId)
-      Log.info(`scan force mode: deleted ${deleted} files for ${mediaId}`)
+    await DbEvents.deleteScanErrors(mediaId)
+
+    try {
+      if (opts?.force) {
+        const deleted = await DbMediaFiles.deleteByMediaId(mediaId)
+        Log.info(`scan force mode: deleted ${deleted} files for ${mediaId}`)
+      }
+
+      const downloads = await DbDownloads.getCompletedDownloads(mediaId)
+
+      if (downloads.length === 0) {
+        Log.info('scan: no completed downloads with content_path')
+
+        return await DbMediaFiles.getByMediaId(mediaId)
+      }
+
+      const { files: diskFiles, resolvedIds } =
+        await this.discoverFiles(downloads)
+
+      return await this.reconcile(
+        { id: mediaId, tmdb_media_id: media.tmdb_media_id },
+        diskFiles,
+        resolvedIds,
+        opts?.concurrency
+      )
+    } finally {
+      await PubSub.publish('scan_completed', { media_id: mediaId })
     }
-
-    const downloads = await DbDownloads.getCompletedDownloads(mediaId)
-
-    if (downloads.length === 0) {
-      Log.info('scan: no completed downloads with content_path')
-
-      return await DbMediaFiles.getByMediaId(mediaId)
-    }
-
-    const { files: diskFiles, resolvedIds } =
-      await this.discoverFiles(downloads)
-
-    return await this.reconcile(
-      { id: mediaId, tmdb_media_id: media.tmdb_media_id },
-      diskFiles,
-      resolvedIds,
-      opts?.concurrency
-    )
   }
 
   private async reconcile(
@@ -105,9 +114,7 @@ export class Scanner {
     const newFiles = [...diskFiles].filter(([p]) => !existingPaths.has(p))
 
     let probed = 0
-
     const queue = new PQueue({ concurrency: concurrency ?? 1 })
-
     let nextIndex = 0
 
     for (const [path, downloadId] of newFiles) {
@@ -159,7 +166,10 @@ export class Scanner {
   }
 
   private async discoverFiles(
-    downloads: { id: number; content_path: string }[]
+    downloads: {
+      id: number
+      content_path: string
+    }[]
   ) {
     const files = new Map<string, number>()
     const resolvedIds = new Set<number>()
@@ -297,47 +307,7 @@ export class Scanner {
     const probe = await new FFmpegBuilder().input(fullPath).probe()
     const episodeId = await this.resolveEpisodeId(media.tmdb_media_id, fullPath)
 
-    const videoStream = probe.streams.find((s) => s.codec_type === 'video')
-    const hasAudio = probe.streams.some((s) => s.codec_type === 'audio')
-
-    const [keyframeTimes, vadTimestamps] = await Promise.all([
-      videoStream
-        ? new FFmpegBuilder().input(fullPath).probeKeyframes({
-            duration: probe.format.duration,
-            onProgress: (ratio) => {
-              PubSub.publish('scan_file_progress', {
-                media_id: media.id,
-                path: fullPath,
-                step: 'keyframes',
-                ratio,
-              })
-            },
-          })
-        : undefined,
-      hasAudio
-        ? new VadExtractor({ media_id: media.id, path: fullPath }).extract({
-            duration: probe.format.duration,
-          })
-        : undefined,
-    ])
-
-    if (keyframeTimes) {
-      Log.info(
-        `keyframe probe complete file="${fullPath}" keyframes=${keyframeTimes.length}`
-      )
-    }
-
-    if (vadTimestamps) {
-      Log.info(
-        `vad extracted file="${fullPath}" segments=${vadTimestamps.length / 2}`
-      )
-    }
-
-    const vadData = vadTimestamps
-      ? new Uint8Array(vadTimestamps.buffer)
-      : undefined
-
-    await db.transaction().execute(async (trx) => {
+    const { file, tracks } = await db.transaction().execute(async (trx) => {
       const file = await DbMediaFiles.create(
         {
           media_id: media.id,
@@ -345,13 +315,14 @@ export class Scanner {
           path: fullPath,
           size: probe.format.size,
           format_name: probe.format.format_name,
+          start_time: probe.format.start_time,
           duration: probe.format.duration,
           episode_id: episodeId,
         },
         trx
       )
 
-      await DbMediaTracks.createMany(
+      const tracks = await DbMediaTracks.createMany(
         probe.streams.map((stream) => ({
           media_file_id: file.id,
           stream_index: stream.index,
@@ -360,35 +331,155 @@ export class Scanner {
           language: stream.tags?.language,
           title: stream.tags?.title,
           is_default: !!stream.disposition?.default,
+          scan_ratio:
+            stream.codec_type === 'video' || stream.codec_type === 'audio'
+              ? 0
+              : undefined,
           ...this.streamFields(stream),
         })),
         trx
       )
 
-      if (keyframeTimes && videoStream) {
-        const fileDuration = probe.format.duration
+      return { file, tracks }
+    })
+
+    const videoTracks = tracks.filter((t) => t.stream_type === 'video')
+    const audioTracks = tracks.filter((t) => t.stream_type === 'audio')
+
+    const keyframeResults = await Promise.allSettled(
+      videoTracks.map(async (track, index) => ({
+        track,
+        keyframes: await new FFmpegBuilder().input(fullPath).probeKeyframes({
+          streamIndex: index,
+          duration: probe.format.duration,
+          onProgress: async (ratio) => {
+            await ScanProgress.publishTrack({
+              media_id: media.id,
+              media_file_id: file.id,
+              track_id: track.id,
+              path: fullPath,
+              current_step: 'keyframes',
+              ratio,
+            })
+          },
+        }),
+      }))
+    )
+
+    const vadResults = await Promise.allSettled(
+      audioTracks.map(async (track) => ({
+        track,
+        vad: await new VadExtractor(
+          {
+            path: fullPath,
+            stream_index: track.stream_index,
+          },
+          {
+            media_id: media.id,
+            media_file_id: file.id,
+            track_id: track.id,
+          }
+        ).extract({
+          duration: probe.format.duration,
+        }),
+      }))
+    )
+
+    const keyframeTimesByTrack = await this.collectTrackResults(
+      keyframeResults,
+      videoTracks,
+      { mediaId: media.id, fullPath, kind: 'keyframes' }
+    )
+    const vadTimestampsByTrack = await this.collectTrackResults(
+      vadResults,
+      audioTracks,
+      { mediaId: media.id, fullPath, kind: 'vad' }
+    )
+
+    if (keyframeTimesByTrack.length > 0) {
+      const totalKeyframes = keyframeTimesByTrack.reduce(
+        (count, entry) => count + entry.keyframes.length,
+        0
+      )
+
+      Log.info(
+        `keyframe probe complete file="${fullPath}" tracks=${keyframeTimesByTrack.length} keyframes=${totalKeyframes}`
+      )
+    }
+
+    if (vadTimestampsByTrack.length > 0) {
+      const totalVadSegments = vadTimestampsByTrack.reduce(
+        (count, entry) => count + entry.vad.length / 2,
+        0
+      )
+
+      Log.info(
+        `vad extracted file="${fullPath}" tracks=${vadTimestampsByTrack.length} segments=${totalVadSegments}`
+      )
+    }
+
+    await db.transaction().execute(async (trx) => {
+      for (const { track, keyframes } of keyframeTimesByTrack) {
+        if (keyframes.length === 0) {
+          continue
+        }
+
+        const trackDuration = this.computeTrackDuration(
+          track,
+          probe.format.duration
+        )
+
+        if (trackDuration == null) {
+          Log.warn(
+            `scan skip track keyframes: unknown duration file="${fullPath}" track_id=${track.id}`
+          )
+
+          continue
+        }
 
         await DbMediaKeyframes.createBatch(
-          keyframeTimes.map((pts_time, i) => ({
-            media_file_id: file.id,
-            stream_index: videoStream.index,
+          keyframes.map((pts_time, index) => ({
+            track_id: track.id,
             pts_time,
-            duration: (keyframeTimes[i + 1] ?? fileDuration) - pts_time,
+            duration: (keyframes[index + 1] ?? trackDuration) - pts_time,
           })),
           trx
         )
       }
 
-      if (vadData) {
+      for (const { track, vad } of vadTimestampsByTrack) {
         await DbMediaVad.create(
           {
-            media_file_id: file.id,
-            data: vadData,
+            track_id: track.id,
+            data: new Uint8Array(vad.buffer),
           },
           trx
         )
       }
     })
+
+    await Promise.all([
+      ...keyframeTimesByTrack.map(({ track }) =>
+        ScanProgress.publishTrack({
+          media_id: media.id,
+          media_file_id: file.id,
+          track_id: track.id,
+          path: fullPath,
+          current_step: 'keyframes',
+          ratio: 1,
+        })
+      ),
+      ...vadTimestampsByTrack.map(({ track }) =>
+        ScanProgress.publishTrack({
+          media_id: media.id,
+          media_file_id: file.id,
+          track_id: track.id,
+          path: fullPath,
+          current_step: 'vad',
+          ratio: 1,
+        })
+      ),
+    ])
 
     Log.info(
       `probe complete file="${fullPath}" streams=${probe.streams.length} duration=${probe.format.duration} format=${probe.format.format_name}`
@@ -397,9 +488,84 @@ export class Scanner {
     return true
   }
 
+  private async collectTrackResults<R, T extends { id: number }>(
+    results: PromiseSettledResult<R & { track: T }>[],
+    tracks: T[],
+    context: { mediaId: string; fullPath: string; kind: 'keyframes' | 'vad' }
+  ) {
+    const successes: (R & { track: T })[] = []
+
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]
+      const track = tracks[i]
+
+      if (result.status === 'fulfilled') {
+        successes.push(result.value)
+        continue
+      }
+
+      const reason = result.reason
+      const message = reason.message
+
+      Log.warn(
+        `${context.kind} extraction failed file="${context.fullPath}" track_id=${track.id} error="${message}"`
+      )
+
+      await DbMediaTracks.updateScanRatio(track.id, null)
+      await DbEvents.create({
+        media_id: context.mediaId,
+        entity_type: 'scan',
+        entity_id: context.fullPath,
+        event_type: 'file_error',
+        message: `${context.kind} track_id=${track.id}: ${message}`,
+      })
+    }
+
+    return successes
+  }
+
+  private computeTrackDuration(
+    track: {
+      duration_ts: number | null
+      start_pts: number | null
+      time_base: string | null
+    },
+    fallback: number | undefined
+  ) {
+    if (
+      track.duration_ts == null ||
+      track.start_pts == null ||
+      !track.time_base
+    ) {
+      return fallback
+    }
+
+    const [num, den] = track.time_base.split('/')
+    const numerator = Number(num)
+    const denominator = Number(den)
+
+    if (
+      !Number.isFinite(numerator) ||
+      !Number.isFinite(denominator) ||
+      denominator === 0
+    ) {
+      return fallback
+    }
+
+    return ((track.start_pts + track.duration_ts) * numerator) / denominator
+  }
+
   private streamFields(stream: Stream) {
+    const base = {
+      start_pts: stream.start_pts,
+      start_time: stream.start_time,
+      duration_ts: stream.duration_ts,
+      time_base: stream.time_base,
+    }
+
     if (stream.codec_type === 'video') {
       return {
+        ...base,
         width: stream.width,
         height: stream.height,
         framerate: stream.framerate,
@@ -409,6 +575,7 @@ export class Scanner {
 
     if (stream.codec_type === 'audio') {
       return {
+        ...base,
         channels: stream.channels,
         channel_layout: stream.channel_layout,
         sample_rate: stream.sample_rate,
@@ -416,6 +583,6 @@ export class Scanner {
       }
     }
 
-    return {}
+    return base
   }
 }

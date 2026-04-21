@@ -335,27 +335,79 @@ export const TestSeed = {
         episode_id: opts?.episode_id,
       })
 
-      await DbMediaTracks.createMany(
+      const createdTracks = await DbMediaTracks.createMany(
         tracks.map((t) => ({ media_file_id: file.id, ...t }))
       )
 
       if (opts?.keyframes && opts.keyframes.length > 0) {
         const fileDuration = opts.duration ?? 0
-
-        await DbMediaKeyframes.createBatch(
-          opts.keyframes.map((pts_time, i) => ({
-            media_file_id: file.id,
-            stream_index: 0,
-            pts_time,
-            duration: (opts.keyframes![i + 1] ?? fileDuration) - pts_time,
-          }))
+        const videoTrack = createdTracks.find(
+          (track) => track.stream_type === 'video'
         )
+
+        if (videoTrack) {
+          await DbMediaKeyframes.createBatch(
+            opts.keyframes.map((pts_time, i) => ({
+              track_id: videoTrack.id,
+              pts_time,
+              duration: (opts.keyframes![i + 1] ?? fileDuration) - pts_time,
+            }))
+          )
+        }
       }
 
       return { download, file }
     },
 
-    async vad(fileId: number, seed: number) {
+    async movieWithTracks() {
+      const media = await TestSeed.library.matrix()
+
+      const { file } = await TestSeed.player.downloadWithTracks(
+        media.id,
+        'matrix-1080p',
+        '/movies/The.Matrix.1999.mkv',
+        [
+          {
+            stream_index: 0,
+            stream_type: 'video',
+            codec_name: 'h264',
+            is_default: true,
+            width: 1920,
+            height: 1080,
+          },
+          {
+            stream_index: 1,
+            stream_type: 'audio',
+            codec_name: 'aac',
+            is_default: true,
+            channels: 6,
+            channel_layout: '5.1',
+          },
+        ],
+        { keyframes: [0, 10, 20], duration: 30 }
+      )
+
+      const tracks = await DbMediaTracks.getByMediaFileId(file.id)
+
+      return {
+        media,
+        file,
+        video: tracks.find((t) => t.stream_type === 'video')!,
+        audio: tracks.find((t) => t.stream_type === 'audio')!,
+      }
+    },
+
+    async getTrackIds(fileId: number) {
+      const tracks = await DbMediaTracks.getByMediaFileId(fileId)
+
+      return {
+        video: tracks.find((t) => t.stream_type === 'video')!,
+        audio: tracks.find((t) => t.stream_type === 'audio')!,
+        subtitle: tracks.find((t) => t.stream_type === 'subtitle'),
+      }
+    },
+
+    async vadTrack(trackId: number, seed: number) {
       const segments = 10
       const timestamps = new Float32Array(segments * 2)
       let state = seed
@@ -368,9 +420,20 @@ export const TestSeed = {
       }
 
       await DbMediaVad.create({
-        media_file_id: fileId,
+        track_id: trackId,
         data: new Uint8Array(timestamps.buffer),
       })
+    },
+
+    async vad(fileId: number, seed: number) {
+      const tracks = await DbMediaTracks.getByMediaFileId(fileId)
+      const audioTrack = tracks.find((t) => t.stream_type === 'audio')
+
+      if (!audioTrack) {
+        throw new Error(`No audio track found for file ${fileId}`)
+      }
+
+      await TestSeed.player.vadTrack(audioTrack.id, seed)
     },
   },
 
@@ -391,6 +454,12 @@ export const TestSeed = {
             width: 1920,
             height: 1080,
           },
+          {
+            stream_index: 1,
+            stream_type: 'audio',
+            codec_name: 'aac',
+            is_default: true,
+          },
         ],
         { duration: 8100 }
       )
@@ -410,9 +479,11 @@ export const TestSeed = {
       ])
 
       const vadTimestamps = Float32Array.from([5, 5.5, 500, 500.5])
+      const tracks = await DbMediaTracks.getByMediaFileId(file.id)
+      const audioTrack = tracks.find((track) => track.stream_type === 'audio')!
 
       await DbMediaVad.create({
-        media_file_id: file.id,
+        track_id: audioTrack.id,
         data: Buffer.from(vadTimestamps.buffer),
       })
 

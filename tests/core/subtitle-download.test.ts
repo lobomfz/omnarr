@@ -120,7 +120,7 @@ describe('SubtitleDownload.enqueueSeasonPack', () => {
     const media = await TestSeed.library.matrix()
     const mediaId = media.id
 
-    await expect(() =>
+     expect(() =>
       new SubtitleDownload().enqueue({
         source_id: 'SUBDL:no-srt-pack',
         download_url: 'http://localhost:19007/subtitle/no-srt-pack.zip',
@@ -138,7 +138,7 @@ describe('SubtitleDownload.enqueueSeasonPack', () => {
     const media = await TestSeed.library.matrix()
     const mediaId = media.id
 
-    await expect(() =>
+     expect(() =>
       new SubtitleDownload().enqueue({
         source_id: 'SUBDL:no-pattern',
         download_url: 'http://localhost:19007/subtitle/no-pattern.zip',

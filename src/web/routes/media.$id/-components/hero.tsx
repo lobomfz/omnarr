@@ -1,10 +1,14 @@
+import { Link } from '@tanstack/react-router'
 import { Play } from 'lucide-react'
 
 import { HeroBackdrop } from '@/web/components/hero-backdrop'
 import { PosterImage } from '@/web/components/poster-image'
 import type { MediaInfo } from '@/web/types/library'
 
-export function Hero(props: { media: MediaInfo }) {
+export function Hero(props: {
+  media: MediaInfo
+  watchParams?: { video: number; audio: number; sub?: number }
+}) {
   return (
     <HeroBackdrop backdropPath={props.media.backdrop_path}>
       <div
@@ -61,15 +65,28 @@ export function Hero(props: { media: MediaInfo }) {
 
           {!!props.media.added_at && (
             <div className="flex items-center gap-3 mt-4">
-              <button
-                type="button"
-                disabled
-                data-slot="watch-now"
-                className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black opacity-80 cursor-not-allowed"
-              >
-                <Play className="size-4 fill-current" />
-                Watch Now
-              </button>
+              {props.watchParams ? (
+                <Link
+                  to="/media/$id/play"
+                  params={{ id: props.media.id }}
+                  search={props.watchParams}
+                  data-slot="watch-now"
+                  className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90"
+                >
+                  <Play className="size-4 fill-current" />
+                  Watch Now
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  data-slot="watch-now"
+                  className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black opacity-50 cursor-not-allowed"
+                >
+                  <Play className="size-4 fill-current" />
+                  Watch Now
+                </button>
+              )}
             </div>
           )}
         </div>

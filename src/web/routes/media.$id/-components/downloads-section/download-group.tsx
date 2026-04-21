@@ -25,8 +25,8 @@ export function DownloadGroup(props: {
     <div
       data-component="download-group"
       data-status={props.download.status}
-      data-progress={String(props.download.progress)}
-      data-speed={String(props.download.speed)}
+      data-progress={props.download.progress}
+      data-speed={props.download.speed}
       data-error-at={props.download.error_at ?? undefined}
       className="rounded-xl glass-liquid overflow-hidden border border-white/5"
     >
@@ -115,7 +115,10 @@ function FileRow(props: { file: FileItem }) {
   )
 
   return (
-    <div className="px-6 py-4 border-b border-white/5 last:border-b-0">
+    <div
+      data-component="file-row"
+      className="px-6 py-4 border-b border-white/5 last:border-b-0"
+    >
       <div className="flex items-center justify-between gap-4">
         <Tooltip content={fileName}>
           <span className="text-sm font-medium text-foreground truncate">

@@ -117,7 +117,7 @@ describe('TorrentSync', () => {
 
     const sync = new TorrentSync()
 
-    await expect(() => sync.sync()).toThrow()
+     expect(() => sync.sync()).toThrow()
 
     const events = await db
       .selectFrom('events')
@@ -138,7 +138,7 @@ describe('TorrentSync', () => {
     const sync = new TorrentSync()
 
     for (let i = 0; i < 3; i++) {
-      await expect(() => sync.sync()).toThrow()
+       expect(() => sync.sync()).toThrow()
     }
 
     const events = await db
@@ -196,7 +196,7 @@ describe('TorrentSync', () => {
 
     const sync = new TorrentSync()
 
-    await expect(() => sync.sync()).toThrow()
+     expect(() => sync.sync()).toThrow()
 
     config.download_client!.url = originalUrl
 
@@ -242,7 +242,7 @@ describe('TorrentSync', () => {
     expect(download.error_at).toBeNull()
   })
 
-  test('enqueues scan job when torrent completes', async () => {
+  test('auto-scans when torrent completes', async () => {
     await setupDownload()
 
     await QBittorrentMock.db
@@ -259,6 +259,32 @@ describe('TorrentSync', () => {
     const scanForMedia = scanJobs.find((j) => j.data.media_id === MEDIA_ID)
 
     expect(scanForMedia).toBeDefined()
+
+    scanQueue.clear()
+  })
+
+  test('does not re-enqueue scan for already completed download', async () => {
+    await setupDownload()
+
+    await QBittorrentMock.db
+      .updateTable('torrents')
+      .set({ progress: 1, dlspeed: 0, eta: 0, state: 'uploading' })
+      .where('hash', '=', 'abc123')
+      .execute()
+
+    const sync = new TorrentSync()
+
+    await sync.sync()
+    scanQueue.clear()
+
+    const result = await sync.sync()
+
+    expect(result.completed).toHaveLength(0)
+
+    const scanJobs = scanQueue.getJobs()
+    const scanForMedia = scanJobs.find((j) => j.data.media_id === MEDIA_ID)
+
+    expect(scanForMedia).toBeUndefined()
 
     scanQueue.clear()
   })

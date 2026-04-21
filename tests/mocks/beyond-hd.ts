@@ -1,5 +1,5 @@
-import { Mock } from '@lobomfz/ghostapi'
 import { type } from '@lobomfz/db'
+import { Mock } from '@lobomfz/ghostapi'
 
 import { envVariables } from '@/lib/env'
 
@@ -103,7 +103,7 @@ await BeyondHdMock.db
       hdr10: 0,
       hdr10plus: 0,
       hlg: 0,
-      download_url: 'https://beyond-hd.me/dl/bb_s01e01',
+      download_url: 'https://beyond-hd.me/dl/bb_hash_s01e01',
     },
     {
       id: 1004,
@@ -117,7 +117,7 @@ await BeyondHdMock.db
       hdr10: 0,
       hdr10plus: 0,
       hlg: 0,
-      download_url: 'https://beyond-hd.me/dl/bb_s01',
+      download_url: 'https://beyond-hd.me/dl/bb_hash_s01',
     },
     {
       id: 1005,
@@ -131,7 +131,7 @@ await BeyondHdMock.db
       hdr10: 0,
       hdr10plus: 0,
       hlg: 0,
-      download_url: 'https://beyond-hd.me/dl/bb_s02e01',
+      download_url: 'https://beyond-hd.me/dl/bb_hash_s02e01',
     },
   ])
   .execute()

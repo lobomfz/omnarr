@@ -42,12 +42,12 @@ export const QBittorrentMock = new Mock(
       let q = db.selectFrom('torrents').selectAll()
 
       if (query.hashes) {
-        const hashes = (query.hashes as string).split('|')
+        const hashes = (query.hashes).split('|')
         q = q.where('hash', 'in', hashes)
       }
 
       if (query.category) {
-        q = q.where('category', '=', query.category as string)
+        q = q.where('category', '=', query.category)
       }
 
       return q.execute()

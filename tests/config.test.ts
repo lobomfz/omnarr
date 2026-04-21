@@ -14,10 +14,10 @@ describe('config', () => {
 
   test('parses indexers with discriminated union', () => {
     expect(config.indexers).toHaveLength(4)
-    expect(config.indexers![0].type).toBe('beyond-hd')
-    expect(config.indexers![1].type).toBe('yts')
-    expect(config.indexers![2].type).toBe('superflix')
-    expect(config.indexers![3].type).toBe('subdl')
+    expect(config.indexers[0].type).toBe('beyond-hd')
+    expect(config.indexers[1].type).toBe('yts')
+    expect(config.indexers[2].type).toBe('superflix')
+    expect(config.indexers[3].type).toBe('subdl')
   })
 
   test('parses download client', () => {

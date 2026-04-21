@@ -11,6 +11,10 @@ export const wsRouter = {
     PubSub.subscribe('scan_progress', signal)
   ),
 
+  scanCompleted: os.handler(({ signal }) =>
+    PubSub.subscribe('scan_completed', signal)
+  ),
+
   subtitleProgress: os.handler(({ signal }) =>
     PubSub.subscribe('subtitle_progress', signal)
   ),

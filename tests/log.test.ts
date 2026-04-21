@@ -10,7 +10,7 @@ beforeEach(async () => {
 
 describe('Log', () => {
   test('info writes line with correct format', async () => {
-    await Log.info('test message')
+     Log.info('test message')
 
     const content = await Bun.file(envVariables.OMNARR_LOG_PATH).text()
     const lines = content.trimEnd().split('\n')
@@ -22,7 +22,7 @@ describe('Log', () => {
   })
 
   test('warn writes line with WARN level', async () => {
-    await Log.warn('something wrong')
+     Log.warn('something wrong')
 
     const content = await Bun.file(envVariables.OMNARR_LOG_PATH).text()
 
@@ -30,7 +30,7 @@ describe('Log', () => {
   })
 
   test('error writes line with ERROR level', async () => {
-    await Log.error('critical failure')
+     Log.error('critical failure')
 
     const content = await Bun.file(envVariables.OMNARR_LOG_PATH).text()
 
@@ -38,9 +38,9 @@ describe('Log', () => {
   })
 
   test('appends multiple lines', async () => {
-    await Log.info('first')
-    await Log.warn('second')
-    await Log.error('third')
+     Log.info('first')
+     Log.warn('second')
+     Log.error('third')
 
     const content = await Bun.file(envVariables.OMNARR_LOG_PATH).text()
     const lines = content.trimEnd().split('\n')

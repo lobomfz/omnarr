@@ -66,7 +66,7 @@ describe('SuperflixAdapter', () => {
     })
 
     test('throws when movie not found', async () => {
-      await expect(() => superflix.getStreams('tt9999999')).toThrow(
+       expect(() => superflix.getStreams('tt9999999')).toThrow(
         /page data not found/
       )
     })

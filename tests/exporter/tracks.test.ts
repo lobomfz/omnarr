@@ -13,7 +13,7 @@ describe('Exporter — track resolution', () => {
     const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
     const exporter = new Exporter({ id: media.id })
 
-    await expect(() => exporter.resolveTracks({})).toThrow(/no tracks found/i)
+     expect(() => exporter.resolveTracks({})).toThrow(/NO_TRACKS/)
   })
 
   test('no video tracks throws error', async () => {
@@ -36,7 +36,7 @@ describe('Exporter — track resolution', () => {
 
     const exporter = new Exporter({ id: media.id })
 
-    await expect(() => exporter.resolveTracks({})).toThrow(/no video tracks/i)
+     expect(() => exporter.resolveTracks({})).toThrow(/no video tracks/i)
   })
 
   test('single video track is auto-selected without --video', async () => {
@@ -240,7 +240,7 @@ describe('Exporter — video selection', () => {
       await exporter.resolveTracks({})
       expect.unreachable('should have thrown')
     } catch (err: any) {
-      const msg = (err as Error).message
+      const msg = err.message
 
       expect(msg).toMatch(/--video/i)
       expect(msg).toMatch(/hevc/)
@@ -337,7 +337,7 @@ describe('Exporter — video selection', () => {
 
     const exporter = new Exporter({ id: media.id })
 
-    await expect(() => exporter.resolveTracks({ video: 5 })).toThrow(
+     expect(() => exporter.resolveTracks({ video: 5 })).toThrow(
       /out of range/i
     )
   })

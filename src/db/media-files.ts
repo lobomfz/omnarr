@@ -19,6 +19,14 @@ export const DbMediaFiles = {
       .execute()
   },
 
+  async getById(id: number) {
+    return await db
+      .selectFrom('media_files as mf')
+      .where('mf.id', '=', id)
+      .selectAll('mf')
+      .executeTakeFirst()
+  },
+
   async getByPath(path: string) {
     return await db
       .selectFrom('media_files as mf')
@@ -47,13 +55,15 @@ export const DbMediaFiles = {
         'mf.path',
         'mf.size',
         'mf.format_name',
+        'mf.start_time',
         'mf.duration',
         'mf.episode_id',
         'mf.scanned_at',
         (eb) =>
           eb
             .selectFrom('media_keyframes as mk')
-            .whereRef('mk.media_file_id', '=', 'mf.id')
+            .innerJoin('media_tracks as mt', 'mt.id', 'mk.track_id')
+            .whereRef('mt.media_file_id', '=', 'mf.id')
             .select(eb.fn.countAll<number>().as('count'))
             .as('keyframes'),
         (eb) =>
@@ -61,7 +71,8 @@ export const DbMediaFiles = {
             .exists(
               eb
                 .selectFrom('media_vad as mv')
-                .whereRef('mv.media_file_id', '=', 'mf.id')
+                .innerJoin('media_tracks as mt', 'mt.id', 'mv.track_id')
+                .whereRef('mt.media_file_id', '=', 'mf.id')
                 .selectAll()
             )
             .as('has_vad'),
@@ -71,6 +82,7 @@ export const DbMediaFiles = {
               .selectFrom('media_tracks as mt')
               .whereRef('mt.media_file_id', '=', 'mf.id')
               .select([
+                'mt.id',
                 'mt.stream_index',
                 'mt.stream_type',
                 'mt.codec_name',
@@ -88,14 +100,14 @@ export const DbMediaFiles = {
       .execute()
   },
 
-  async countByMedia(mediaId: string, episodeId?: number) {
+  async countByMedia(mediaId: string, episodeId?: number | null) {
     let query = db
-      .selectFrom('media_files')
+      .selectFrom('media_files as mf')
       .select(({ fn }) => fn.countAll<number>().as('count'))
-      .where('media_id', '=', mediaId)
+      .where('mf.media_id', '=', mediaId)
 
-    if (episodeId !== undefined) {
-      query = query.where('episode_id', '=', episodeId)
+    if (episodeId != null) {
+      query = query.where('mf.episode_id', '=', episodeId)
     }
 
     const result = await query.executeTakeFirstOrThrow()
@@ -109,6 +121,75 @@ export const DbMediaFiles = {
     }
 
     return await db.deleteFrom('media_files').where('id', 'in', ids).execute()
+  },
+
+  async getActiveScan(mediaId: string) {
+    const scanning = await db
+      .selectFrom('media_files as mf')
+      .innerJoin('media_tracks as mt', 'mt.media_file_id', 'mf.id')
+      .where('mf.media_id', '=', mediaId)
+      .where('mt.scan_ratio', 'is not', null)
+      .where('mt.scan_ratio', '<', 1)
+      .select(['mf.id as file_id', 'mf.path'])
+      .limit(1)
+      .executeTakeFirst()
+
+    if (!scanning) {
+      return null
+    }
+
+    const metrics = await db
+      .with('base', (eb) =>
+        eb
+          .selectFrom('media_files as mf')
+          .where('mf.media_id', '=', mediaId)
+          .select(['mf.id as file_id'])
+      )
+      .selectNoFrom((eb) =>
+        eb
+          .selectFrom('base')
+          .select((ib) =>
+            ib.cast<number>(ib.fn.countAll(), 'integer').as('count')
+          )
+          .as('total')
+      )
+      .select((eb) =>
+        eb
+          .selectFrom('base as b')
+          .where((wb) =>
+            wb.not(
+              wb.exists(
+                wb
+                  .selectFrom('media_tracks as mt')
+                  .whereRef('mt.media_file_id', '=', 'b.file_id')
+                  .where('mt.scan_ratio', 'is not', null)
+                  .where('mt.scan_ratio', '<', 1)
+                  .selectAll()
+              )
+            )
+          )
+          .select((ib) =>
+            ib.cast<number>(ib.fn.countAll(), 'integer').as('count')
+          )
+          .as('current')
+      )
+      .select((eb) =>
+        eb
+          .selectFrom('media_tracks as mt')
+          .where('mt.media_file_id', '=', scanning.file_id)
+          .where('mt.stream_type', 'in', ['video', 'audio'])
+          .where('mt.scan_ratio', 'is not', null)
+          .select((ib) => ib.fn.avg<number>('mt.scan_ratio').as('ratio'))
+          .as('ratio')
+      )
+      .executeTakeFirstOrThrow()
+
+    return {
+      current: metrics.current ?? 0,
+      total: metrics.total ?? 0,
+      path: scanning.path,
+      ratio: metrics.ratio,
+    }
   },
 }
 

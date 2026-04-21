@@ -83,7 +83,7 @@ Text
     const result = Parsers.srtTimestamps(srt)
 
     for (let i = 0; i < result.length; i += 2) {
-      expect(result[i]!).toBeLessThan(result[i + 1]!)
+      expect(result[i]).toBeLessThan(result[i + 1])
     }
   })
 })

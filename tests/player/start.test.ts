@@ -51,14 +51,16 @@ afterAll(async () => {
   await rm(tmpDir, { recursive: true })
 })
 
+const getTrackIds = TestSeed.player.getTrackIds
+
 describe('Player — start', () => {
-  test('resolves tracks, generates HLS, and serves playable URL', async () => {
+  test('resolves tracks, generates HLS, and serves playable content', async () => {
     const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
     const filePath = join(tmpDir, 'start/movie.mkv')
 
     await MediaFixtures.copy(refMkv, filePath)
 
-    await TestSeed.player.downloadWithTracks(
+    const { file } = await TestSeed.player.downloadWithTracks(
       media.id,
       'start_hash',
       filePath,
@@ -81,17 +83,23 @@ describe('Player — start', () => {
       { duration: refDuration, keyframes: refKeyframes }
     )
 
+    const ids = await getTrackIds(file.id)
     const player = new Player({ id: media.id })
-    const result = await player.start({}, { port: 0 })
+    const result = await player.start({
+      video: ids.video.id,
+      audio: ids.audio.id,
+    })
 
-    expect(result.url).toContain('master.m3u8')
+    expect(result.hlsPath).toContain('master.m3u8')
     expect(result.video.codec_name).toBe('h264')
     expect(result.audio.codec_name).toBe('aac')
     expect(result.subtitle).toBeNull()
     expect(result.audioOffset).toBe(0)
     expect(result.subtitleOffset).toBe(0)
 
-    const masterRes = await fetch(result.url)
+    const masterRes = await player.handle(
+      new Request(`http://localhost${result.hlsPath}`)
+    )
 
     expect(masterRes.status).toBe(200)
 
@@ -100,8 +108,10 @@ describe('Player — start', () => {
     expect(masterText).toContain('#EXTM3U')
     expect(masterText).toContain('video.m3u8')
 
-    const videoUrl = result.url.replace('master.m3u8', 'video.m3u8')
-    const videoRes = await fetch(videoUrl)
+    const videoPath = result.hlsPath.replace('master.m3u8', 'video.m3u8')
+    const videoRes = await player.handle(
+      new Request(`http://localhost${videoPath}`)
+    )
 
     expect(videoRes.status).toBe(200)
 
@@ -120,7 +130,7 @@ describe('Player — start', () => {
     await MediaFixtures.copy(refSubsMkv, filePath)
     await Bun.write(srtPath, '1\n00:00:00,000 --> 00:00:00,100\nTest\n')
 
-    await TestSeed.player.downloadWithTracks(
+    const { file } = await TestSeed.player.downloadWithTracks(
       media.id,
       'subhls_hash',
       filePath,
@@ -143,26 +153,42 @@ describe('Player — start', () => {
       { duration: refSubsDuration, keyframes: refSubsKeyframes }
     )
 
-    await TestSeed.player.downloadWithTracks(media.id, 'subhls_sub', srtPath, [
-      {
-        stream_index: 0,
-        stream_type: 'subtitle',
-        codec_name: 'subrip',
-        is_default: false,
-        language: 'por',
-      },
-    ])
+    const { file: subFile } = await TestSeed.player.downloadWithTracks(
+      media.id,
+      'subhls_sub',
+      srtPath,
+      [
+        {
+          stream_index: 0,
+          stream_type: 'subtitle',
+          codec_name: 'subrip',
+          is_default: false,
+          language: 'por',
+        },
+      ]
+    )
+
+    const ids = await getTrackIds(file.id)
+    const subIds = await getTrackIds(subFile.id)
 
     const player = new Player({ id: media.id })
-    const result = await player.start({ sub: 0 }, { port: 0 })
+    const result = await player.start({
+      video: ids.video.id,
+      audio: ids.audio.id,
+      sub: subIds.subtitle!.id,
+    })
 
-    const masterText = await fetch(result.url).then((r) => r.text())
+    const masterText = await player
+      .handle(new Request(`http://localhost${result.hlsPath}`))
+      .then((r) => r.text())
 
     expect(masterText).toContain('subs.m3u8')
     expect(masterText).not.toContain('subs.vtt')
 
-    const subsPlaylistUrl = result.url.replace('master.m3u8', 'subs.m3u8')
-    const subsText = await fetch(subsPlaylistUrl).then((r) => r.text())
+    const subsPath = result.hlsPath.replace('master.m3u8', 'subs.m3u8')
+    const subsText = await player
+      .handle(new Request(`http://localhost${subsPath}`))
+      .then((r) => r.text())
 
     expect(subsText).toContain('#EXTM3U')
     expect(subsText).toContain('subs_000.vtt')
@@ -179,7 +205,7 @@ describe('Player — start', () => {
     await MediaFixtures.copy(refSubsMkv, filePath)
     await Bun.write(srtPath, '1\n00:00:00,000 --> 00:00:00,100\nTest\n')
 
-    await TestSeed.player.downloadWithTracks(
+    const { file } = await TestSeed.player.downloadWithTracks(
       media.id,
       'startsub_hash',
       filePath,
@@ -202,7 +228,7 @@ describe('Player — start', () => {
       { duration: refSubsDuration, keyframes: refSubsKeyframes }
     )
 
-    await TestSeed.player.downloadWithTracks(
+    const { file: subFile } = await TestSeed.player.downloadWithTracks(
       media.id,
       'startsub_sub',
       srtPath,
@@ -217,21 +243,31 @@ describe('Player — start', () => {
       ]
     )
 
+    const ids = await getTrackIds(file.id)
+    const subIds = await getTrackIds(subFile.id)
+
     const player = new Player({ id: media.id })
-    const result = await player.start({ sub: 0 }, { port: 0 })
+    const result = await player.start({
+      video: ids.video.id,
+      audio: ids.audio.id,
+      sub: subIds.subtitle!.id,
+    })
 
     expect(result.subtitle).not.toBeNull()
     expect(result.subtitle!.language).toBe('por')
     expect(result.subtitleOffset).toBe(0)
 
-    const masterRes = await fetch(result.url)
-    const masterText = await masterRes.text()
+    const masterText = await player
+      .handle(new Request(`http://localhost${result.hlsPath}`))
+      .then((r) => r.text())
 
     expect(masterText).toContain('SUBTITLES')
     expect(masterText).toContain('subs.m3u8')
 
-    const vttUrl = result.url.replace('master.m3u8', 'subs_000.vtt')
-    const vttRes = await fetch(vttUrl)
+    const vttPath = result.hlsPath.replace('master.m3u8', 'subs_000.vtt')
+    const vttRes = await player.handle(
+      new Request(`http://localhost${vttPath}`)
+    )
 
     expect(vttRes.status).toBe(200)
 

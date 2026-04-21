@@ -4,6 +4,7 @@ import { db } from '@/db/connection'
 import { DbMedia } from '@/db/media'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
+import { DbMediaTracks } from '@/db/media-tracks'
 
 import { TestSeed } from '../helpers/seed'
 
@@ -16,36 +17,40 @@ async function seedMediaFile() {
   const { download, file } = await TestSeed.downloads.completedWithFile(
     media.id
   )
+  const track = await DbMediaTracks.create({
+    media_file_id: file.id,
+    stream_index: 0,
+    stream_type: 'video',
+    codec_name: 'h264',
+    is_default: true,
+  })
 
-  return { media, download, file }
+  return { media, download, file, track }
 }
 
 describe('schema - media_keyframes', () => {
   test('createBatch inserts multiple keyframes', async () => {
-    const { file } = await seedMediaFile()
+    const { track } = await seedMediaFile()
 
     await DbMediaKeyframes.createBatch([
       {
-        media_file_id: file.id,
-        stream_index: 0,
+        track_id: track.id,
         pts_time: 0.0,
         duration: 6.006,
       },
       {
-        media_file_id: file.id,
-        stream_index: 0,
+        track_id: track.id,
         pts_time: 6.006,
         duration: 6.006,
       },
       {
-        media_file_id: file.id,
-        stream_index: 0,
+        track_id: track.id,
         pts_time: 12.012,
         duration: 3.0,
       },
     ])
 
-    const segments = await DbMediaKeyframes.getSegmentsByFileId(file.id)
+    const segments = await DbMediaKeyframes.getSegmentsByTrackId(track.id)
 
     expect(segments).toHaveLength(3)
   })
@@ -54,31 +59,28 @@ describe('schema - media_keyframes', () => {
     await DbMediaKeyframes.createBatch([])
   })
 
-  test('getSegmentsByFileId returns segments ordered by pts_time', async () => {
-    const { file } = await seedMediaFile()
+  test('getSegmentsByTrackId returns segments ordered by pts_time', async () => {
+    const { track } = await seedMediaFile()
 
     await DbMediaKeyframes.createBatch([
       {
-        media_file_id: file.id,
-        stream_index: 0,
+        track_id: track.id,
         pts_time: 12.012,
         duration: 3.0,
       },
       {
-        media_file_id: file.id,
-        stream_index: 0,
+        track_id: track.id,
         pts_time: 0.0,
         duration: 6.006,
       },
       {
-        media_file_id: file.id,
-        stream_index: 0,
+        track_id: track.id,
         pts_time: 6.006,
         duration: 6.006,
       },
     ])
 
-    const segments = await DbMediaKeyframes.getSegmentsByFileId(file.id)
+    const segments = await DbMediaKeyframes.getSegmentsByTrackId(track.id)
 
     expect(segments).toHaveLength(3)
     expect(segments[0].pts_time).toBe(0.0)
@@ -86,39 +88,67 @@ describe('schema - media_keyframes', () => {
     expect(segments[2].pts_time).toBe(12.012)
   })
 
-  test('getSegmentsByFileId returns empty for non-existent file', async () => {
-    const segments = await DbMediaKeyframes.getSegmentsByFileId(999)
+  test('getSegmentsByTrackId returns empty for non-existent track', async () => {
+    const segments = await DbMediaKeyframes.getSegmentsByTrackId(999)
 
     expect(segments).toHaveLength(0)
   })
 
-  test('cascade delete: removing media_file removes its keyframes', async () => {
-    const { media, file } = await seedMediaFile()
+  test('different video tracks in the same file keep independent keyframe sets', async () => {
+    const { file, track } = await seedMediaFile()
+    const otherTrack = await DbMediaTracks.create({
+      media_file_id: file.id,
+      stream_index: 1,
+      stream_type: 'video',
+      codec_name: 'h264',
+      is_default: false,
+    })
 
     await DbMediaKeyframes.createBatch([
-      { media_file_id: file.id, stream_index: 0, pts_time: 0.0, duration: 6.0 },
-      { media_file_id: file.id, stream_index: 0, pts_time: 6.0, duration: 4.0 },
+      { track_id: track.id, pts_time: 0.0, duration: 4.0 },
+      { track_id: track.id, pts_time: 4.0, duration: 4.0 },
+      { track_id: otherTrack.id, pts_time: 1.0, duration: 3.0 },
     ])
 
-    const before = await DbMediaKeyframes.getSegmentsByFileId(file.id)
+    const firstTrackSegments = await DbMediaKeyframes.getSegmentsByTrackId(
+      track.id
+    )
+    const secondTrackSegments = await DbMediaKeyframes.getSegmentsByTrackId(
+      otherTrack.id
+    )
+
+    expect(firstTrackSegments).toHaveLength(2)
+    expect(secondTrackSegments).toHaveLength(1)
+    expect(secondTrackSegments[0].pts_time).toBe(1.0)
+  })
+
+  test('cascade delete: removing media_file removes its keyframes', async () => {
+    const { media, track } = await seedMediaFile()
+
+    await DbMediaKeyframes.createBatch([
+      { track_id: track.id, pts_time: 0.0, duration: 6.0 },
+      { track_id: track.id, pts_time: 6.0, duration: 4.0 },
+    ])
+
+    const before = await DbMediaKeyframes.getSegmentsByTrackId(track.id)
 
     expect(before).toHaveLength(2)
 
     await DbMediaFiles.deleteByMediaId(media.id)
 
-    const after = await DbMediaKeyframes.getSegmentsByFileId(file.id)
+    const after = await DbMediaKeyframes.getSegmentsByTrackId(track.id)
 
     expect(after).toHaveLength(0)
   })
 
   test('cascade delete: removing media cascades through files to keyframes', async () => {
-    const { media, file } = await seedMediaFile()
+    const { media, track } = await seedMediaFile()
 
     await DbMediaKeyframes.createBatch([
-      { media_file_id: file.id, stream_index: 0, pts_time: 0.0, duration: 1.0 },
+      { track_id: track.id, pts_time: 0.0, duration: 1.0 },
     ])
 
-    const before = await DbMediaKeyframes.getSegmentsByFileId(file.id)
+    const before = await DbMediaKeyframes.getSegmentsByTrackId(track.id)
 
     expect(before).toHaveLength(1)
 

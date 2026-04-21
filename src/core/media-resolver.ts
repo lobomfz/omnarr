@@ -3,6 +3,7 @@ import { jsonArrayFrom } from '@lobomfz/db'
 import { Tmdb } from '@/core/tmdb'
 import { db } from '@/db/connection'
 import { selectHasKeyframes, selectHasVad, selectTracks } from '@/db/media'
+import { DbMediaFiles } from '@/db/media-files'
 import { DbSearchResults } from '@/db/search-results'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 import { TmdbClient } from '@/integrations/tmdb/client'
@@ -17,7 +18,13 @@ export class MediaResolver {
   async resolve() {
     await this.assertMedia()
 
-    return await this.getMedia()
+    const media = await this.getMedia()
+    const active_scan =
+      media.tmdb_media_id === null
+        ? null
+        : await DbMediaFiles.getActiveScan(media.id)
+
+    return { ...media, active_scan }
   }
 
   async assertMedia() {
@@ -41,8 +48,7 @@ export class MediaResolver {
       throw new OmnarrError('SEARCH_RESULT_NOT_FOUND')
     }
 
-    const tmdb = new TmdbClient()
-    const details = await tmdb.getDetails(
+    const details = await new TmdbClient().getDetails(
       searchResult.tmdb_id,
       searchResult.media_type
     )

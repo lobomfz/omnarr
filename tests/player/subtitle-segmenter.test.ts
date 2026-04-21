@@ -67,7 +67,7 @@ Late cue
 Early cue
 `
 
-    const cues = SubtitleSegmenter.prepareCues(srt, 0)
+    const cues = SubtitleSegmenter.prepareCues(srt, 0, 1)
 
     expect(cues[0].text).toBe('Early cue')
     expect(cues[1].text).toBe('Late cue')
@@ -79,7 +79,7 @@ Early cue
 Shifted
 `
 
-    const cues = SubtitleSegmenter.prepareCues(srt, 5)
+    const cues = SubtitleSegmenter.prepareCues(srt, 5, 1)
 
     expect(cues[0].start).toBe(6)
     expect(cues[0].end).toBe(8)
@@ -91,10 +91,44 @@ Shifted
 Clamped
 `
 
-    const cues = SubtitleSegmenter.prepareCues(srt, -3)
+    const cues = SubtitleSegmenter.prepareCues(srt, -3, 1)
 
     expect(cues[0].start).toBe(0)
     expect(cues[0].end).toBe(2)
+  })
+
+  test('speed=1.0448 divides timestamps before applying offset', () => {
+    const srt = `1
+00:00:10,000 --> 00:00:12,000
+Cue one
+
+2
+00:00:20,000 --> 00:00:22,000
+Cue two
+`
+
+    const speed = 1.0448
+    const offset = 3
+
+    const cues = SubtitleSegmenter.prepareCues(srt, offset, speed)
+
+    expect(cues[0].start).toBeCloseTo(10 / speed + offset, 6)
+    expect(cues[0].end).toBeCloseTo(12 / speed + offset, 6)
+    expect(cues[1].start).toBeCloseTo(20 / speed + offset, 6)
+    expect(cues[1].end).toBeCloseTo(22 / speed + offset, 6)
+  })
+
+  test('speed < 1 stretches timestamps (NTSC subtitle on PAL video)', () => {
+    const srt = `1
+00:00:50,000 --> 00:00:52,000
+Stretched
+`
+
+    const speed = 0.958
+    const cues = SubtitleSegmenter.prepareCues(srt, 0, speed)
+
+    expect(cues[0].start).toBeCloseTo(50 / speed, 6)
+    expect(cues[0].end).toBeCloseTo(52 / speed, 6)
   })
 })
 
@@ -189,7 +223,7 @@ describe('SubtitleSegmenter.computeWindows', () => {
 
 describe('SubtitleSegmenter.generateVtt', () => {
   test('generates valid VTT with correct MPEGTS offset and LOCAL time', () => {
-    const cues = SubtitleSegmenter.prepareCues(SRT, 0)
+    const cues = SubtitleSegmenter.prepareCues(SRT, 0, 1)
     const mpegtsOffset = Math.round(1.483 * 90000)
 
     const vtt = SubtitleSegmenter.generateVtt({
@@ -211,7 +245,7 @@ describe('SubtitleSegmenter.generateVtt', () => {
 Spans boundary
 `
 
-    const cues = SubtitleSegmenter.prepareCues(srt, 0)
+    const cues = SubtitleSegmenter.prepareCues(srt, 0, 1)
 
     const vtt1 = SubtitleSegmenter.generateVtt({
       cues,
@@ -232,7 +266,7 @@ Spans boundary
   })
 
   test('excludes cues fully outside the window', () => {
-    const cues = SubtitleSegmenter.prepareCues(SRT, 0)
+    const cues = SubtitleSegmenter.prepareCues(SRT, 0, 1)
 
     const vtt = SubtitleSegmenter.generateVtt({
       cues,
@@ -247,7 +281,7 @@ Spans boundary
   })
 
   test('empty window produces VTT with only headers', () => {
-    const cues = SubtitleSegmenter.prepareCues(SRT, 0)
+    const cues = SubtitleSegmenter.prepareCues(SRT, 0, 1)
 
     const vtt = SubtitleSegmenter.generateVtt({
       cues,
@@ -264,7 +298,7 @@ Spans boundary
   })
 
   test('LOCAL timestamp matches windowStart', () => {
-    const cues = SubtitleSegmenter.prepareCues(SRT, 0)
+    const cues = SubtitleSegmenter.prepareCues(SRT, 0, 1)
 
     const vtt = SubtitleSegmenter.generateVtt({
       cues,
@@ -282,7 +316,7 @@ Spans boundary
 Formatted
 `
 
-    const cues = SubtitleSegmenter.prepareCues(srt, 0)
+    const cues = SubtitleSegmenter.prepareCues(srt, 0, 1)
 
     const vtt = SubtitleSegmenter.generateVtt({
       cues,
@@ -305,7 +339,7 @@ Late cue
 Early cue
 `
 
-    const cues = SubtitleSegmenter.prepareCues(srt, 0)
+    const cues = SubtitleSegmenter.prepareCues(srt, 0, 1)
 
     const vtt = SubtitleSegmenter.generateVtt({
       cues,

@@ -32,6 +32,8 @@ export class TorrentDownload implements DownloadSource {
       media_id: data.media_id,
       source_id: data.source_id,
       download_url: data.download_url,
+      season_number: data.season_number,
+      episode_number: data.episode_number,
     })
 
     await DbEvents.create({

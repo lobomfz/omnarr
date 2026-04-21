@@ -1,5 +1,6 @@
 import { MemoryPublisher } from '@orpc/experimental-publisher/memory'
 
+import type { scan_progress_step } from '@/db/connection'
 import type { DownloadWithMedia } from '@/db/downloads'
 import { Log } from '@/lib/log'
 
@@ -10,6 +11,9 @@ type PubSubChannels = {
     current: number
     total: number
     path: string
+  }
+  scan_completed: {
+    media_id: string
   }
   subtitle_progress: {
     media_id: string
@@ -26,7 +30,7 @@ type PubSubChannels = {
   scan_file_progress: {
     media_id: string
     path: string
-    step: 'keyframes' | 'vad'
+    current_step: scan_progress_step
     ratio: number
   }
 }

@@ -13,6 +13,8 @@ import { Route as SearchRouteRouteImport } from './routes/search/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SearchIndexRouteImport } from './routes/search/index'
 import { Route as MediaIdRouteRouteImport } from './routes/media.$id/route'
+import { Route as MediaIdIndexRouteImport } from './routes/media.$id/index'
+import { Route as MediaIdPlayRouteImport } from './routes/media.$id/play'
 
 const SearchRouteRoute = SearchRouteRouteImport.update({
   id: '/search',
@@ -34,37 +36,65 @@ const MediaIdRouteRoute = MediaIdRouteRouteImport.update({
   path: '/media/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MediaIdIndexRoute = MediaIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MediaIdRouteRoute,
+} as any)
+const MediaIdPlayRoute = MediaIdPlayRouteImport.update({
+  id: '/play',
+  path: '/play',
+  getParentRoute: () => MediaIdRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/search': typeof SearchRouteRouteWithChildren
-  '/media/$id': typeof MediaIdRouteRoute
+  '/media/$id': typeof MediaIdRouteRouteWithChildren
   '/search/': typeof SearchIndexRoute
+  '/media/$id/play': typeof MediaIdPlayRoute
+  '/media/$id/': typeof MediaIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/media/$id': typeof MediaIdRouteRoute
   '/search': typeof SearchIndexRoute
+  '/media/$id/play': typeof MediaIdPlayRoute
+  '/media/$id': typeof MediaIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/search': typeof SearchRouteRouteWithChildren
-  '/media/$id': typeof MediaIdRouteRoute
+  '/media/$id': typeof MediaIdRouteRouteWithChildren
   '/search/': typeof SearchIndexRoute
+  '/media/$id/play': typeof MediaIdPlayRoute
+  '/media/$id/': typeof MediaIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/search' | '/media/$id' | '/search/'
+  fullPaths:
+    | '/'
+    | '/search'
+    | '/media/$id'
+    | '/search/'
+    | '/media/$id/play'
+    | '/media/$id/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/media/$id' | '/search'
-  id: '__root__' | '/' | '/search' | '/media/$id' | '/search/'
+  to: '/' | '/search' | '/media/$id/play' | '/media/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/search'
+    | '/media/$id'
+    | '/search/'
+    | '/media/$id/play'
+    | '/media/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SearchRouteRoute: typeof SearchRouteRouteWithChildren
-  MediaIdRouteRoute: typeof MediaIdRouteRoute
+  MediaIdRouteRoute: typeof MediaIdRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -97,6 +127,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MediaIdRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/media/$id/': {
+      id: '/media/$id/'
+      path: '/'
+      fullPath: '/media/$id/'
+      preLoaderRoute: typeof MediaIdIndexRouteImport
+      parentRoute: typeof MediaIdRouteRoute
+    }
+    '/media/$id/play': {
+      id: '/media/$id/play'
+      path: '/play'
+      fullPath: '/media/$id/play'
+      preLoaderRoute: typeof MediaIdPlayRouteImport
+      parentRoute: typeof MediaIdRouteRoute
+    }
   }
 }
 
@@ -112,10 +156,24 @@ const SearchRouteRouteWithChildren = SearchRouteRoute._addFileChildren(
   SearchRouteRouteChildren,
 )
 
+interface MediaIdRouteRouteChildren {
+  MediaIdPlayRoute: typeof MediaIdPlayRoute
+  MediaIdIndexRoute: typeof MediaIdIndexRoute
+}
+
+const MediaIdRouteRouteChildren: MediaIdRouteRouteChildren = {
+  MediaIdPlayRoute: MediaIdPlayRoute,
+  MediaIdIndexRoute: MediaIdIndexRoute,
+}
+
+const MediaIdRouteRouteWithChildren = MediaIdRouteRoute._addFileChildren(
+  MediaIdRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SearchRouteRoute: SearchRouteRouteWithChildren,
-  MediaIdRouteRoute: MediaIdRouteRoute,
+  MediaIdRouteRoute: MediaIdRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

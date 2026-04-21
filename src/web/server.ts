@@ -6,6 +6,7 @@ import '@/jobs/workers/torrent-sync'
 import { rpcHandler } from '@/api/app'
 import { wsHandler } from '@/api/ws-app'
 import { envVariables } from '@/lib/env'
+import { playerSession } from '@/player/player-session'
 import homepage from '@/web/index.html'
 
 Bun.serve({
@@ -14,6 +15,7 @@ Bun.serve({
     hmr: true,
     console: true,
   },
+  idleTimeout: 60,
   routes: {
     '/rpc/*': async (request: Request) => {
       const { response } = await rpcHandler.handle(request, {
@@ -23,6 +25,7 @@ Bun.serve({
 
       return response ?? new Response('Not Found', { status: 404 })
     },
+    '/hls/*': (request: Request) => playerSession.handle(request),
     '/ws': (request, server) => {
       if (server.upgrade(request)) {
         return new Response(null)

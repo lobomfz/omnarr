@@ -6,8 +6,12 @@ import { orpc } from '@/web/client'
 import { Tooltip } from '@/web/components/ui/tooltip'
 import type { MediaInfo } from '@/web/types/library'
 
-import { useScanProgress } from '../../-utils/use-scan-progress'
+import {
+  useScanFileProgress,
+  useScanProgress,
+} from '../../-utils/use-scan-progress'
 import { DownloadGroup } from './download-group'
+import { ScanArea } from './scan-area'
 import { ScanProgress } from './scan-progress'
 
 function useMediaEvents(mediaId: string) {
@@ -22,7 +26,12 @@ export function DownloadsSection(props: {
   media: MediaInfo
   seasonNumber?: number
 }) {
-  const scanProgress = useScanProgress(props.media.id)
+  const scanProgress = useScanProgress(props.media.id, props.media.active_scan)
+  const scanFileProgress = useScanFileProgress(
+    props.media.id,
+    scanProgress?.path,
+    props.media.active_scan
+  )
   const { data: events } = useMediaEvents(props.media.id)
 
   const scanErrors = events.filter(
@@ -38,13 +47,22 @@ export function DownloadsSection(props: {
 
   return (
     <div>
-      {scanProgress && <ScanProgress progress={scanProgress} />}
+      <ScanArea
+        media={props.media}
+        scanProgress={scanProgress}
+        scanFileProgress={scanFileProgress}
+      />
+
+      {scanProgress && (
+        <ScanProgress progress={scanProgress} fileProgress={scanFileProgress} />
+      )}
 
       {scanErrors.length > 0 && (
         <div className="space-y-1.5 mb-4">
           {scanErrors.map((e) => (
             <div
               key={e.id}
+              data-component="scan-error"
               className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs"
             >
               <AlertTriangle className="size-3.5 text-destructive flex-shrink-0 mt-0.5" />

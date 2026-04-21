@@ -1,7 +1,7 @@
 import '../../setup-dom'
 import '../../../helpers/api-server'
 import '../../../mocks/tmdb'
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, test } from 'bun:test'
 
 import { TestSeed } from '../../../helpers/seed'
 import { get } from '../../dom'

@@ -16,7 +16,7 @@ export {
 } from '@testing-library/user-event'
 
 export async function cleanup() {
-  await act(() => {
+   act(() => {
     rtlCleanup()
     TestQueryClients.clear()
   })

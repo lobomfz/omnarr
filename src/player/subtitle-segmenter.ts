@@ -55,13 +55,14 @@ export const SubtitleSegmenter = {
     return cues
   },
 
-  prepareCues(srt: string, offset: number): SubtitleCue[] {
+  prepareCues(srt: string, offset: number, speed: number): SubtitleCue[] {
     const cues = SubtitleSegmenter.parseSrt(srt)
+    const invSpeed = 1 / speed
 
     return cues
       .map((c) => ({
-        start: Math.max(0, c.start + offset),
-        end: Math.max(0, c.end + offset),
+        start: Math.max(0, c.start * invSpeed + offset),
+        end: Math.max(0, c.end * invSpeed + offset),
         text: c.text,
       }))
       .sort((a, b) => a.start - b.start)

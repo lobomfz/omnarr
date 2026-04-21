@@ -18,6 +18,11 @@
     "bun-plugin-tailwind",
     "tailwindcss",
     "@fontsource-variable/inter",
-    "@fontsource-variable/jetbrains-mono"
+    "@fontsource-variable/jetbrains-mono",
+    "oxlint",
+    "oxlint-tsgolint",
+    "@typescript/native-preview",
+    "knip",
+    "jscpd"
   ]
 }

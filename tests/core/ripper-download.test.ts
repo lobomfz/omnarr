@@ -131,7 +131,7 @@ describe('RipperDownload.enqueueSeason', () => {
       ],
     })
 
-    await expect(() =>
+     expect(() =>
       new RipperDownload().enqueue({
         source_id: 'superflix:tt0903747:2',
         download_url: 'imdb:tt0903747',

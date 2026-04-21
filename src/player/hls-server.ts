@@ -4,6 +4,7 @@ import { join, resolve } from 'path'
 
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
+import { SubtitleExtractor } from '@/audio/subtitle-extractor'
 import type { TracksWithFile } from '@/db/media-tracks'
 import { Log } from '@/lib/log'
 import { HlsSession, type Segment } from '@/player/hls-session'
@@ -35,17 +36,18 @@ type HlsServerOpts = {
   segments: Segment[]
   transcode: TranscodeFn
   audioOffset: number
+  audioSpeed: number
   subtitleOffset: number
-  port: number
+  subtitleSpeed: number
   mediaId: string
 }
 
 export class HlsServer extends HlsSession {
-  private server!: ReturnType<typeof Bun.serve>
   private serverOpts: HlsServerOpts
   private subtitleCues: SubtitleCue[] = []
   private subtitleWindows: SubtitleWindow[] = []
   private pesStartTimeCache = new Map<number, number>()
+  private prefix: string
 
   constructor(opts: HlsServerOpts) {
     super({
@@ -55,14 +57,16 @@ export class HlsServer extends HlsSession {
       audioStreamIndex: opts.resolved.audio.stream_index,
       segments: opts.segments,
       audioOffset: opts.audioOffset,
+      audioSpeed: opts.audioSpeed,
       outDir: mkdtempSync(join(tmpdir(), 'omnarr-play-')),
       transcode: opts.transcode,
     })
     this.serverOpts = opts
+    this.prefix = `/hls/${opts.mediaId}`
   }
 
-  get url() {
-    return `http://localhost:${this.server.port}/${this.serverOpts.mediaId}/master.m3u8`
+  get hlsPath() {
+    return `${this.prefix}/master.m3u8`
   }
 
   async start() {
@@ -71,7 +75,8 @@ export class HlsServer extends HlsSession {
     if (this.serverOpts.resolved.subtitle) {
       await this.prepareSubtitles(
         this.serverOpts.resolved.subtitle,
-        this.serverOpts.subtitleOffset
+        this.serverOpts.subtitleOffset,
+        this.serverOpts.subtitleSpeed
       )
     }
 
@@ -79,13 +84,53 @@ export class HlsServer extends HlsSession {
       join(this.opts.outDir, 'master.m3u8'),
       this.buildMasterPlaylist()
     )
-
-    this.server = this.serve()
   }
 
   async stop() {
-    this.server.stop()
     await this.cleanup()
+  }
+
+  async handle(req: Request) {
+    const url = new URL(req.url)
+    const raw = url.pathname
+
+    if (!raw.startsWith(this.prefix)) {
+      return new Response('Not Found', { status: 404 })
+    }
+
+    let pathname = raw.slice(this.prefix.length) || '/'
+
+    if (pathname === '/') {
+      pathname = '/master.m3u8'
+    }
+
+    const filePath = resolve(this.opts.outDir, pathname.slice(1))
+
+    if (!filePath.startsWith(this.opts.outDir + '/')) {
+      return new Response('Forbidden', { status: 403 })
+    }
+
+    const ext = pathname.slice(pathname.lastIndexOf('.'))
+
+    if (ext === '.ts') {
+      return await this.serveSegment(pathname)
+    }
+
+    if (ext === '.vtt') {
+      return await this.serveVtt(pathname)
+    }
+
+    const file = Bun.file(filePath)
+
+    if (!(await file.exists())) {
+      return new Response('Not Found', { status: 404 })
+    }
+
+    return new Response(file, {
+      headers: {
+        'Content-Type': HLS_CONTENT_TYPES[ext] ?? 'application/octet-stream',
+      },
+    })
   }
 
   private buildPlaylist() {
@@ -133,7 +178,8 @@ export class HlsServer extends HlsSession {
 
   private async prepareSubtitles(
     subtitle: ResolvedTrack,
-    subtitleOffset: number
+    subtitleOffset: number,
+    subtitleSpeed: number
   ) {
     if (subtitle.codec_name !== 'subrip') {
       throw new Error(
@@ -141,9 +187,20 @@ export class HlsServer extends HlsSession {
       )
     }
 
-    const srt = await Bun.file(subtitle.file_path).text()
+    const srt = await SubtitleExtractor.readContent(
+      subtitle.file_path,
+      subtitle.stream_index
+    )
 
-    this.subtitleCues = SubtitleSegmenter.prepareCues(srt, subtitleOffset)
+    if (srt === null) {
+      throw new Error(`Failed to read subtitle from ${subtitle.file_path}`)
+    }
+
+    this.subtitleCues = SubtitleSegmenter.prepareCues(
+      srt,
+      subtitleOffset,
+      subtitleSpeed
+    )
     this.subtitleWindows = SubtitleSegmenter.computeWindows(this.opts.segments)
 
     await Bun.write(
@@ -192,10 +249,7 @@ export class HlsServer extends HlsSession {
 
     if (await cached.exists()) {
       return new Response(cached, {
-        headers: {
-          'Content-Type': 'text/vtt',
-          'Access-Control-Allow-Origin': '*',
-        },
+        headers: { 'Content-Type': 'text/vtt' },
       })
     }
 
@@ -215,63 +269,7 @@ export class HlsServer extends HlsSession {
     await Bun.write(filePath, vtt)
 
     return new Response(Bun.file(filePath), {
-      headers: {
-        'Content-Type': 'text/vtt',
-        'Access-Control-Allow-Origin': '*',
-      },
-    })
-  }
-
-  private serve() {
-    const prefix = `/${this.serverOpts.mediaId}`
-
-    return Bun.serve({
-      port: this.serverOpts.port,
-      idleTimeout: 255,
-      fetch: async (req) => {
-        const url = new URL(req.url)
-        const raw = url.pathname
-
-        if (!raw.startsWith(prefix)) {
-          return new Response('Not Found', { status: 404 })
-        }
-
-        let pathname = raw.slice(prefix.length) || '/'
-
-        if (pathname === '/') {
-          pathname = '/master.m3u8'
-        }
-
-        const filePath = resolve(this.opts.outDir, pathname.slice(1))
-
-        if (!filePath.startsWith(this.opts.outDir + '/')) {
-          return new Response('Forbidden', { status: 403 })
-        }
-
-        const ext = pathname.slice(pathname.lastIndexOf('.'))
-
-        if (ext === '.ts') {
-          return await this.serveSegment(pathname)
-        }
-
-        if (ext === '.vtt') {
-          return await this.serveVtt(pathname)
-        }
-
-        const file = Bun.file(filePath)
-
-        if (!(await file.exists())) {
-          return new Response('Not Found', { status: 404 })
-        }
-
-        return new Response(file, {
-          headers: {
-            'Content-Type':
-              HLS_CONTENT_TYPES[ext] ?? 'application/octet-stream',
-            'Access-Control-Allow-Origin': '*',
-          },
-        })
-      },
+      headers: { 'Content-Type': 'text/vtt' },
     })
   }
 
@@ -307,10 +305,7 @@ export class HlsServer extends HlsSession {
       )
 
       return new Response(Bun.file(segPath), {
-        headers: {
-          'Content-Type': 'video/mp2t',
-          'Access-Control-Allow-Origin': '*',
-        },
+        headers: { 'Content-Type': 'video/mp2t' },
       })
     } catch (err: any) {
       Log.error(`serve segment=${index} status=404 error=${err.message}`)

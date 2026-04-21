@@ -12,6 +12,7 @@ import { join } from 'path'
 
 import { PubSub } from '@/api/pubsub'
 import { Scanner } from '@/core/scanner'
+import { db } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaKeyframes } from '@/db/media-keyframes'
@@ -24,10 +25,14 @@ import { TestSeed } from './helpers/seed'
 const tmpDir = await mkdtemp(join(tmpdir(), 'omnarr-test-'))
 const refMkv = join(tmpDir, 'ref.mkv')
 const refSubsMkv = join(tmpDir, 'ref-subs.mkv')
+const refMultiAudioMkv = join(tmpDir, 'ref-multi-audio.mkv')
+const refMultiVideoMkv = join(tmpDir, 'ref-multi-video.mkv')
 
 beforeAll(async () => {
   await MediaFixtures.generate(refMkv)
   await MediaFixtures.generateWithSubs(refSubsMkv, tmpDir)
+  await MediaFixtures.generateMultiAudio(refMultiAudioMkv)
+  await MediaFixtures.generateMultiVideo(refMultiVideoMkv)
 
   await MediaFixtures.copy(
     refMkv,
@@ -117,6 +122,14 @@ beforeAll(async () => {
     refSubsMkv,
     join(tmpDir, 'force/The Matrix (1999)/movie.mkv')
   )
+  await MediaFixtures.copy(
+    refMultiAudioMkv,
+    join(tmpDir, 'multi-audio/The Matrix (1999)/movie.mkv')
+  )
+  await MediaFixtures.copy(
+    refMultiVideoMkv,
+    join(tmpDir, 'multi-video/The Matrix (1999)/movie.mkv')
+  )
   await MediaFixtures.copy(refMkv, join(tmpDir, 'single-file/movie.mkv'))
   await MediaFixtures.copy(refMkv, join(tmpDir, 'multi/dl1/movie.mkv'))
   await MediaFixtures.copy(refMkv, join(tmpDir, 'multi/dl2/bonus.mkv'))
@@ -140,6 +153,14 @@ beforeAll(async () => {
   await MediaFixtures.copy(
     refMkv,
     join(tmpDir, 'tv-force/Breaking.Bad.S01E01.mkv')
+  )
+  await MediaFixtures.copy(
+    refMkv,
+    join(tmpDir, 'tv-ripper-root/s01e01/audio_eng.mka')
+  )
+  await MediaFixtures.copy(
+    refMkv,
+    join(tmpDir, 'tv-ripper-root/s01e02/audio_eng.mka')
   )
   await MediaFixtures.writeDummy(join(tmpDir, 'sub-discover/sub_en.srt'))
   await MediaFixtures.copy(refMkv, join(tmpDir, 'mixed-srt/movie.mkv'))
@@ -169,6 +190,20 @@ async function seedTvMedia(contentPath: string) {
   })
 
   return media
+}
+
+async function getFirstTrackId(
+  mediaFileId: number,
+  streamType: 'video' | 'audio' | 'subtitle'
+) {
+  const tracks = await DbMediaTracks.getByMediaFileId(mediaFileId)
+  const track = tracks.find((t) => t.stream_type === streamType)
+
+  if (!track) {
+    throw new Error(`no ${streamType} track in media_file_id=${mediaFileId}`)
+  }
+
+  return track.id
 }
 
 describe('new Scanner().scan — file discovery', () => {
@@ -231,7 +266,7 @@ describe('new Scanner().scan — file discovery', () => {
   })
 
   test('throws when media_id does not exist', async () => {
-    await expect(() => new Scanner().scan('NONEXISTENT')).toThrow()
+     expect(() => new Scanner().scan('NONEXISTENT')).toThrow()
   })
 
   test('probes single file when content_path is a file', async () => {
@@ -265,6 +300,26 @@ describe('new Scanner().scan — probe + tracks', () => {
 
     expect(files[0].format_name).toBeTruthy()
     expect(files[0].duration).toBeGreaterThan(0)
+  })
+
+  test('fills file and track ffprobe timing fields during scan', async () => {
+    const media = await seedMedia(join(tmpDir, 'multi-audio/The Matrix (1999)'))
+    await new Scanner().scan(media.id)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+    const tracks = await DbMediaTracks.getByMediaFileId(files[0].id)
+
+    expect(files[0].start_time).toBeTypeOf('number')
+
+    for (const track of tracks) {
+      expect(track.start_pts).toBeTypeOf('number')
+      expect(track.start_time).toBeTypeOf('number')
+      expect(track.time_base).toBeTruthy()
+
+      if (track.stream_type === 'video') {
+        expect(track.duration_ts).toBeTypeOf('number')
+      }
+    }
   })
 
   test('creates tracks for each stream in the file', async () => {
@@ -330,7 +385,8 @@ describe('new Scanner().scan — keyframe probing', () => {
     await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
-    const keyframes = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
+    const videoTrack = await getFirstTrackId(files[0].id, 'video')
+    const keyframes = await DbMediaKeyframes.getSegmentsByTrackId(videoTrack)
 
     expect(keyframes.length).toBeGreaterThan(0)
     expect(keyframes[0].pts_time).toBeGreaterThanOrEqual(0)
@@ -342,7 +398,8 @@ describe('new Scanner().scan — keyframe probing', () => {
     await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
-    const keyframes = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
+    const videoTrack = await getFirstTrackId(files[0].id, 'video')
+    const keyframes = await DbMediaKeyframes.getSegmentsByTrackId(videoTrack)
 
     expect(keyframes.length).toBeGreaterThan(0)
     expect(keyframes[0].pts_time).toBeCloseTo(0.0, 1)
@@ -357,15 +414,43 @@ describe('new Scanner().scan — keyframe probing', () => {
     await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
-    const first = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
+    const videoTrack = await getFirstTrackId(files[0].id, 'video')
+    const first = await DbMediaKeyframes.getSegmentsByTrackId(videoTrack)
 
     expect(first.length).toBeGreaterThan(0)
 
     await new Scanner().scan(media.id)
 
-    const second = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
+    const filesAgain = await DbMediaFiles.getByMediaId(media.id)
+    const videoTrackAgain = await getFirstTrackId(filesAgain[0].id, 'video')
+    const second = await DbMediaKeyframes.getSegmentsByTrackId(videoTrackAgain)
 
     expect(second).toHaveLength(first.length)
+  })
+
+  test('scanning a multi-video file stores keyframes for each video track', async () => {
+    const media = await seedMedia(join(tmpDir, 'multi-video/The Matrix (1999)'))
+    await new Scanner().scan(media.id)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+    const tracks = await DbMediaTracks.getByMediaFileId(files[0].id)
+    const videoTracks = tracks.filter((track) => track.stream_type === 'video')
+    const persisted = await db
+      .selectFrom('media_keyframes')
+      .select(['track_id'])
+      .orderBy('track_id', 'asc')
+      .execute()
+
+    expect(videoTracks).toHaveLength(2)
+    expect(new Set(persisted.map((row) => row.track_id))).toEqual(
+      new Set(videoTracks.map((track) => track.id))
+    )
+
+    for (const track of videoTracks) {
+      const keyframes = await DbMediaKeyframes.getSegmentsByTrackId(track.id)
+
+      expect(keyframes.length).toBeGreaterThan(0)
+    }
   })
 })
 
@@ -596,11 +681,16 @@ describe('new Scanner().scan — external subtitle files', () => {
     await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
-    const keyframes = await DbMediaKeyframes.getSegmentsByFileId(files[0].id)
-    const vad = await DbMediaVad.getByMediaFileId(files[0].id)
+    const tracks = await DbMediaTracks.getByMediaFileId(files[0].id)
+    const keyframes = await Promise.all(
+      tracks.map((t) => DbMediaKeyframes.getSegmentsByTrackId(t.id))
+    )
+    const vad = await Promise.all(
+      tracks.map((t) => DbMediaVad.getByTrackId(t.id))
+    )
 
-    expect(keyframes).toHaveLength(0)
-    expect(vad).toBeUndefined()
+    expect(keyframes.flat()).toHaveLength(0)
+    expect(vad.every((row) => row === undefined)).toBe(true)
   })
 })
 
@@ -610,7 +700,8 @@ describe('new Scanner().scan — VAD extraction', () => {
     await new Scanner().scan(media.id)
 
     const files = await DbMediaFiles.getByMediaId(media.id)
-    const vad = await DbMediaVad.getByMediaFileId(files[0].id)
+    const audioTrack = await getFirstTrackId(files[0].id, 'audio')
+    const vad = await DbMediaVad.getByTrackId(audioTrack)
 
     expect(vad).toBeDefined()
     expect(vad!.data).toBeInstanceOf(Uint8Array)
@@ -621,17 +712,38 @@ describe('new Scanner().scan — VAD extraction', () => {
     await new Scanner().scan(media.id)
 
     const filesBefore = await DbMediaFiles.getByMediaId(media.id)
-    const vadBefore = await DbMediaVad.getByMediaFileId(filesBefore[0].id)
+    const audioBefore = await getFirstTrackId(filesBefore[0].id, 'audio')
+    const vadBefore = await DbMediaVad.getByTrackId(audioBefore)
 
     expect(vadBefore).toBeDefined()
 
     await new Scanner().scan(media.id, { force: true })
 
     const filesAfter = await DbMediaFiles.getByMediaId(media.id)
-    const vadAfter = await DbMediaVad.getByMediaFileId(filesAfter[0].id)
+    const audioAfter = await getFirstTrackId(filesAfter[0].id, 'audio')
+    const vadAfter = await DbMediaVad.getByTrackId(audioAfter)
 
     expect(vadAfter).toBeDefined()
     expect(filesAfter[0].id).not.toBe(filesBefore[0].id)
+  })
+
+  test('scanning a multi-audio file produces VAD rows for each audio track', async () => {
+    const media = await seedMedia(join(tmpDir, 'multi-audio/The Matrix (1999)'))
+    await new Scanner().scan(media.id)
+
+    const files = await DbMediaFiles.getByMediaId(media.id)
+    const tracks = await DbMediaTracks.getByMediaFileId(files[0].id)
+    const audioTracks = tracks.filter((track) => track.stream_type === 'audio')
+    const rows = await db
+      .selectFrom('media_vad')
+      .select(['track_id'])
+      .orderBy('track_id', 'asc')
+      .execute()
+
+    expect(audioTracks).toHaveLength(3)
+    expect(rows.map((row) => row.track_id)).toEqual(
+      audioTracks.map((track) => track.id).sort((a, b) => a - b)
+    )
   })
 })
 
@@ -644,7 +756,7 @@ describe('new Scanner().scan — scan_file_progress PubSub', () => {
     const events: {
       media_id: string
       path: string
-      step: 'keyframes' | 'vad'
+      current_step: 'keyframes' | 'vad'
       ratio: number
     }[] = []
     const ac = new AbortController()
@@ -665,7 +777,7 @@ describe('new Scanner().scan — scan_file_progress PubSub', () => {
     await collecting
 
     const keyframeEvents = events.filter(
-      (e) => e.step === 'keyframes' && e.path === filePath
+      (e) => e.current_step === 'keyframes' && e.path === filePath
     )
 
     expect(keyframeEvents.length).toBeGreaterThan(0)
@@ -681,7 +793,7 @@ describe('new Scanner().scan — scan_file_progress PubSub', () => {
     const events: {
       media_id: string
       path: string
-      step: 'keyframes' | 'vad'
+      current_step: 'keyframes' | 'vad'
       ratio: number
     }[] = []
     const ac = new AbortController()
@@ -702,7 +814,7 @@ describe('new Scanner().scan — scan_file_progress PubSub', () => {
     await collecting
 
     const vadEvents = events.filter(
-      (e) => e.step === 'vad' && e.path === filePath
+      (e) => e.current_step === 'vad' && e.path === filePath
     )
 
     expect(vadEvents.length).toBeGreaterThan(0)

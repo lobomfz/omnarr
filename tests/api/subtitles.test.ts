@@ -56,7 +56,7 @@ describe('subtitles.search', () => {
   })
 
   test('errors for unknown media', async () => {
-    await expect(() => client.subtitles.search({ media_id: 'XXXXXX' })).toThrow(
+     expect(() => client.subtitles.search({ media_id: 'XXXXXX' })).toThrow(
       'MEDIA_NOT_FOUND'
     )
   })
@@ -64,7 +64,7 @@ describe('subtitles.search', () => {
   test('TV requires season', async () => {
     const tv = await TestSeed.library.breakingBad()
 
-    await expect(() => client.subtitles.search({ media_id: tv.id })).toThrow(
+     expect(() => client.subtitles.search({ media_id: tv.id })).toThrow(
       'TV_REQUIRES_SEASON'
     )
   })
@@ -232,7 +232,7 @@ describe('subtitles.download', () => {
   })
 
   test('errors for missing release', async () => {
-    await expect(() =>
+     expect(() =>
       client.subtitles.download({ release_id: 'XXXXXX', media_id: 'XXXXXX' })
     ).toThrow()
   })
@@ -242,7 +242,7 @@ describe('subtitles.download', () => {
       url: 'http://localhost:19007/subtitle/no-srt.zip',
     })
 
-    await expect(() =>
+     expect(() =>
       client.subtitles.download({ release_id: releaseId, media_id: mediaId })
     ).toThrow('NO_SRT_IN_ARCHIVE')
 
@@ -267,7 +267,7 @@ describe('subtitles.autoMatch', () => {
   })
 
   test('errors for unknown media', async () => {
-    await expect(() =>
+     expect(() =>
       client.subtitles.autoMatch({ media_id: 'XXXXXX' })
     ).toThrow('MEDIA_NOT_FOUND')
   })
@@ -275,7 +275,7 @@ describe('subtitles.autoMatch', () => {
   test('errors when TV is missing season/episode', async () => {
     const tv = await TestSeed.library.breakingBad()
 
-    await expect(() => client.subtitles.autoMatch({ media_id: tv.id })).toThrow(
+     expect(() => client.subtitles.autoMatch({ media_id: tv.id })).toThrow(
       'TV_REQUIRES_SEASON_EPISODE'
     )
   })

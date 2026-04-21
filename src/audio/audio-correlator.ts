@@ -1,4 +1,7 @@
-import { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES } from '@/audio/vad-constants'
+import {
+  SILERO_SAMPLE_RATE,
+  SILERO_WINDOW_SAMPLES,
+} from '@/audio/vad-constants'
 
 export const MIN_SYNC_CONFIDENCE = 15
 
@@ -30,8 +33,8 @@ function timestampsToEnvelope(timestamps: Float32Array, length: number) {
   const envelope = new Int8Array(length)
 
   for (let i = 0; i < timestamps.length; i += 2) {
-    const startWindow = Math.floor(timestamps[i]! / WINDOW_DURATION)
-    const endWindow = Math.ceil(timestamps[i + 1]! / WINDOW_DURATION)
+    const startWindow = Math.floor(timestamps[i] / WINDOW_DURATION)
+    const endWindow = Math.ceil(timestamps[i + 1] / WINDOW_DURATION)
 
     for (let j = startWindow; j < endWindow && j < length; j++) {
       envelope[j] = 32
@@ -47,7 +50,7 @@ function onsetsToEnvelope(timestamps: Float32Array, length: number) {
   const envelope = new Int8Array(length)
 
   for (let i = 0; i < timestamps.length; i += 2) {
-    const start = Math.floor(timestamps[i]! / WINDOW_DURATION)
+    const start = Math.floor(timestamps[i] / WINDOW_DURATION)
     const end = Math.min(start + ONSET_WINDOWS, length)
 
     for (let j = start; j < end; j++) {
@@ -62,7 +65,7 @@ function normalize(envelope: Int8Array) {
   let sum = 0
 
   for (let i = 0; i < envelope.length; i++) {
-    sum += envelope[i]!
+    sum += envelope[i]
   }
 
   const mean = sum / envelope.length
@@ -70,7 +73,7 @@ function normalize(envelope: Int8Array) {
   let variance = 0
 
   for (let i = 0; i < envelope.length; i++) {
-    const d = envelope[i]! - mean
+    const d = envelope[i] - mean
     variance += d * d
   }
 
@@ -84,7 +87,7 @@ function normalize(envelope: Int8Array) {
   for (let i = 0; i < envelope.length; i++) {
     result[i] = Math.max(
       -128,
-      Math.min(127, Math.round(((envelope[i]! - mean) / std) * 32))
+      Math.min(127, Math.round(((envelope[i] - mean) / std) * 32))
     )
   }
 
@@ -110,8 +113,8 @@ function correlate(a: Int8Array, b: Int8Array) {
   fft(bReal, bImag)
 
   for (let i = 0; i < size; i++) {
-    const real = aReal[i]! * bReal[i]! + aImag[i]! * bImag[i]!
-    const imag = aImag[i]! * bReal[i]! - aReal[i]! * bImag[i]!
+    const real = aReal[i] * bReal[i] + aImag[i] * bImag[i]
+    const imag = aImag[i] * bReal[i] - aReal[i] * bImag[i]
     aReal[i] = real
     aImag[i] = imag
   }
@@ -123,9 +126,9 @@ function correlate(a: Int8Array, b: Int8Array) {
   let sum = 0
 
   for (let i = 0; i < aReal.length; i++) {
-    sum += Math.abs(aReal[i]!)
+    sum += Math.abs(aReal[i])
 
-    if (aReal[i]! > maxVal) {
+    if (aReal[i] > maxVal) {
       maxVal = aReal[i]!
       maxIdx = i
     }
@@ -136,15 +139,51 @@ function correlate(a: Int8Array, b: Int8Array) {
 
   const windowOffset = maxIdx > size / 2 ? maxIdx - size : maxIdx
   const offsetSeconds = windowOffset * WINDOW_DURATION
+  const topPeaks = mean === 0 ? [] : findTopPeaks(aReal, mean, size)
 
-  return { offsetSeconds, confidence }
+  return { offsetSeconds, confidence, topPeaks }
+}
+
+function findTopPeaks(values: Float64Array, mean: number, size: number) {
+  const peaks: { offsetSeconds: number; confidence: number }[] = []
+  const half = size / 2
+
+  for (let lag = -half; lag < half; lag++) {
+    const index = lag < 0 ? lag + size : lag
+    const prevLag = lag - 1
+    const nextLag = lag + 1
+    const previous =
+      prevLag < -half
+        ? -Infinity
+        : values[prevLag < 0 ? prevLag + size : prevLag]
+    const current = values[index]
+    const next =
+      nextLag >= half
+        ? -Infinity
+        : values[nextLag < 0 ? nextLag + size : nextLag]
+
+    if (current <= previous || current <= next) {
+      continue
+    }
+
+    peaks.push({
+      offsetSeconds: lag * WINDOW_DURATION,
+      confidence: current / mean,
+    })
+  }
+
+  if (peaks.length === 0) {
+    return []
+  }
+
+  return peaks.sort((a, b) => b.confidence - a.confidence).slice(0, 5)
 }
 
 function dequantize(data: Int8Array) {
   const result = new Float64Array(data.length)
 
   for (let i = 0; i < data.length; i++) {
-    result[i] = data[i]! / 32
+    result[i] = data[i] / 32
   }
 
   return result
@@ -163,8 +202,8 @@ function fft(real: Float64Array, imag: Float64Array) {
     j ^= bit
 
     if (i < j) {
-      ;[real[i], real[j]] = [real[j]!, real[i]!]
-      ;[imag[i], imag[j]] = [imag[j]!, imag[i]!]
+      ;[real[i], real[j]] = [real[j], real[i]]
+      ;[imag[i], imag[j]] = [imag[j], imag[i]]
     }
   }
 
@@ -179,12 +218,12 @@ function fft(real: Float64Array, imag: Float64Array) {
       const half = len / 2
 
       for (let j = 0; j < half; j++) {
-        const uReal = real[i + j]!
-        const uImag = imag[i + j]!
+        const uReal = real[i + j]
+        const uImag = imag[i + j]
         const vReal =
-          real[i + j + half]! * curReal - imag[i + j + half]! * curImag
+          real[i + j + half] * curReal - imag[i + j + half] * curImag
         const vImag =
-          real[i + j + half]! * curImag + imag[i + j + half]! * curReal
+          real[i + j + half] * curImag + imag[i + j + half] * curReal
 
         real[i + j] = uReal + vReal
         imag[i + j] = uImag + vImag
@@ -203,13 +242,13 @@ function ifft(real: Float64Array, imag: Float64Array) {
   const n = real.length
 
   for (let i = 0; i < n; i++) {
-    imag[i] = -imag[i]!
+    imag[i] = -imag[i]
   }
 
   fft(real, imag)
 
   for (let i = 0; i < n; i++) {
-    real[i] = real[i]! / n
-    imag[i] = -imag[i]! / n
+    real[i] = real[i] / n
+    imag[i] = -imag[i] / n
   }
 }
