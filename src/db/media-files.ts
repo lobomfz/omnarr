@@ -139,54 +139,14 @@ export const DbMediaFiles = {
     }
 
     const metrics = await db
-      .with('base', (eb) =>
-        eb
-          .selectFrom('media_files as mf')
-          .where('mf.media_id', '=', mediaId)
-          .select(['mf.id as file_id'])
-      )
-      .selectNoFrom((eb) =>
-        eb
-          .selectFrom('base')
-          .select((ib) =>
-            ib.cast<number>(ib.fn.countAll(), 'integer').as('count')
-          )
-          .as('total')
-      )
-      .select((eb) =>
-        eb
-          .selectFrom('base as b')
-          .where((wb) =>
-            wb.not(
-              wb.exists(
-                wb
-                  .selectFrom('media_tracks as mt')
-                  .whereRef('mt.media_file_id', '=', 'b.file_id')
-                  .where('mt.scan_ratio', 'is not', null)
-                  .where('mt.scan_ratio', '<', 1)
-                  .selectAll()
-              )
-            )
-          )
-          .select((ib) =>
-            ib.cast<number>(ib.fn.countAll(), 'integer').as('count')
-          )
-          .as('current')
-      )
-      .select((eb) =>
-        eb
-          .selectFrom('media_tracks as mt')
-          .where('mt.media_file_id', '=', scanning.file_id)
-          .where('mt.stream_type', 'in', ['video', 'audio'])
-          .where('mt.scan_ratio', 'is not', null)
-          .select((ib) => ib.fn.avg<number>('mt.scan_ratio').as('ratio'))
-          .as('ratio')
-      )
+      .selectFrom('media_tracks as mt')
+      .where('mt.media_file_id', '=', scanning.file_id)
+      .where('mt.stream_type', 'in', ['video', 'audio'])
+      .where('mt.scan_ratio', 'is not', null)
+      .select((ib) => ib.fn.avg<number>('mt.scan_ratio').as('ratio'))
       .executeTakeFirstOrThrow()
 
     return {
-      current: metrics.current ?? 0,
-      total: metrics.total ?? 0,
       path: scanning.path,
       ratio: metrics.ratio,
     }

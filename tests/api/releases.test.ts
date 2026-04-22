@@ -32,7 +32,7 @@ describe('releases.search', () => {
       media_type: 'movie',
     })
 
-    const seeders = result.releases.map((r) => r.seeders ?? 0)
+    const seeders = result.releases.map((r) => r.seeders)
 
     for (let i = 1; i < seeders.length; i++) {
       expect(seeders[i]).toBeLessThanOrEqual(seeders[i - 1])

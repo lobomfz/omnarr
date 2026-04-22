@@ -180,8 +180,6 @@ describe('library.getInfo', () => {
     const result = await client.library.getInfo({ id: media.id })
 
     expect(result.active_scan).toEqual({
-      current: 1,
-      total: 2,
       path: '/downloads/movie.mkv',
       ratio: 0.4,
     })
@@ -266,8 +264,8 @@ describe('library.getInfo', () => {
     expect(result.genres).toEqual([])
   })
 
-  test('throws when ID does not exist in search_results or tmdb_media', async () => {
-     expect(() => client.library.getInfo({ id: 'NOTEXIST' })).toThrow()
+  test('throws when ID does not exist in search_results or tmdb_media', () => {
+    expect(() => client.library.getInfo({ id: 'NOTEXIST' })).toThrow()
   })
 
   test('non-existent ID error has proper HTTP status', async () => {
@@ -282,8 +280,8 @@ describe('library.getInfo', () => {
 })
 
 describe('library.rescan', () => {
-  test('throws when media does not exist', async () => {
-     expect(() => client.library.rescan({ media_id: 'NOTEXIST' })).toThrow(
+  test('throws when media does not exist', () => {
+    expect(() => client.library.rescan({ media_id: 'NOTEXIST' })).toThrow(
       'MEDIA_NOT_FOUND'
     )
   })

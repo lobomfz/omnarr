@@ -104,7 +104,7 @@ export class Releases {
 
     Log.info(`releases persisted count=${persisted.length}`)
 
-    return persisted.sort((a, b) => (b.seeders ?? 0) - (a.seeders ?? 0))
+    return persisted.sort((a, b) => b.seeders - a.seeders)
   }
 
   async search(

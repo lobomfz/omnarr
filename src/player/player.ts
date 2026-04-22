@@ -58,10 +58,7 @@ export class Player extends TrackResolver {
     return {
       hlsPath: this.server.hlsPath,
       audioOffset: audioSync.offset,
-      audioSpeed: audioSync.speed,
       subtitleOffset,
-      subtitleSpeed: subtitleSync.speed,
-      subtitleConfidence: subtitleSync.confidence,
       ...resolved,
     }
   }

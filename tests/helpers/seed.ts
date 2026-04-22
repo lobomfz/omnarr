@@ -470,6 +470,7 @@ export const TestSeed = {
           indexer_source: 'yts',
           name: 'The.Matrix.1999.1080p.BluRay-GROUP',
           size: 5000000,
+          seeders: 100,
           imdb_id: 'tt0133093',
           resolution: '1080p',
           codec: 'x264',

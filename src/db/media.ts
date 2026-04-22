@@ -49,6 +49,8 @@ export function selectTracks(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
         'mt.width',
         'mt.height',
         'mt.channel_layout',
+        'mt.bit_rate',
+        'mt.scan_ratio',
       ])
       .orderBy('mt.stream_index')
   ).as('tracks')

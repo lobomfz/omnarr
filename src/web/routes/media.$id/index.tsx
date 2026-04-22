@@ -2,22 +2,38 @@ import { ORPCError } from '@orpc/client'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import type { ErrorComponentProps } from '@tanstack/react-router'
+import { type } from 'arktype'
 import { SearchX } from 'lucide-react'
-import { Suspense, useMemo, useState } from 'react'
+import { Suspense, useCallback, useMemo } from 'react'
 
 import { orpc } from '@/web/client'
 import { ReleasesSection } from '@/web/components/releases/releases-section'
 import type { MediaInfo } from '@/web/types/library'
 
-import { DownloadsSection } from './-components/downloads-section'
+import { EpisodeDetail } from './-components/episode-detail'
+import { EpisodeList } from './-components/episode-list'
 import { Hero } from './-components/hero'
+import { LibraryOverview } from './-components/library-overview'
 import { PageSkeleton } from './-components/page-skeleton'
-import { TrackSelector } from './-components/track-selector'
+import { SeasonRibbon } from './-components/season-ribbon'
+import {
+  useScanFileProgress,
+  useScanProgress,
+} from './-utils/use-scan-progress'
 import { useTrackSelection } from './-utils/use-track-selection'
+
+const searchSchema = type({
+  'season?': 'number.integer',
+  'episode?': 'number.integer',
+  'video?': 'number.integer',
+  'audio?': 'number.integer',
+  'sub?': 'number.integer',
+})
 
 export const Route = createFileRoute('/media/$id/')({
   component: MediaPage,
   errorComponent: MediaError,
+  validateSearch: (search) => searchSchema.assert(search),
 })
 
 function MediaPage() {
@@ -46,21 +62,89 @@ function firstEpisodeOf(data: MediaInfo, seasonNumber: number | undefined) {
 
 function MediaContent(props: { id: string }) {
   const { data } = useMediaInfo(props.id)
-  const initialSeason =
-    data.media_type === 'tv'
-      ? data.seasons.find((s) => s.season_number === 1)?.season_number
-      : undefined
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const isTv = data.media_type === 'tv'
 
-  const [selectedSeason, setSelectedSeason] = useState(initialSeason)
-  const [selectedEpisode, setSelectedEpisode] = useState(() =>
-    firstEpisodeOf(data, initialSeason)
+  const defaultSeason = isTv
+    ? (data.seasons.find((s) => s.season_number === 1)?.season_number ??
+      data.seasons[0]?.season_number)
+    : undefined
+
+  const selectedSeason = isTv
+    ? (data.seasons.find((s) => s.season_number === search.season)
+        ?.season_number ?? defaultSeason)
+    : undefined
+
+  const selectedEpisode = isTv
+    ? (data.seasons
+        .find((s) => s.season_number === selectedSeason)
+        ?.episodes.find((e) => e.episode_number === search.episode)
+        ?.episode_number ?? firstEpisodeOf(data, selectedSeason))
+    : undefined
+
+  const updateSelection = useCallback(
+    (next: { season?: number; episode?: number }) => {
+      void navigate({ search: next, replace: true })
+    },
+    [navigate]
+  )
+
+  const updateTrack = useCallback(
+    (patch: { video?: number; audio?: number; sub?: number }) => {
+      void navigate({
+        search: (prev) => ({ ...prev, ...patch }),
+        replace: true,
+      })
+    },
+    [navigate]
+  )
+
+  const scanProgress = useScanProgress(data.id, data.active_scan)
+  const scanFileProgress = useScanFileProgress(
+    data.id,
+    scanProgress?.path,
+    data.active_scan
+  )
+
+  const scanningPaths = useMemo(
+    () =>
+      scanProgress?.path ? new Set([scanProgress.path]) : new Set<string>(),
+    [scanProgress?.path]
+  )
+
+  const downloadingSeasons = useMemo(
+    () =>
+      new Set(
+        data.downloads
+          .filter((d) => d.status === 'downloading' && d.season_number != null)
+          .map((d) => d.season_number as number)
+      ),
+    [data.downloads]
+  )
+
+  const selectedSeasonData = useMemo(
+    () => data.seasons.find((s) => s.season_number === selectedSeason),
+    [data.seasons, selectedSeason]
+  )
+
+  const selectedEpisodeData = useMemo(
+    () =>
+      selectedSeasonData?.episodes.find(
+        (e) => e.episode_number === selectedEpisode
+      ),
+    [selectedSeasonData, selectedEpisode]
   )
 
   const tracks = useMemo(
     () => collectTracks(data, selectedSeason, selectedEpisode),
     [data, selectedSeason, selectedEpisode]
   )
-  const selection = useTrackSelection(tracks)
+  const selection = useTrackSelection(
+    tracks,
+    { video: search.video, audio: search.audio, sub: search.sub },
+    updateTrack
+  )
 
   const watchParams =
     selection.video != null && selection.audio != null
@@ -71,48 +155,100 @@ function MediaContent(props: { id: string }) {
         }
       : undefined
 
+  const onHeroSelect = (
+    season: number | undefined,
+    episode: number | undefined
+  ) => {
+    updateSelection({ season, episode })
+  }
+
   return (
     <>
-      <Hero media={data} watchParams={watchParams} />
+      <Hero
+        media={data}
+        selectedSeason={selectedSeason}
+        selectedEpisode={selectedEpisode}
+        watchParams={watchParams}
+        tracks={tracks}
+        selection={selection}
+        onSelect={onHeroSelect}
+      />
 
-      <div className="max-w-5xl mx-auto pt-6 pb-8 space-y-6">
-        {data.media_type === 'tv' && data.seasons.length > 0 && (
-          <div className="flex items-center gap-3">
-            <SeasonPicker
+      <div className="max-w-5xl mx-auto px-4 pt-6 pb-12 space-y-8">
+        {!!data.added_at && isTv && selectedSeasonData && (
+          <section className="space-y-4">
+            <SeasonRibbon
               seasons={data.seasons}
-              value={selectedSeason}
-              onChange={(v) => {
-                setSelectedSeason(v)
-                setSelectedEpisode(firstEpisodeOf(data, v))
-              }}
+              downloadingSeasons={downloadingSeasons}
+              selectedSeason={selectedSeason}
+              onSelect={(s) =>
+                updateSelection({
+                  season: s,
+                  episode: firstEpisodeOf(data, s),
+                })
+              }
             />
 
-            {selectedSeason != null && (
-              <EpisodePicker
-                episodes={
-                  data.seasons.find((s) => s.season_number === selectedSeason)
-                    ?.episodes ?? []
+            <div className="grid grid-cols-[280px_1fr] gap-5">
+              <EpisodeList
+                episodes={selectedSeasonData.episodes}
+                selectedEpisode={selectedEpisode}
+                scanningPaths={scanningPaths}
+                onSelect={(e) =>
+                  updateSelection({ season: selectedSeason, episode: e })
                 }
-                value={selectedEpisode}
-                onChange={setSelectedEpisode}
               />
-            )}
+
+              {!!selectedEpisodeData && (
+                <EpisodeDetail
+                  seasonNumber={selectedSeasonData.season_number}
+                  episode={selectedEpisodeData}
+                  downloads={data.downloads}
+                  scanningPaths={scanningPaths}
+                  selection={selection}
+                />
+              )}
+              {!selectedEpisodeData && (
+                <div className="bg-card border border-border rounded-2xl px-6 py-12 text-center text-sm text-muted-foreground">
+                  Pick an episode.
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {!!data.added_at && !isTv && (
+          <MovieSources
+            media={data}
+            scanningPaths={scanningPaths}
+            selection={selection}
+          />
+        )}
+
+        {!!data.added_at && (
+          <LibraryOverview
+            media={data}
+            scanningPaths={scanningPaths}
+            selection={selection}
+          />
+        )}
+
+        {!!data.added_at && scanFileProgress?.current_step && (
+          <div
+            data-component="scan-step"
+            className="font-mono text-[10px] text-fg-dim"
+          >
+            scanning · {scanFileProgress.current_step} ·{' '}
+            {Math.round(scanFileProgress.ratio * 100)}%
           </div>
         )}
 
-        {!!data.added_at && (
-          <TrackSelector tracks={tracks} selection={selection} />
-        )}
-
-        {!!data.added_at && (
-          <DownloadsSection media={data} seasonNumber={selectedSeason} />
-        )}
-
-        {data.media_type === 'tv' && selectedSeason == null ? (
+        {(isTv && selectedSeason == null) && (
           <p className="text-sm text-muted-foreground text-center py-12">
             Select a season to view releases.
           </p>
-        ) : (
+        )}
+        {!(isTv && selectedSeason == null) && (
           <ReleasesSection
             tmdb_id={data.tmdb_id}
             media_type={data.media_type}
@@ -122,6 +258,36 @@ function MediaContent(props: { id: string }) {
         )}
       </div>
     </>
+  )
+}
+
+function MovieSources(props: {
+  media: MediaInfo
+  scanningPaths: Set<string>
+  selection: ReturnType<typeof useTrackSelection>
+}) {
+  const files = props.media.downloads.flatMap((d) => d.files)
+
+  if (files.length === 0) {
+    return null
+  }
+
+  const download = props.media.downloads[0]
+
+  const pseudoEpisode = {
+    episode_number: 1,
+    title: props.media.title,
+    files: files.map((f) => ({ ...f, download_id: download.id })),
+  }
+
+  return (
+    <EpisodeDetail
+      seasonNumber={0}
+      episode={pseudoEpisode}
+      downloads={props.media.downloads}
+      scanningPaths={props.scanningPaths}
+      selection={props.selection}
+    />
   )
 }
 
@@ -152,56 +318,6 @@ function collectTracks(
   return data.downloads.flatMap((d) => d.files.flatMap((f) => f.tracks))
 }
 
-function SeasonPicker(props: {
-  seasons: MediaInfo['seasons']
-  value: number | undefined
-  onChange: (value: number | undefined) => void
-}) {
-  return (
-    <select
-      data-component="season-picker"
-      value={props.value ?? ''}
-      onChange={(e) =>
-        props.onChange(e.target.value ? Number(e.target.value) : undefined)
-      }
-      className="rounded-lg bg-card px-3 py-2 text-sm text-foreground border border-white/10 outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
-    >
-      <option value="">Select season...</option>
-      {props.seasons.map((s) => (
-        <option key={s.season_number} value={s.season_number}>
-          {s.title ?? `Season ${s.season_number}`}
-        </option>
-      ))}
-    </select>
-  )
-}
-
-type Episode = MediaInfo['seasons'][number]['episodes'][number]
-
-function EpisodePicker(props: {
-  episodes: Episode[]
-  value: number | undefined
-  onChange: (value: number | undefined) => void
-}) {
-  return (
-    <select
-      data-component="episode-picker"
-      value={props.value ?? ''}
-      onChange={(e) =>
-        props.onChange(e.target.value ? Number(e.target.value) : undefined)
-      }
-      className="rounded-lg bg-card px-3 py-2 text-sm text-foreground border border-white/10 outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
-    >
-      <option value="">Select episode...</option>
-      {props.episodes.map((e) => (
-        <option key={e.episode_number} value={e.episode_number}>
-          {e.title ?? `Episode ${e.episode_number}`}
-        </option>
-      ))}
-    </select>
-  )
-}
-
 function MediaError({ error }: ErrorComponentProps) {
   const router = useRouter()
 
@@ -215,6 +331,7 @@ function MediaError({ error }: ErrorComponentProps) {
         <p className="text-lg">Media not found</p>
         <button
           type="button"
+          data-slot="go-back"
           onClick={() => router.history.back()}
           className="text-sm text-primary hover:underline"
         >

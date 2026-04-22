@@ -11,9 +11,7 @@ beforeEach(() => {
   TestSeed.reset()
 })
 
-afterEach(async () => {
-  await cleanup()
-})
+afterEach(() => cleanup())
 
 describe('hero spotlight', () => {
   test('does not render when library is empty', async () => {

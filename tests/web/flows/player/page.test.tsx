@@ -16,7 +16,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await playerSession.stop()
-  await cleanup()
+  cleanup()
 })
 
 describe('player page', () => {
@@ -50,7 +50,7 @@ describe('player page', () => {
       { timeout: 5000 }
     )
 
-    router.navigate({ to: '/' })
+    void router.navigate({ to: '/' })
 
     await waitFor(() => {
       expect(playerSession.active).toBe(false)

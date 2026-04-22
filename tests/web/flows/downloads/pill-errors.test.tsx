@@ -22,9 +22,7 @@ beforeEach(() => {
   TestSeed.reset()
 })
 
-afterEach(async () => {
-  await cleanup()
-})
+afterEach(() => cleanup())
 
 describe('errors and conflicts', () => {
   test('failed download leaves pill immediately', async () => {
@@ -75,7 +73,7 @@ describe('errors and conflicts', () => {
 
     await waitFor(
       () => {
-        expect(get('download-group').dataset.status).toBe('downloading')
+        expect(get('library-release-row').dataset.state).toBe('downloading')
       },
       { timeout: 5000 }
     )
@@ -95,7 +93,7 @@ describe('errors and conflicts', () => {
 
     await waitFor(
       () => {
-        expect(get('download-group').dataset.status).toBe('error')
+        expect(get('library-release-row').dataset.state).toBe('error')
       },
       { timeout: 3000 }
     )
@@ -107,7 +105,7 @@ describe('errors and conflicts', () => {
       .executeTakeFirstOrThrow()
 
     expect(errorRow.error_at).not.toBeNull()
-    expect(get('download-group').dataset.errorAt).toBe(errorRow.error_at!)
+    expect(get('library-release-row').dataset.errorAt).toBe(errorRow.error_at!)
   })
 
   test('recovered download reappears in pill after error', async () => {

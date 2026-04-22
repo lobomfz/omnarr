@@ -16,7 +16,7 @@ interface QBitTorrent {
   content_path: string
 }
 
-const stateMap: Record<string, TorrentStatus['status']> = {
+const stateMap: Partial<Record<string, TorrentStatus['status']>> = {
   downloading: 'downloading',
   stalledDL: 'downloading',
   forcedDL: 'downloading',

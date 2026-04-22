@@ -177,7 +177,6 @@ export class TrackResolver {
             ),
             speed: best.speed,
             confidence: best.confidence,
-            topPeaks: best.topPeaks,
             correlate: AudioCorrelator.correlateOnsets,
           })
     const resolved = refined ?? best
@@ -233,7 +232,6 @@ export class TrackResolver {
             ),
             speed: best.speed,
             confidence: best.confidence,
-            topPeaks: best.topPeaks,
             correlate: AudioCorrelator.correlateTimestamps,
           })
     const resolved = refined ?? best
@@ -314,15 +312,19 @@ export class TrackResolver {
       }))
     )
 
-    return (
-      results
-        .filter(
-          (r): r is { track: T; result: AudioCorrelationResult } =>
-            r.result !== null
-        )
-        .sort((a, b) => b.result.confidence - a.result.confidence)[0]?.track ??
-      null
-    )
+    const best = results
+      .filter(
+        (r): r is { track: T; result: AudioCorrelationResult } =>
+          r.result !== null
+      )
+      .sort((a, b) => b.result.confidence - a.result.confidence)
+      .at(0)
+
+    if (!best) {
+      return null
+    }
+
+    return best.track
   }
 
   private async correlateAudioTracks(
@@ -383,16 +385,19 @@ export class TrackResolver {
       )
 
       if (input.referenceTrack) {
-        const audioSync = input.audioSync
-
-        if (audioSync.applied && audioSubtitle.confidence !== null) {
+        if (input.audioSync.applied && audioSubtitle.confidence !== null) {
           candidates.push({
-            offset: audioSubtitle.offset / audioSync.speed + audioSync.offset,
+            offset:
+              audioSubtitle.offset / input.audioSync.speed +
+              input.audioSync.offset,
             confidence:
-              audioSync.confidence === null
+              input.audioSync.confidence === null
                 ? audioSubtitle.confidence
-                : Math.min(audioSubtitle.confidence, audioSync.confidence),
-            speed: audioSubtitle.speed * audioSync.speed,
+                : Math.min(
+                    audioSubtitle.confidence,
+                    input.audioSync.confidence
+                  ),
+            speed: audioSubtitle.speed * input.audioSync.speed,
           })
         }
       } else {
@@ -402,7 +407,8 @@ export class TrackResolver {
 
     const best = candidates
       .filter((c): c is ConfidentSubtitleSync => c.confidence !== null)
-      .sort((a, b) => b.confidence - a.confidence)[0]
+      .sort((a, b) => b.confidence - a.confidence)
+      .at(0)
 
     if (!best) {
       return { ...SUBTITLE_SKIPPED }

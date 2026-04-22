@@ -71,7 +71,9 @@ export class Exporter extends TrackResolver {
   }
 
   async export(opts: { video?: number; output: string }) {
-    if (await Bun.file(opts.output).exists()) {
+    const outputExists = await Bun.file(opts.output).exists()
+
+    if (outputExists) {
       throw new Error(`Output file already exists: ${opts.output}`)
     }
 
@@ -99,7 +101,7 @@ export class Exporter extends TrackResolver {
     ).run({
       duration: strategy.resolved.video.file_duration ?? 0,
       onProgress: (ratio) => {
-        PubSub.publish('export_progress', {
+        void PubSub.publish('export_progress', {
           media_id: this.media.id,
           output: opts.output,
           ratio,

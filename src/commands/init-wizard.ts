@@ -4,10 +4,10 @@ import { dirname, join } from 'path'
 import type { PromptApi } from '@bunli/core'
 import type { Type } from '@lobomfz/db'
 
+import { indexerMap } from '@/integrations/indexers/registry'
 import type { Config, ConfigInput } from '@/lib/config'
 import { configJsonSchema } from '@/lib/config'
 import { envVariables } from '@/lib/env'
-import { indexerMap } from '@/integrations/indexers/registry'
 import { Log } from '@/lib/log'
 
 interface SchemaProp {
@@ -94,7 +94,7 @@ export class InitWizard {
     }
 
     for (const prop of props) {
-      const branch = prop.value.branches[0]
+      const branch = prop.value.branches.at(0)
 
       if (branch?.unit !== undefined) {
         result[prop.key] = branch.unit
@@ -102,7 +102,7 @@ export class InitWizard {
       }
 
       if (branch?.domain === 'string') {
-        const label = prop.value.meta?.label ?? `${prop.key}:`
+        const label = prop.value.meta.label ?? `${prop.key}:`
         result[prop.key] = await this.prompt.text(label)
       }
     }

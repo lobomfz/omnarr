@@ -18,7 +18,7 @@ export interface IndexerRelease {
   source_id: string
   name: string | null
   size: number
-  seeders?: number
+  seeders: number
   imdb_id: string | null
   resolution: release_resolution | null
   codec: release_codec | null

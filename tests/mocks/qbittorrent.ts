@@ -42,7 +42,7 @@ export const QBittorrentMock = new Mock(
       let q = db.selectFrom('torrents').selectAll()
 
       if (query.hashes) {
-        const hashes = (query.hashes).split('|')
+        const hashes = query.hashes.split('|')
         q = q.where('hash', 'in', hashes)
       }
 
@@ -58,10 +58,12 @@ export const QBittorrentMock = new Mock(
         return new Response('Forbidden', { status: 403 })
       }
 
-      const data = body as Record<string, string>
+      const data = body as {
+        urls: string
+        category: string
+        savepath?: string
+      }
       const url = data.urls
-      const savepath = data.savepath ?? ''
-      const category = data.category ?? ''
       const hash =
         url.match(/btih:([^&]+)/)?.[1]?.toLowerCase() ??
         url.split('/').pop() ??
@@ -85,13 +87,15 @@ export const QBittorrentMock = new Mock(
             return
           }
 
+          const savepath = data.savepath ?? `/downloads/${data.category}`
+
           await db
             .insertInto('torrents')
             .values({
               hash,
               url,
               savepath,
-              category,
+              category: data.category,
               progress: 0,
               dlspeed: 0,
               eta: 0,

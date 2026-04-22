@@ -6,17 +6,15 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { DbMediaTracks } from '@/db/media-tracks'
 
 import { TestSeed } from '../../../helpers/seed'
-import { get, slot } from '../../dom'
+import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
-import { cleanup, fireEvent, waitFor } from '../../testing-library'
+import { cleanup, waitFor } from '../../testing-library'
 
 beforeEach(() => {
   TestSeed.reset()
 })
 
-afterEach(async () => {
-  await cleanup()
-})
+afterEach(() => cleanup())
 
 async function seedMovieWithTracks() {
   const media = await TestSeed.library.matrix()
@@ -66,24 +64,75 @@ async function seedMovieWithTracks() {
   }
 }
 
-describe('track selector', () => {
-  test('renders track options for video, audio, and subtitle', async () => {
-    const { media, tracks } = await seedMovieWithTracks()
+describe('hero track chips', () => {
+  test('renders audio and subtitle chips when tracks are present', async () => {
+    const { media } = await seedMovieWithTracks()
 
     mountApp(`/media/${media.id}`)
 
     await waitFor(
       () => {
-        get('track-selector')
-        get('track-option', { 'track-id': String(tracks.video.id) })
-        get('track-option', { 'track-id': String(tracks.audio.id) })
-        get('track-option', { 'track-id': String(tracks.subtitle.id) })
+        get('hero-track-chip', { 'stream-type': 'audio' })
+        get('hero-track-chip', { 'stream-type': 'subtitle' })
       },
       { timeout: 5000 }
     )
   })
 
-  test('pre-selects video and audio tracks with is_default flag', async () => {
+  test('hides video chip when only one video track exists', async () => {
+    const { media } = await seedMovieWithTracks()
+
+    mountApp(`/media/${media.id}`)
+
+    await waitFor(
+      () => {
+        get('hero-track-chip', { 'stream-type': 'audio' })
+      },
+      { timeout: 5000 }
+    )
+
+    expect(query('hero-track-chip', { 'stream-type': 'video' })).toBeNull()
+  })
+
+  test('shows video chip when multiple video tracks exist', async () => {
+    const media = await TestSeed.library.matrix()
+
+    await TestSeed.player.downloadWithTracks(
+      media.id,
+      'matrix-1080p',
+      '/movies/The.Matrix.1999.mkv',
+      [
+        {
+          stream_index: 0,
+          stream_type: 'video',
+          codec_name: 'h264',
+          is_default: true,
+          width: 1920,
+          height: 1080,
+        },
+        {
+          stream_index: 1,
+          stream_type: 'video',
+          codec_name: 'hevc',
+          is_default: false,
+          width: 3840,
+          height: 2160,
+        },
+      ],
+      { keyframes: [0, 10, 20], duration: 30 }
+    )
+
+    mountApp(`/media/${media.id}`)
+
+    await waitFor(
+      () => {
+        get('hero-track-chip', { 'stream-type': 'video' })
+      },
+      { timeout: 5000 }
+    )
+  })
+
+  test('pre-selects audio via is_default flag', async () => {
     const { media, tracks } = await seedMovieWithTracks()
 
     mountApp(`/media/${media.id}`)
@@ -91,29 +140,25 @@ describe('track selector', () => {
     await waitFor(
       () => {
         expect(
-          get('track-option', { 'track-id': String(tracks.video.id) }).dataset
-            .selected
-        ).toBe('true')
-        expect(
-          get('track-option', { 'track-id': String(tracks.audio.id) }).dataset
-            .selected
-        ).toBe('true')
+          get('hero-track-chip', { 'stream-type': 'audio' }).dataset
+            .selectedTrackId
+        ).toBe(String(tracks.audio.id))
       },
       { timeout: 5000 }
     )
   })
 
   test('subtitle not pre-selected when is_default is false', async () => {
-    const { media, tracks } = await seedMovieWithTracks()
+    const { media } = await seedMovieWithTracks()
 
     mountApp(`/media/${media.id}`)
 
     await waitFor(
       () => {
         expect(
-          get('track-option', { 'track-id': String(tracks.subtitle.id) })
-            .dataset.selected
-        ).toBe('false')
+          get('hero-track-chip', { 'stream-type': 'subtitle' }).dataset
+            .selectedTrackId
+        ).toBeUndefined()
       },
       { timeout: 5000 }
     )
@@ -170,28 +215,30 @@ describe('track selector', () => {
     await waitFor(
       () => {
         expect(
-          get('track-option', { 'track-id': String(eng.id) }).dataset.selected
-        ).toBe('true')
-        expect(
-          get('track-option', { 'track-id': String(por.id) }).dataset.selected
-        ).toBe('false')
+          get('hero-track-chip', { 'stream-type': 'audio' }).dataset
+            .selectedTrackId
+        ).toBe(String(eng.id))
       },
       { timeout: 5000 }
     )
+
+    await user.click(get('hero-track-chip', { 'stream-type': 'audio' }))
+
+    await waitFor(() => {
+      get('track-option', { 'track-id': String(por.id) })
+    })
 
     await user.click(get('track-option', { 'track-id': String(por.id) }))
 
     await waitFor(() => {
       expect(
-        get('track-option', { 'track-id': String(por.id) }).dataset.selected
-      ).toBe('true')
-      expect(
-        get('track-option', { 'track-id': String(eng.id) }).dataset.selected
-      ).toBe('false')
+        get('hero-track-chip', { 'stream-type': 'audio' }).dataset
+          .selectedTrackId
+      ).toBe(String(por.id))
     })
   })
 
-  test('subtitle can be toggled on and off', async () => {
+  test('subtitle enables via popover option', async () => {
     const { media, tracks } = await seedMovieWithTracks()
 
     const { user } = mountApp(`/media/${media.id}`)
@@ -199,22 +246,17 @@ describe('track selector', () => {
     await waitFor(
       () => {
         expect(
-          get('track-option', { 'track-id': String(tracks.subtitle.id) })
-            .dataset.selected
-        ).toBe('false')
+          get('hero-track-chip', { 'stream-type': 'subtitle' }).dataset
+            .selectedTrackId
+        ).toBeUndefined()
       },
       { timeout: 5000 }
     )
 
-    await user.click(
-      get('track-option', { 'track-id': String(tracks.subtitle.id) })
-    )
+    await user.click(get('hero-track-chip', { 'stream-type': 'subtitle' }))
 
     await waitFor(() => {
-      expect(
-        get('track-option', { 'track-id': String(tracks.subtitle.id) }).dataset
-          .selected
-      ).toBe('true')
+      get('track-option', { 'track-id': String(tracks.subtitle.id) })
     })
 
     await user.click(
@@ -223,13 +265,37 @@ describe('track selector', () => {
 
     await waitFor(() => {
       expect(
-        get('track-option', { 'track-id': String(tracks.subtitle.id) }).dataset
-          .selected
-      ).toBe('false')
+        get('hero-track-chip', { 'stream-type': 'subtitle' }).dataset
+          .selectedTrackId
+      ).toBe(String(tracks.subtitle.id))
     })
   })
 
-  test('shows empty state when no scanned tracks exist', async () => {
+  test('popover offers an Off option for subtitle', async () => {
+    const { media } = await seedMovieWithTracks()
+
+    const { user } = mountApp(`/media/${media.id}`)
+
+    await waitFor(
+      () => {
+        get('hero-track-chip', { 'stream-type': 'subtitle' })
+      },
+      { timeout: 5000 }
+    )
+
+    await user.click(get('hero-track-chip', { 'stream-type': 'subtitle' }))
+
+    await waitFor(
+      () => {
+        expect(
+          get('track-option', { 'track-id': 'off' }).dataset.selected
+        ).toBe('true')
+      },
+      { timeout: 5000 }
+    )
+  })
+
+  test('does not render chips when no scanned tracks exist', async () => {
     const media = await TestSeed.library.matrix()
     await TestSeed.downloads.completed(media.id)
 
@@ -237,13 +303,15 @@ describe('track selector', () => {
 
     await waitFor(
       () => {
-        get('track-selector-empty')
+        get('media-hero')
       },
       { timeout: 5000 }
     )
+
+    expect(query('hero-track-chips')).toBeNull()
   })
 
-  test('TV show auto-selects first episode of season 1 on page load', async () => {
+  test('TV show auto-selects first episode video into watch-cta URL', async () => {
     const { media, episodes } = await TestSeed.library.tv({
       tmdbId: 1399,
       title: 'Breaking Bad',
@@ -275,6 +343,15 @@ describe('track selector', () => {
           width: 1920,
           height: 1080,
         },
+        {
+          stream_index: 1,
+          stream_type: 'audio',
+          codec_name: 'aac',
+          is_default: true,
+          channels: 2,
+          channel_layout: 'stereo',
+          language: 'eng',
+        },
       ],
       { keyframes: [0, 10], duration: 20, episode_id: episodes[0].id }
     )
@@ -286,13 +363,17 @@ describe('track selector', () => {
 
     await waitFor(
       () => {
-        get('track-option', { 'track-id': String(videoTrack.id) })
+        const link = slot(get('media-hero'), 'watch-cta').querySelector(
+          'a'
+        ) as HTMLAnchorElement
+        const url = new URL(link.href, 'http://localhost')
+        expect(url.searchParams.get('video')).toBe(String(videoTrack.id))
       },
       { timeout: 5000 }
     )
   })
 
-  test('TV show tracks reflect selected episode', async () => {
+  test('TV show episode switch updates watch-cta URL with new video', async () => {
     const { media, episodes } = await TestSeed.library.tv({
       tmdbId: 1399,
       title: 'Breaking Bad',
@@ -330,13 +411,14 @@ describe('track selector', () => {
           codec_name: 'aac',
           is_default: true,
           channels: 2,
+          channel_layout: 'stereo',
           language: 'eng',
         },
       ],
       { keyframes: [0, 10], duration: 20, episode_id: episodes[0].id }
     )
 
-    await TestSeed.player.downloadWithTracks(
+    const { file: file2 } = await TestSeed.player.downloadWithTracks(
       media.id,
       'bb-s01e02',
       '/tv/Breaking.Bad.S01E02.mkv',
@@ -352,9 +434,10 @@ describe('track selector', () => {
         {
           stream_index: 1,
           stream_type: 'audio',
-          codec_name: 'ac3',
+          codec_name: 'aac',
           is_default: true,
-          channels: 6,
+          channels: 2,
+          channel_layout: 'stereo',
           language: 'eng',
         },
       ],
@@ -363,54 +446,72 @@ describe('track selector', () => {
 
     const ep1Tracks = await DbMediaTracks.getByMediaFileId(file1.id)
     const ep1Video = ep1Tracks.find((t) => t.stream_type === 'video')!
+    const ep2Tracks = await DbMediaTracks.getByMediaFileId(file2.id)
+    const ep2Video = ep2Tracks.find((t) => t.stream_type === 'video')!
+
+    const { user } = mountApp(`/media/${media.id}`)
+
+    function getWatchUrl() {
+      const link = slot(get('media-hero'), 'watch-cta').querySelector(
+        'a'
+      ) as HTMLAnchorElement
+
+      return new URL(link.href, 'http://localhost')
+    }
+
+    await waitFor(
+      () => {
+        expect(getWatchUrl().searchParams.get('video')).toBe(
+          String(ep1Video.id)
+        )
+      },
+      { timeout: 5000 }
+    )
+
+    await user.click(slot(get('media-hero'), 'episode-picker-trigger'))
+
+    await waitFor(() => {
+      document.querySelector(
+        '[data-slot="episode-option"][data-episode-number="2"]'
+      )
+    })
+
+    const ep2 = document.querySelector(
+      '[data-slot="episode-option"][data-episode-number="2"]'
+    ) as HTMLElement
+
+    await user.click(ep2)
+
+    await waitFor(() => {
+      expect(getWatchUrl().searchParams.get('video')).toBe(String(ep2Video.id))
+    })
+  })
+})
+
+describe('Watch CTA navigation', () => {
+  test('watch-cta link carries selected track IDs', async () => {
+    const { media, tracks } = await seedMovieWithTracks()
 
     mountApp(`/media/${media.id}`)
 
     await waitFor(
       () => {
-        get('season-picker')
-      },
-      { timeout: 5000 }
-    )
-
-    fireEvent.change(get('season-picker'), { target: { value: '1' } })
-
-    await waitFor(() => {
-      get('episode-picker')
-    })
-
-    fireEvent.change(get('episode-picker'), { target: { value: '1' } })
-
-    await waitFor(() => {
-      get('track-option', { 'track-id': String(ep1Video.id) })
-    })
-  })
-})
-
-describe('Watch Now navigation', () => {
-  test('navigates to player route with selected track IDs', async () => {
-    const { media, tracks } = await seedMovieWithTracks()
-
-    const { user, router } = mountApp(`/media/${media.id}`)
-
-    await waitFor(
-      () => {
         expect(
-          get('track-option', { 'track-id': String(tracks.video.id) }).dataset
-            .selected
-        ).toBe('true')
+          get('hero-track-chip', { 'stream-type': 'audio' }).dataset
+            .selectedTrackId
+        ).toBe(String(tracks.audio.id))
       },
       { timeout: 5000 }
     )
 
-    await user.click(slot(get('media-hero'), 'watch-now'))
+    const link = slot(get('media-hero'), 'watch-cta').querySelector(
+      'a'
+    ) as HTMLAnchorElement
 
-    await waitFor(() => {
-      const url = new URL(router.state.location.href, 'http://localhost')
+    const url = new URL(link.href, 'http://localhost')
 
-      expect(url.pathname).toBe(`/media/${media.id}/play`)
-      expect(url.searchParams.get('video')).toBe(String(tracks.video.id))
-      expect(url.searchParams.get('audio')).toBe(String(tracks.audio.id))
-    })
+    expect(url.pathname).toBe(`/media/${media.id}/play`)
+    expect(url.searchParams.get('video')).toBe(String(tracks.video.id))
+    expect(url.searchParams.get('audio')).toBe(String(tracks.audio.id))
   })
 })

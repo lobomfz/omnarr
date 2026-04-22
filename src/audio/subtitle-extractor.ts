@@ -14,26 +14,23 @@ export const SubtitleExtractor = {
       return null
     }
 
-    try {
-      const stream = new FFmpegBuilder({ overwrite: true })
-        .input(subtitlePath)
-        .map(`0:${subtitleStreamIndex}`)
-        .format('srt')
-        .pipe()
+    const bytes = await new FFmpegBuilder({ overwrite: true })
+      .input(subtitlePath)
+      .map(`0:${subtitleStreamIndex}`)
+      .format('srt')
+      .capture()
+      .catch((err: any) => {
+        Log.warn(
+          `subtitle extraction failed path="${subtitlePath}" stream_index=${subtitleStreamIndex} error="${err.message}"`
+        )
 
-      const chunks: Uint8Array[] = []
+        return null
+      })
 
-      for await (const chunk of stream) {
-        chunks.push(chunk)
-      }
-
-      return Buffer.concat(chunks).toString('utf-8')
-    } catch (err: any) {
-      Log.warn(
-        `subtitle extraction failed path="${subtitlePath}" stream_index=${subtitleStreamIndex} error="${err.message}"`
-      )
-
+    if (bytes === null) {
       return null
     }
+
+    return Buffer.from(bytes).toString('utf-8')
   },
 }

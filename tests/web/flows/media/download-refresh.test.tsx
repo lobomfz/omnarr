@@ -16,9 +16,7 @@ beforeEach(() => {
   TestSeed.reset()
 })
 
-afterEach(async () => {
-  await cleanup()
-})
+afterEach(() => cleanup())
 
 describe('media page after adding download', () => {
   test('downloads section appears without manual refresh', async () => {
@@ -44,7 +42,7 @@ describe('media page after adding download', () => {
 
     await waitFor(
       () => {
-        expect(query('download-group')).not.toBeNull()
+        expect(query('library-release-row')).not.toBeNull()
       },
       { timeout: 5000 }
     )

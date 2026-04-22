@@ -55,6 +55,7 @@ async function setupMedia() {
       indexer_source: 'yts',
       name: 'The.Matrix.1999.1080p.BluRay.x264-GROUP',
       size: 8_000_000_000,
+      seeders: 100,
       imdb_id: 'tt0133093',
       resolution: '1080p',
       codec: 'x264',
@@ -325,7 +326,7 @@ describe('SubtitleMatcher.match edge cases', () => {
 
     const matcher = new SubtitleMatcher({ id: media.id })
 
-     expect(() => matcher.match({})).toThrow(/No VAD data found/)
+    expect(() => matcher.match({})).toThrow(/No VAD data found/)
   })
 
   test('returns all tested attempts with confidence on exhaustion', async () => {

@@ -21,9 +21,7 @@ beforeEach(() => {
   ripperQueue.clear()
 })
 
-afterEach(async () => {
-  await cleanup()
-})
+afterEach(() => cleanup())
 
 describe('cross-cutting navigation and mixed sources', () => {
   test('navigation away and back preserves current progress display', async () => {
@@ -41,7 +39,7 @@ describe('cross-cutting navigation and mixed sources', () => {
 
     await waitFor(
       () => {
-        expect(get('download-group').dataset.status).toBe('downloading')
+        expect(get('library-release-row').dataset.state).toBe('downloading')
       },
       { timeout: 5000 }
     )
@@ -73,7 +71,7 @@ describe('cross-cutting navigation and mixed sources', () => {
       { timeout: 5000 }
     )
 
-    expect(get('download-group').dataset.status).toBe('downloading')
+    expect(get('library-release-row').dataset.state).toBe('downloading')
   })
 
   test('clicking pill popover entry navigates to media detail and closes popover', async () => {
@@ -105,9 +103,9 @@ describe('cross-cutting navigation and mixed sources', () => {
       { timeout: 3000 }
     )
 
-    expect(get('download-pill', { nav: 'desktop' }).getAttribute('aria-expanded')).toBe(
-      'true'
-    )
+    expect(
+      get('download-pill', { nav: 'desktop' }).getAttribute('aria-expanded')
+    ).toBe('true')
 
     await user.click(get('pill-entry', { 'media-id': mediaId }))
 

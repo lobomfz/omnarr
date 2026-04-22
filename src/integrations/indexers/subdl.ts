@@ -159,6 +159,7 @@ export class SubdlAdapter implements Indexer {
         source_id: `subdl:${s.url}`,
         name: s.release_name,
         size: 0,
+        seeders: 0,
         imdb_id: params.imdb_id!,
         resolution: null,
         codec: null,

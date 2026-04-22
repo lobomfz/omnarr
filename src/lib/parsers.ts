@@ -123,7 +123,7 @@ export const Parsers = {
         continue
       }
 
-      const hasEpisode = match[2] !== undefined
+      const hasEpisode = match.at(2) !== undefined
 
       return {
         season_number: Number(match[1]),

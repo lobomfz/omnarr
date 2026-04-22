@@ -22,7 +22,6 @@
     "oxlint",
     "oxlint-tsgolint",
     "@typescript/native-preview",
-    "knip",
     "jscpd"
   ]
 }

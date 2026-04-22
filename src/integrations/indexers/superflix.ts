@@ -84,6 +84,7 @@ export class SuperflixAdapter implements Indexer {
         source_id: `superflix:${imdbId}`,
         name: null,
         size,
+        seeders: 0,
         imdb_id: imdbId,
         resolution,
         codec: null,
@@ -131,6 +132,7 @@ export class SuperflixAdapter implements Indexer {
         source_id: `superflix:${imdbId}:${season}`,
         name: null,
         size: episodeSize * episodes.length,
+        seeders: 0,
         imdb_id: imdbId,
         resolution,
         codec: null,
@@ -149,7 +151,7 @@ export class SuperflixAdapter implements Indexer {
     const allEpisodes = this.parseAllEpisodes(data, imdbId)
     const seasonEpisodes = allEpisodes[String(season)]
 
-    if (!seasonEpisodes || seasonEpisodes.length === 0) {
+    if (seasonEpisodes.length === 0) {
       return []
     }
 
@@ -432,7 +434,7 @@ export class SuperflixAdapter implements Indexer {
       )
 
       for (const buf of buffers) {
-        writer.write(buf)
+        void writer.write(buf)
       }
 
       downloaded += batch.length

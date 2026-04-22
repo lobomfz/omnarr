@@ -23,7 +23,7 @@ import { deriveId } from '@/lib/utils'
 import { TestSeed } from '../../../helpers/seed'
 import { get, query, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
-import { cleanup, fireEvent, waitFor } from '../../testing-library'
+import { cleanup, waitFor } from '../../testing-library'
 import {
   flush,
   seedRipperDownload,
@@ -37,9 +37,7 @@ beforeEach(() => {
 
 setDefaultTimeout(10_000)
 
-afterEach(async () => {
-  await cleanup()
-})
+afterEach(() => cleanup())
 
 describe('ripper lifecycle', () => {
   test('adding single-episode ripper release shows download in pill', async () => {
@@ -86,17 +84,6 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        get('season-picker')
-      },
-      { timeout: 5000 }
-    )
-
-    fireEvent.change(get('season-picker'), {
-      target: { value: '1' },
-    })
-
-    await waitFor(
-      () => {
         get('release-row', { 'source-id': 'SUPERFLIX:TT0903747:1' })
       },
       { timeout: 5000 }
@@ -125,17 +112,6 @@ describe('ripper lifecycle', () => {
     const mediaId = deriveId('1399:tv')
 
     const { user } = mountApp(`/media/${mediaId}`)
-
-    await waitFor(
-      () => {
-        get('season-picker')
-      },
-      { timeout: 5000 }
-    )
-
-    fireEvent.change(get('season-picker'), {
-      target: { value: '1' },
-    })
 
     await waitFor(
       () => {
@@ -202,7 +178,7 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(get('download-group').dataset.speed).toBe('5000000')
+        expect(get('library-release-row').dataset.speed).toBe('5000000')
       },
       { timeout: 5000 }
     )
@@ -240,7 +216,7 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(get('download-group').dataset.progress).toBe('0.75')
+        expect(get('library-release-row').dataset.downloadProgress).toBe('0.75')
       },
       { timeout: 5000 }
     )
@@ -323,7 +299,7 @@ describe('ripper lifecycle', () => {
       { timeout: 5000 }
     )
 
-    expect(get('download-group').dataset.status).toBe('error')
+    expect(get('library-release-row').dataset.state).toBe('error')
   })
 
   test('ripper worker crash transitions download to error in UI', async () => {
@@ -365,54 +341,10 @@ describe('ripper lifecycle', () => {
     )
   })
 
-  test('pending ripper download transitions to downloading with progress', async () => {
-    await TestSeed.library.matrix()
-    const mediaId = deriveId('603:movie')
-
-    const { downloadId } = await seedRipperDownload({
-      mediaId,
-      sourceId: 'ripper:pending:1',
-      status: 'pending',
-      progress: 0,
-    })
-
-    const { queryClient } = mountApp(`/media/${mediaId}`)
-
-    await waitFor(
-      () => {
-        get('download-pill', { nav: 'desktop' })
-        expect(get('download-group').dataset.status).toBe('pending')
-      },
-      { timeout: 5000 }
-    )
-
-    await DbDownloads.update(downloadId, {
-      status: 'downloading',
-      progress: 0.3,
-      speed: 2_000_000,
-      eta: 100,
-    })
-
-    await waitForDownloadProgressStream(queryClient)
-
-    await DownloadEvents.publish(downloadId)
-
-    await flush()
-
-    await waitFor(
-      () => {
-        expect(get('download-group').dataset.status).toBe('downloading')
-      },
-      { timeout: 5000 }
-    )
-
-    expect(get('download-group').dataset.progress).toBe('0.3')
-  })
-
-  test('season pack mixed states shows correct pill count and individual states', async () => {
+  test('season pack mixed states shows a row per download with its state', async () => {
     const media = await TestSeed.library.breakingBad()
 
-    await seedRipperDownload({
+    const { downloadId: dlDownloading } = await seedRipperDownload({
       mediaId: media.id,
       sourceId: 'ripper:mixed:1',
       status: 'downloading',
@@ -421,16 +353,16 @@ describe('ripper lifecycle', () => {
       episodeNumber: 1,
     })
 
-    await seedRipperDownload({
+    const { downloadId: dlError } = await seedRipperDownload({
       mediaId: media.id,
       sourceId: 'ripper:mixed:2',
-      status: 'pending',
+      status: 'error',
       progress: 0,
       seasonNumber: 1,
       episodeNumber: 2,
     })
 
-    await seedRipperDownload({
+    const { downloadId: dlQueued } = await seedRipperDownload({
       mediaId: media.id,
       sourceId: 'ripper:mixed:3',
       status: 'completed',
@@ -443,16 +375,18 @@ describe('ripper lifecycle', () => {
 
     await waitFor(
       () => {
-        expect(get('download-pill', { nav: 'desktop' }).dataset.count).toBe('2')
-      },
-      { timeout: 5000 }
-    )
-
-    await waitFor(
-      () => {
-        get('download-group', { status: 'downloading' })
-        get('download-group', { status: 'pending' })
-        get('download-group', { status: 'completed' })
+        expect(
+          get('library-release-row', { 'release-id': String(dlDownloading) })
+            .dataset.state
+        ).toBe('downloading')
+        expect(
+          get('library-release-row', { 'release-id': String(dlError) }).dataset
+            .state
+        ).toBe('error')
+        expect(
+          get('library-release-row', { 'release-id': String(dlQueued) }).dataset
+            .state
+        ).toBe('queued')
       },
       { timeout: 5000 }
     )

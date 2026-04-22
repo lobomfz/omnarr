@@ -21,9 +21,7 @@ beforeEach(() => {
   TestSeed.reset()
 })
 
-afterEach(async () => {
-  await cleanup()
-})
+afterEach(() => cleanup())
 
 async function selectReleaseAndDownload(user: UserEvent, sourceId: string) {
   await waitFor(

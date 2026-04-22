@@ -247,16 +247,11 @@ var API_URL_SOURCE = "/player/source";
         return new Response('Not found', { status: 404 })
       }
 
-      const grouped: Record<string, unknown[]> = {}
+      const grouped: Partial<Record<string, unknown[]>> = {}
 
       for (const ep of eps) {
         const key = String(ep.season)
-
-        if (!grouped[key]) {
-          grouped[key] = []
-        }
-
-        grouped[key].push({
+        ;(grouped[key] ??= []).push({
           ID: ep.content_id,
           epi_num: ep.episode,
           title: `Episode ${ep.episode}`,

@@ -39,8 +39,8 @@ describe('player.start', () => {
     expect(result.subtitleOffset).toBe(0)
   })
 
-  test('throws TRACK_NOT_FOUND when media does not exist', async () => {
-     expect(() =>
+  test('throws TRACK_NOT_FOUND when media does not exist', () => {
+    expect(() =>
       client.player.start({ media_id: 'NONEX', video: 1, audio: 2 })
     ).toThrow(expect.objectContaining({ code: 'TRACK_NOT_FOUND' }))
   })
@@ -48,7 +48,7 @@ describe('player.start', () => {
   test('throws TRACK_NOT_FOUND when track belongs to different media', async () => {
     const { video, audio } = await TestSeed.player.movieWithTracks()
 
-     expect(() =>
+    expect(() =>
       client.player.start({
         media_id: 'DIFFER',
         video: video.id,
@@ -62,7 +62,7 @@ describe('player.start', () => {
 
     await TestSeed.downloads.completed(media.id)
 
-     expect(() =>
+    expect(() =>
       client.player.start({ media_id: media.id, video: 999, audio: 999 })
     ).toThrow(expect.objectContaining({ code: 'TRACK_NOT_FOUND' }))
   })
@@ -97,7 +97,7 @@ describe('player.start', () => {
     const video = tracks.find((t) => t.stream_type === 'video')!
     const audio = tracks.find((t) => t.stream_type === 'audio')!
 
-     expect(() =>
+    expect(() =>
       client.player.start({
         media_id: media.id,
         video: video.id,
@@ -111,7 +111,7 @@ describe('player.start', () => {
   test('throws TRACK_NOT_FOUND when video track ID does not match any track', async () => {
     const { media, audio } = await TestSeed.player.movieWithTracks()
 
-     expect(() =>
+    expect(() =>
       client.player.start({
         media_id: media.id,
         video: 99999,
@@ -123,7 +123,7 @@ describe('player.start', () => {
   test('throws TRACK_NOT_FOUND when track ID exists but is wrong type', async () => {
     const { media, video, audio } = await TestSeed.player.movieWithTracks()
 
-     expect(() =>
+    expect(() =>
       client.player.start({
         media_id: media.id,
         video: audio.id,
@@ -204,7 +204,7 @@ describe('player.start', () => {
     const videoEp1 = tracks1.find((t) => t.stream_type === 'video')!
     const audioEp2 = tracks2.find((t) => t.stream_type === 'audio')!
 
-     expect(() =>
+    expect(() =>
       client.player.start({
         media_id: media.id,
         video: videoEp1.id,
@@ -373,15 +373,14 @@ describe('subtitle support', () => {
     const audio = tracks.find((t) => t.stream_type === 'audio')!
     const sub = tracks.find((t) => t.stream_type === 'subtitle')!
 
-    // Invalid container — FFmpeg should fail to extract, not silently produce empty subs
-     expect(() =>
+     expect(
       client.player.start({
         media_id: media.id,
         video: video.id,
         audio: audio.id,
         sub: sub.id,
       })
-    ).toThrow()
+    ).rejects.toThrow()
   })
 })
 

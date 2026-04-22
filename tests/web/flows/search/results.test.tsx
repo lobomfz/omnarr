@@ -13,9 +13,7 @@ beforeEach(() => {
   TestSeed.reset()
 })
 
-afterEach(async () => {
-  await cleanup()
-})
+afterEach(() => cleanup())
 
 describe('search empty states', () => {
   test('shows prompt message when no query is typed', async () => {

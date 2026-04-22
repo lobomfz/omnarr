@@ -173,9 +173,9 @@ export function VideoPlayer(props: { hlsPath: string; onBack: () => void }) {
     }
 
     if (document.fullscreenElement) {
-      document.exitFullscreen()
+      void document.exitFullscreen()
     } else {
-      container.requestFullscreen()
+      void container.requestFullscreen()
     }
   }, [])
 
@@ -224,7 +224,7 @@ export function VideoPlayer(props: { hlsPath: string; onBack: () => void }) {
       switch (e.key) {
         case ' ':
           e.preventDefault()
-          handlePlayPause()
+          void handlePlayPause()
           break
         case 'ArrowLeft':
           e.preventDefault()
@@ -325,11 +325,8 @@ export function VideoPlayer(props: { hlsPath: string; onBack: () => void }) {
                 onClick={handlePlayPause}
                 className="flex items-center justify-center size-10 rounded-full text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                {playing ? (
-                  <Pause className="size-5 fill-current" />
-                ) : (
-                  <Play className="size-5 fill-current" />
-                )}
+                {playing && <Pause className="size-5 fill-current" />}
+                {!playing && <Play className="size-5 fill-current" />}
               </button>
 
               <button
@@ -338,11 +335,8 @@ export function VideoPlayer(props: { hlsPath: string; onBack: () => void }) {
                 onClick={handleMuteToggle}
                 className="flex items-center justify-center size-10 rounded-full text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                {muted ? (
-                  <VolumeX className="size-5" />
-                ) : (
-                  <Volume2 className="size-5" />
-                )}
+                {muted && <VolumeX className="size-5" />}
+                {!muted && <Volume2 className="size-5" />}
               </button>
 
               <input
@@ -368,11 +362,8 @@ export function VideoPlayer(props: { hlsPath: string; onBack: () => void }) {
                 onClick={handleFullscreen}
                 className="flex items-center justify-center size-10 rounded-full text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                {fullscreen ? (
-                  <Minimize className="size-5" />
-                ) : (
-                  <Maximize className="size-5" />
-                )}
+                {fullscreen && <Minimize className="size-5" />}
+                {!fullscreen && <Maximize className="size-5" />}
               </button>
             </div>
           </div>

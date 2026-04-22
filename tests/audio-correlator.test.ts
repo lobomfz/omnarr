@@ -57,7 +57,7 @@ describe('AudioCorrelator.correlateTimestamps — synthetic', () => {
       result.topPeaks.every((peak, index, peaks) => {
         const previous = peaks[index - 1]
 
-        return !previous || previous.confidence >= peak.confidence
+        return index === 0 || previous.confidence >= peak.confidence
       })
     ).toBe(true)
   })

@@ -55,8 +55,8 @@ describe('subtitles.search', () => {
     expect(result[0].name).toContain('FR')
   })
 
-  test('errors for unknown media', async () => {
-     expect(() => client.subtitles.search({ media_id: 'XXXXXX' })).toThrow(
+  test('errors for unknown media', () => {
+    expect(() => client.subtitles.search({ media_id: 'XXXXXX' })).toThrow(
       'MEDIA_NOT_FOUND'
     )
   })
@@ -64,7 +64,7 @@ describe('subtitles.search', () => {
   test('TV requires season', async () => {
     const tv = await TestSeed.library.breakingBad()
 
-     expect(() => client.subtitles.search({ media_id: tv.id })).toThrow(
+    expect(() => client.subtitles.search({ media_id: tv.id })).toThrow(
       'TV_REQUIRES_SEASON'
     )
   })
@@ -231,8 +231,8 @@ describe('subtitles.download', () => {
     expect(await ep2File.exists()).toBe(true)
   })
 
-  test('errors for missing release', async () => {
-     expect(() =>
+  test('errors for missing release', () => {
+    expect(() =>
       client.subtitles.download({ release_id: 'XXXXXX', media_id: 'XXXXXX' })
     ).toThrow()
   })
@@ -242,7 +242,7 @@ describe('subtitles.download', () => {
       url: 'http://localhost:19007/subtitle/no-srt.zip',
     })
 
-     expect(() =>
+    expect(() =>
       client.subtitles.download({ release_id: releaseId, media_id: mediaId })
     ).toThrow('NO_SRT_IN_ARCHIVE')
 
@@ -266,16 +266,16 @@ describe('subtitles.autoMatch', () => {
     expect(result.media_id).toBe(media.id)
   })
 
-  test('errors for unknown media', async () => {
-     expect(() =>
-      client.subtitles.autoMatch({ media_id: 'XXXXXX' })
-    ).toThrow('MEDIA_NOT_FOUND')
+  test('errors for unknown media', () => {
+    expect(() => client.subtitles.autoMatch({ media_id: 'XXXXXX' })).toThrow(
+      'MEDIA_NOT_FOUND'
+    )
   })
 
   test('errors when TV is missing season/episode', async () => {
     const tv = await TestSeed.library.breakingBad()
 
-     expect(() => client.subtitles.autoMatch({ media_id: tv.id })).toThrow(
+    expect(() => client.subtitles.autoMatch({ media_id: tv.id })).toThrow(
       'TV_REQUIRES_SEASON_EPISODE'
     )
   })

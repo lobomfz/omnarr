@@ -114,15 +114,13 @@ export class TorrentSync {
 
     this.syncFailed = true
 
-    const message = err.message
-
-    Log.warn(`sync failed (first error): ${message}`)
+    Log.warn(`sync failed (first error): ${err.message}`)
 
     await DbEvents.create({
       entity_type: 'sync',
       entity_id: 'torrent-sync',
       event_type: 'error',
-      message,
+      message: err.message,
     })
   }
 

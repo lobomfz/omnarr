@@ -80,14 +80,14 @@ describe('SubdlAdapter', () => {
     expect(results[0].download_url).toContain('/subtitle/')
   })
 
-  test('propagates API errors', async () => {
+  test('propagates API errors', () => {
     const adapter = new SubdlAdapter({
       type: 'subdl',
       api_key: '',
       languages: ['EN'],
     })
 
-     expect(() => adapter.search({ imdb_id: 'tt0133093' })).toThrow(
+    expect(() => adapter.search({ imdb_id: 'tt0133093' })).toThrow(
       'API key required'
     )
   })

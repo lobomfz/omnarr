@@ -39,7 +39,6 @@ describe('refineCorrelation', () => {
       runtimeSeconds,
       speed: trueSpeed,
       confidence: initial.confidence,
-      topPeaks: initial.topPeaks,
       correlate: AudioCorrelator.correlateTimestamps,
     })
 
@@ -61,7 +60,6 @@ describe('refineCorrelation', () => {
       runtimeSeconds: 60,
       speed: 1.04,
       confidence: 0,
-      topPeaks: [],
       correlate: AudioCorrelator.correlateTimestamps,
     })
 

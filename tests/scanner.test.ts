@@ -265,8 +265,8 @@ describe('new Scanner().scan — file discovery', () => {
     expect(files).toHaveLength(0)
   })
 
-  test('throws when media_id does not exist', async () => {
-     expect(() => new Scanner().scan('NONEXISTENT')).toThrow()
+  test('throws when media_id does not exist', () => {
+    expect(() => new Scanner().scan('NONEXISTENT')).toThrow()
   })
 
   test('probes single file when content_path is a file', async () => {

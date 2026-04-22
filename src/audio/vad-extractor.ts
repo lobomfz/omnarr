@@ -71,16 +71,15 @@ export class VadExtractor {
     }
 
     const results = await session.run(feeds)
-    const outputNames = session.outputNames
 
-    this.state.set(results[outputNames[1]].data as Float32Array)
+    this.state.set(results[session.outputNames[1]].data as Float32Array)
     this.context.set(
       this.inputWithContext.subarray(
         this.inputWithContext.length - CONTEXT_SIZE
       )
     )
 
-    return (results[outputNames[0]].data as Float32Array)[0]
+    return (results[session.outputNames[0]].data as Float32Array)[0]
   }
 
   private async processFrame(frame: Float32Array, curSample: number) {

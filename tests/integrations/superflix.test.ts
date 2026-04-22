@@ -65,8 +65,8 @@ describe('SuperflixAdapter', () => {
       expect(streams.audio[1].lang).toBe('en')
     })
 
-    test('throws when movie not found', async () => {
-       expect(() => superflix.getStreams('tt9999999')).toThrow(
+    test('throws when movie not found', () => {
+      expect(() => superflix.getStreams('tt9999999')).toThrow(
         /page data not found/
       )
     })

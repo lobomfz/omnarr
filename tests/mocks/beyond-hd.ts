@@ -26,11 +26,11 @@ const BeyondHdMock = new Mock(
       async ({ body }) => {
         let query = db.selectFrom('results').selectAll()
 
-        if (body?.imdb_id) {
+        if (body.imdb_id) {
           query = query.where('imdb_id', '=', body.imdb_id)
         }
 
-        if (body?.search) {
+        if (body.search) {
           for (const term of body.search.split(' ').filter(Boolean)) {
             query = query.where('name', 'like', `%${term}%`)
           }

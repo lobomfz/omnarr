@@ -15,9 +15,7 @@ beforeEach(() => {
   TestSeed.reset()
 })
 
-afterEach(async () => {
-  await cleanup()
-})
+afterEach(() => cleanup())
 
 describe('library badge and navigation', () => {
   test('non-library best match has no badge and Open navigates to /media/$id', async () => {

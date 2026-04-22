@@ -20,7 +20,7 @@ export function ActionBar(props: {
       className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 glass-liquid"
     >
       <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 py-4 flex items-center gap-4">
-        {props.release ? (
+        {!!props.release && (
           <SelectedState
             release={props.release}
             isRipper={props.isRipper}
@@ -30,9 +30,8 @@ export function ActionBar(props: {
             isSuccess={props.isSuccess}
             onDownload={props.onDownload}
           />
-        ) : (
-          <EmptyState />
         )}
+        {!props.release && <EmptyState />}
       </div>
     </div>
   )
@@ -119,7 +118,8 @@ function SelectedState(props: {
         {!props.isPending && !props.isSuccess && (
           <Download className="size-4" />
         )}
-        {props.isSuccess ? 'Started' : 'Download'}
+        {props.isSuccess && 'Started'}
+        {!props.isSuccess && 'Download'}
       </button>
     </>
   )

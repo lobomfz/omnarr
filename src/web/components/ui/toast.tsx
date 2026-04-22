@@ -21,11 +21,8 @@ export function Toast(props: {
             : 'bg-destructive/15 text-destructive border-destructive/30'
         )}
       >
-        {props.type === 'success' ? (
-          <Check className="size-4" />
-        ) : (
-          <AlertCircle className="size-4" />
-        )}
+        {props.type === 'success' && <Check className="size-4" />}
+        {props.type !== 'success' && <AlertCircle className="size-4" />}
         {props.message}
       </div>
     </div>

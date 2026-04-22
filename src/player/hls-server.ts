@@ -121,8 +121,9 @@ export class HlsServer extends HlsSession {
     }
 
     const file = Bun.file(filePath)
+    const exists = await file.exists()
 
-    if (!(await file.exists())) {
+    if (!exists) {
       return new Response('Not Found', { status: 404 })
     }
 
@@ -246,8 +247,9 @@ export class HlsServer extends HlsSession {
     const filePath = join(this.opts.outDir, filename)
 
     const cached = Bun.file(filePath)
+    const cachedExists = await cached.exists()
 
-    if (await cached.exists()) {
+    if (cachedExists) {
       return new Response(cached, {
         headers: { 'Content-Type': 'text/vtt' },
       })

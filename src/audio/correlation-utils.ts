@@ -171,7 +171,6 @@ export function refineCorrelation(input: {
   runtimeSeconds: number
   speed: number
   confidence: number
-  topPeaks: ReturnType<Correlate>['topPeaks']
   correlate: Correlate
 }) {
   const windows = WindowedCorrelator.correlate({
@@ -211,6 +210,5 @@ export function refineCorrelation(input: {
     speed: refinedSpeed,
     offsetSeconds: fit.intercept,
     confidence: input.confidence,
-    topPeaks: input.topPeaks,
   }
 }

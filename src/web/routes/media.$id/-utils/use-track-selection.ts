@@ -1,46 +1,61 @@
-import { useEffect, useState } from 'react'
-
 import type { stream_type } from '@/db/connection'
 import type { MediaInfo } from '@/web/types/library'
 
 export type Track =
   MediaInfo['downloads'][number]['files'][number]['tracks'][number]
 
+type TrackPatch = {
+  video?: number
+  audio?: number
+  sub?: number
+}
+
+type TrackSearch = {
+  video?: number
+  audio?: number
+  sub?: number
+}
+
 export type TrackSelection = {
   video: number | undefined
   audio: number | undefined
   subtitle: number | undefined
-  select: (type: stream_type, id: number | undefined) => void
+  select: (type: stream_type, id?: number) => void
 }
 
-export function useTrackSelection(tracks: Track[]): TrackSelection {
-  const [video, setVideo] = useState<number | undefined>()
-  const [audio, setAudio] = useState<number | undefined>()
-  const [subtitle, setSubtitle] = useState<number | undefined>()
+export function useTrackSelection(
+  tracks: Track[],
+  search: TrackSearch,
+  onChange: (patch: TrackPatch) => void
+): TrackSelection {
+  const videoTracks = tracks.filter((t) => t.stream_type === 'video')
+  const audioTracks = tracks.filter((t) => t.stream_type === 'audio')
+  const subtitleTracks = tracks.filter((t) => t.stream_type === 'subtitle')
 
-  useEffect(() => {
-    const videoTracks = tracks.filter((t) => t.stream_type === 'video')
-    const audioTracks = tracks.filter((t) => t.stream_type === 'audio')
+  const defaultVideo =
+    videoTracks.find((t) => t.is_default) ?? videoTracks.at(0)
+  const defaultAudio =
+    audioTracks.find((t) => t.is_default) ?? audioTracks.at(0)
 
-    const defaultVideo = videoTracks.find((t) => t.is_default) ?? videoTracks[0]
-    const defaultAudio = audioTracks.find((t) => t.is_default) ?? audioTracks[0]
-
-    setVideo(defaultVideo?.id)
-    setAudio(defaultAudio?.id)
-    setSubtitle(undefined)
-  }, [tracks])
+  const video =
+    videoTracks.find((t) => t.id === search.video)?.id ?? defaultVideo?.id
+  const audio =
+    audioTracks.find((t) => t.id === search.audio)?.id ?? defaultAudio?.id
+  const subtitle = subtitleTracks.find((t) => t.id === search.sub)?.id
 
   return {
     video,
     audio,
     subtitle,
     select: (type, id) => {
-      const setters: Record<stream_type, (id: number | undefined) => void> = {
-        video: setVideo,
-        audio: setAudio,
-        subtitle: setSubtitle,
+      switch (type) {
+        case 'video':
+          return onChange({ video: id })
+        case 'audio':
+          return onChange({ audio: id })
+        case 'subtitle':
+          return onChange({ sub: id })
       }
-      setters[type](id)
     },
   }
 }

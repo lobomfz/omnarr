@@ -27,7 +27,7 @@ type TargetOf<Data, M> = Data extends readonly (infer U)[]
 
 type QueryOptions = {
   queryKey: readonly unknown[]
-  queryFn: (...args: any[]) => unknown | Promise<unknown>
+  queryFn: (...args: any[]) => unknown
 }
 
 type HasQueryKey = { queryKey: readonly unknown[] }
@@ -39,7 +39,7 @@ export function useQueryCache() {
   return useMemo(
     () => ({
       invalidate(options: HasQueryKey) {
-        qc.invalidateQueries({ queryKey: options.queryKey })
+        void qc.invalidateQueries({ queryKey: options.queryKey })
       },
 
       upsert<T extends QueryOptions, M extends MatcherFor<InferData<T>>>(

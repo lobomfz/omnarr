@@ -11,89 +11,87 @@ import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 
 export const ripperWorker = new Worker<RipperJobData>('ripper', async (job) => {
-  const data = job.data
-
   Log.info(
-    `ripper job started media_id=${data.media_id} download_id=${data.download_id}`
+    `ripper job started media_id=${job.data.media_id} download_id=${job.data.download_id}`
   )
 
   try {
     const result = await new Ripper({
-      download_id: data.download_id,
-      media_id: data.media_id,
-      source_id: data.source_id,
-      imdb_id: data.imdb_id,
-      tracks_dir: data.tracks_dir,
-      audio_only: data.audio_only,
-      season_number: data.season_number,
-      episode_number: data.episode_number,
+      download_id: job.data.download_id,
+      media_id: job.data.media_id,
+      source_id: job.data.source_id,
+      imdb_id: job.data.imdb_id,
+      tracks_dir: job.data.tracks_dir,
+      audio_only: job.data.audio_only,
+      season_number: job.data.season_number,
+      episode_number: job.data.episode_number,
     }).run()
 
     if (result.ripped > 0) {
-      await DbDownloads.update(data.download_id, {
+      await DbDownloads.update(job.data.download_id, {
         status: 'completed',
         progress: 1,
         content_path:
-          data.season_number == null || data.episode_number == null
-            ? data.tracks_dir
+          job.data.season_number == null || job.data.episode_number == null
+            ? job.data.tracks_dir
             : join(
-                data.tracks_dir,
+                job.data.tracks_dir,
                 Formatters.seasonEpisodeDir(
-                  data.season_number,
-                  data.episode_number
+                  job.data.season_number,
+                  job.data.episode_number
                 )
               ),
       })
 
       await DbEvents.create({
-        media_id: data.media_id,
+        media_id: job.data.media_id,
         entity_type: 'download',
-        entity_id: data.source_id,
+        entity_id: job.data.source_id,
         event_type: 'completed',
-        message: `Rip completed: ${data.title}`,
+        message: `Rip completed: ${job.data.title}`,
       })
 
-      await DownloadEvents.publish(data.download_id)
+      await DownloadEvents.publish(job.data.download_id)
 
-      Scheduler.scan(data.media_id)
+      Scheduler.scan(job.data.media_id)
     } else {
-      await DbDownloads.update(data.download_id, {
+      await DbDownloads.update(job.data.download_id, {
         status: 'error',
         error_at: new Date().toISOString(),
       })
 
       await DbEvents.create({
-        media_id: data.media_id,
+        media_id: job.data.media_id,
         entity_type: 'download',
-        entity_id: data.source_id,
+        entity_id: job.data.source_id,
         event_type: 'error',
         message: 'All streams failed to rip',
       })
 
-      await DownloadEvents.publish(data.download_id)
+      await DownloadEvents.publish(job.data.download_id)
     }
 
     Log.info(
-      `ripper job completed media_id=${data.media_id} ripped=${result.ripped}/${result.total}`
+      `ripper job completed media_id=${job.data.media_id} ripped=${result.ripped}/${result.total}`
     )
   } catch (err: any) {
-    const message = err.message
-
-    await DbDownloads.update(data.download_id, {
+    await DbDownloads.update(job.data.download_id, {
       status: 'error',
       error_at: new Date().toISOString(),
     })
 
     await DbEvents.create({
-      media_id: data.media_id,
+      media_id: job.data.media_id,
       entity_type: 'download',
-      entity_id: data.source_id,
+      entity_id: job.data.source_id,
       event_type: 'error',
-      message,
+      message: err.message,
     })
 
-    await DownloadEvents.publish(data.download_id)
+    await DownloadEvents.publish(job.data.download_id)
 
-    Log.error(`ripper job failed media_id=${data.media_id} error="${message}"`)
+    Log.error(
+      `ripper job failed media_id=${job.data.media_id} error="${err.message}"`
+    )
   }
 })

@@ -19,15 +19,13 @@ const noRawThrow = {
           return
         }
 
-        const name = arg.callee.name
-
-        if (name !== 'Error' && name !== 'ORPCError') {
+        if (arg.callee.name !== 'Error' && arg.callee.name !== 'ORPCError') {
           return
         }
 
         context.report({
           node: arg,
-          message: `Do not throw '${name}' in router-reachable code. Import { OmnarrError } from '@/shared/errors' and throw a typed code instead.`,
+          message: `Do not throw '${arg.callee.name}' in router-reachable code. Import { OmnarrError } from '@/shared/errors' and throw a typed code instead.`,
         })
       },
     }
@@ -45,32 +43,31 @@ const noDomQueries = {
   create(context) {
     return {
       CallExpression(node) {
-        const callee = node.callee
-
-        if (callee.type !== 'MemberExpression') {
+        if (node.callee.type !== 'MemberExpression') {
           return
         }
 
         if (
-          callee.object?.type !== 'Identifier' ||
-          callee.object.name !== 'document'
+          node.callee.object?.type !== 'Identifier' ||
+          node.callee.object.name !== 'document'
         ) {
           return
         }
 
-        if (callee.property?.type !== 'Identifier') {
+        if (node.callee.property?.type !== 'Identifier') {
           return
         }
 
-        const name = callee.property.name
-
-        if (name !== 'querySelector' && name !== 'querySelectorAll') {
+        if (
+          node.callee.property.name !== 'querySelector' &&
+          node.callee.property.name !== 'querySelectorAll'
+        ) {
           return
         }
 
         context.report({
           node,
-          message: `Use get/query from tests/web/dom.ts instead of document.${name}.`,
+          message: `Use get/query from tests/web/dom.ts instead of document.${node.callee.property.name}.`,
         })
       },
     }

@@ -120,7 +120,7 @@ export class Scanner {
     for (const [path, downloadId] of newFiles) {
       const fileIndex = ++nextIndex
 
-      queue.add(async () => {
+      void queue.add(async () => {
         await PubSub.publish('scan_progress', {
           media_id: media.id,
           current: fileIndex,
@@ -133,16 +133,14 @@ export class Scanner {
           downloadId,
           path
         ).catch(async (err) => {
-          const message = err.message
-
-          Log.warn(`probe failed file="${path}" error="${message}"`)
+          Log.warn(`probe failed file="${path}" error="${err.message}"`)
 
           await DbEvents.create({
             media_id: media.id,
             entity_type: 'scan',
             entity_id: path,
             event_type: 'file_error',
-            message,
+            message: err.message,
           })
 
           return false
@@ -297,9 +295,7 @@ export class Scanner {
         )
       })
 
-      Log.info(
-        `subtitle registered file="${fullPath}" lang=${language ?? 'unknown'}`
-      )
+      Log.info(`subtitle registered file="${fullPath}" lang=${language}`)
 
       return true
     }
@@ -504,11 +500,8 @@ export class Scanner {
         continue
       }
 
-      const reason = result.reason
-      const message = reason.message
-
       Log.warn(
-        `${context.kind} extraction failed file="${context.fullPath}" track_id=${track.id} error="${message}"`
+        `${context.kind} extraction failed file="${context.fullPath}" track_id=${track.id} error="${result.reason.message}"`
       )
 
       await DbMediaTracks.updateScanRatio(track.id, null)
@@ -517,7 +510,7 @@ export class Scanner {
         entity_type: 'scan',
         entity_id: context.fullPath,
         event_type: 'file_error',
-        message: `${context.kind} track_id=${track.id}: ${message}`,
+        message: `${context.kind} track_id=${track.id}: ${result.reason.message}`,
       })
     }
 

@@ -24,7 +24,7 @@ const realFs = require('fs/promises')
 let mockDevPath: string | null = null
 let mockLinkError: string | null = null
 
-mock.module('fs/promises', () => ({
+void mock.module('fs/promises', () => ({
   ...realFs,
   stat: async (path: string) => {
     const result = await realFs.stat(path)

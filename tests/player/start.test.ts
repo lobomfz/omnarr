@@ -51,8 +51,6 @@ afterAll(async () => {
   await rm(tmpDir, { recursive: true })
 })
 
-const getTrackIds = TestSeed.player.getTrackIds
-
 describe('Player — start', () => {
   test('resolves tracks, generates HLS, and serves playable content', async () => {
     const media = await TestSeed.library.matrix({ rootFolder: '/movies' })
@@ -83,7 +81,7 @@ describe('Player — start', () => {
       { duration: refDuration, keyframes: refKeyframes }
     )
 
-    const ids = await getTrackIds(file.id)
+    const ids = await TestSeed.player.getTrackIds(file.id)
     const player = new Player({ id: media.id })
     const result = await player.start({
       video: ids.video.id,
@@ -168,8 +166,8 @@ describe('Player — start', () => {
       ]
     )
 
-    const ids = await getTrackIds(file.id)
-    const subIds = await getTrackIds(subFile.id)
+    const ids = await TestSeed.player.getTrackIds(file.id)
+    const subIds = await TestSeed.player.getTrackIds(subFile.id)
 
     const player = new Player({ id: media.id })
     const result = await player.start({
@@ -243,8 +241,8 @@ describe('Player — start', () => {
       ]
     )
 
-    const ids = await getTrackIds(file.id)
-    const subIds = await getTrackIds(subFile.id)
+    const ids = await TestSeed.player.getTrackIds(file.id)
+    const subIds = await TestSeed.player.getTrackIds(subFile.id)
 
     const player = new Player({ id: media.id })
     const result = await player.start({

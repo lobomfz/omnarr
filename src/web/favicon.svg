@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <title>Omnarr favicon</title>
+  
+  <rect width="32" height="32" rx="7" fill="#050505"></rect>
+  
+  <g transform="translate(4 4) scale(0.3)">
+    <rect x="2" y="35" width="76" height="10" rx="2" fill="#FAFAFA"></rect>
+    <rect x="35" y="2" width="10" height="76" rx="2" fill="#FAFAFA"></rect>
+    <rect x="35" y="2" width="10" height="76" rx="2" fill="#4F6BF0" transform="rotate(45 40 40)"></rect>
+  </g>
+</svg>

@@ -40,7 +40,7 @@ function useReleasesSearch(props: {
 
   const releases = results
     .flatMap((r) => r.data ?? [])
-    .sort((a, b) => (b.seeders ?? 0) - (a.seeders ?? 0))
+    .sort((a, b) => b.seeders - a.seeders)
 
   const statuses = indexers.map((indexer, i) => ({
     name: indexer.type,
@@ -67,7 +67,9 @@ function useDownloadMutation(props: {
   return useMutation(
     orpc.downloads.add.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: orpc.library.getInfo.key() })
+        void queryClient.invalidateQueries({
+          queryKey: orpc.library.getInfo.key(),
+        })
         props.onToast({
           message: `Download started: ${props.title}`,
           type: 'success',
@@ -140,24 +142,29 @@ export function ReleasesSection(props: {
   }
 
   const allFailed = allSettled && statuses.every((s) => s.error)
+  const showAllFailed = allFailed && statuses.length > 0
+  const showEmpty = !showAllFailed && allSettled && releases.length === 0
+  const showList = !showAllFailed && !showEmpty
 
   return (
     <div className="mt-6 pb-28">
       <IndexerStatusBar statuses={statuses} />
 
-      {allFailed && statuses.length > 0 ? (
+      {showAllFailed && (
         <CenteredMessage
           icon={<AlertCircle className="size-8 text-destructive" />}
           title="All indexers failed"
           description="Could not reach any configured indexer."
         />
-      ) : allSettled && releases.length === 0 ? (
+      )}
+      {showEmpty && (
         <CenteredMessage
           icon={<SearchX className="size-8 text-muted-foreground" />}
           title="No releases found"
           description="No torrents were found across the configured indexers."
         />
-      ) : (
+      )}
+      {showList && (
         <div className="mt-4 space-y-2">
           {releases.map((release) => (
             <ReleaseRow
@@ -215,13 +222,11 @@ function IndexerStatusBar(props: { statuses: IndexerStatus[] }) {
         >
           {s.name}
           <span className="font-bold">
-            {s.loading ? (
-              <Loader2 className="size-3 inline animate-spin" />
-            ) : s.error ? (
+            {s.loading && <Loader2 className="size-3 inline animate-spin" />}
+            {!s.loading && s.error && (
               <AlertTriangle className="size-3 inline" />
-            ) : (
-              s.count
             )}
+            {!s.loading && !s.error && s.count}
           </span>
         </span>
       ))}

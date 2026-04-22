@@ -8,23 +8,34 @@
 
   --radius: 0.625rem;
 
-  --color-background: oklch(0.02 0 0);
-  --color-foreground: oklch(0.985 0 0);
-  --color-card: oklch(0.239 0 0);
-  --color-card-foreground: oklch(0.985 0 0);
-  --color-popover: oklch(0.145 0 0);
-  --color-popover-foreground: oklch(0.985 0 0);
-  --color-primary: oklch(0.623 0.188 259.81);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-muted: oklch(0.269 0 0);
-  --color-muted-foreground: oklch(0.556 0 0);
-  --color-accent: oklch(0.269 0 0);
-  --color-accent-foreground: oklch(0.985 0 0);
-  --color-destructive: oklch(0.577 0.245 27.325);
-  --color-destructive-foreground: oklch(0.985 0 0);
-  --color-border: oklch(0.439 0 0);
-  --color-input: oklch(0.269 0 0);
-  --color-ring: oklch(0.439 0 0);
+  --color-background: #0A0706;
+  --color-foreground: #FBF7F2;
+  --color-card: #17120F;
+  --color-card-foreground: #FBF7F2;
+  --color-popover: #1C1714;
+  --color-popover-foreground: #FBF7F2;
+  --color-primary: #4FD6C9;
+  --color-primary-foreground: #07201D;
+  --color-muted: #1C1714;
+  --color-muted-foreground: #A8A09A;
+  --color-accent: #24201D;
+  --color-accent-foreground: #FBF7F2;
+  --color-destructive: #E5635B;
+  --color-destructive-foreground: #FBF7F2;
+  --color-border: rgba(255, 240, 220, 0.10);
+  --color-input: #24201D;
+  --color-ring: rgba(79, 214, 201, 0.40);
+
+  --color-ink-1: #17120F;
+  --color-ink-2: #1C1714;
+  --color-ink-3: #24201D;
+  --color-ink-4: #2A2420;
+
+  --color-fg-dim: #7A726C;
+
+  --color-success: #34C29B;
+  --color-warning: #E8A34D;
+  --color-info: #5B8DEF;
 
   --ease-apple: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -38,12 +49,13 @@
 /* Glass utilities */
 
 @utility glass-liquid {
-  background: rgba(20, 20, 20, 0.55);
+  background: rgba(26, 20, 17, 0.62);
   backdrop-filter: blur(28px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  border: 1px solid rgba(255, 240, 220, 0.10);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 8px 32px rgba(0, 0, 0, 0.36),
+    inset 0 1px 0 rgba(255, 240, 220, 0.07);
 }
 
 /* Animations */
@@ -55,6 +67,15 @@
 
 @utility animate-ken-burns {
   animation: ken-burns 25s ease-in-out infinite alternate;
+}
+
+@keyframes shimmer-sweep {
+  0%   { transform: translateX(-140%); }
+  100% { transform: translateX(240%); }
+}
+
+@utility animate-shimmer-sweep {
+  animation: shimmer-sweep 2.2s infinite;
 }
 
 @keyframes fade-in {
@@ -106,3 +127,9 @@
     0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Typography helpers */
+
+@utility tracking-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}

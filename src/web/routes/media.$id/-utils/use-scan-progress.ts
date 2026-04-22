@@ -27,7 +27,7 @@ export function useScanFileProgress(
     return { current_step: latest.current_step, ratio: latest.ratio }
   }
 
-  if (initialScan?.path === currentPath && initialScan.ratio != null) {
+  if (initialScan?.path === currentPath) {
     return { ratio: initialScan.ratio }
   }
 
@@ -77,20 +77,12 @@ export function useScanProgress(
       return null
     }
 
-    return {
-      current: initialScan.current,
-      total: initialScan.total,
-      path: initialScan.path,
-    }
+    return { path: initialScan.path }
   }
 
   if (latest.current >= latest.total) {
     return null
   }
 
-  return {
-    current: latest.current,
-    total: latest.total,
-    path: latest.path,
-  }
+  return { path: latest.path }
 }

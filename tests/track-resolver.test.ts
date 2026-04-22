@@ -536,7 +536,7 @@ describe('bestCorrelation', () => {
       result.candidates.every((candidate, index, candidates) => {
         const previous = candidates[index - 1]
 
-        return !previous || previous.confidence >= candidate.confidence
+        return index === 0 || previous.confidence >= candidate.confidence
       })
     ).toBe(true)
   })

@@ -9,10 +9,8 @@ import './mocks/superflix'
 import './mocks/yts'
 
 describe('TmdbClient', () => {
-  test('throws formatted error on API failure', async () => {
-     expect(() => new TmdbClient().getDetails(99999, 'movie')).toThrow(
-      /TMDB/
-    )
+  test('throws formatted error on API failure', () => {
+    expect(() => new TmdbClient().getDetails(99999, 'movie')).toThrow(/TMDB/)
   })
 })
 
@@ -29,16 +27,14 @@ await TmdbMock.db
 await TmdbMock.db.insertInto('external_ids').values({ tmdb_id: 9999 }).execute()
 
 describe('TmdbClient - no IMDB ID', () => {
-  test('throws when TMDB entry has no IMDB ID', async () => {
-     expect(() => new TmdbClient().getDetails(9999, 'tv')).toThrow(
-      'NO_IMDB_ID'
-    )
+  test('throws when TMDB entry has no IMDB ID', () => {
+    expect(() => new TmdbClient().getDetails(9999, 'tv')).toThrow('NO_IMDB_ID')
   })
 })
 
 describe('Releases', () => {
-  test('throws when media has no IMDB ID', async () => {
-     expect(() => new Releases().search(9999, 'tv')).toThrow('NO_IMDB_ID')
+  test('throws when media has no IMDB ID', () => {
+    expect(() => new Releases().search(9999, 'tv')).toThrow('NO_IMDB_ID')
   })
 
   test('continues when one indexer fails', async () => {

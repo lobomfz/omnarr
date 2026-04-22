@@ -78,7 +78,9 @@ describe('useQueryCache.patch', () => {
       { progress: 0.9, speed: 500 }
     )
 
-    const data = queryClient.getQueryData(nestedQueryOptions.queryKey)
+    const data = queryClient.getQueryData(nestedQueryOptions.queryKey) as {
+      downloads: { id: number; progress: number; speed: number }[]
+    }
 
     expect(data.downloads[0]).toEqual({ id: 1, progress: 0.9, speed: 500 })
     expect(data.downloads[1]).toEqual({ id: 2, progress: 0.3, speed: 200 })

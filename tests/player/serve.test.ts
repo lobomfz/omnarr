@@ -17,11 +17,9 @@ await MediaFixtures.generate(refMkv)
 
 const probe = await new FFmpegBuilder().input(refMkv).probe()
 const keyframes = await new FFmpegBuilder().input(refMkv).probeKeyframes()
-const duration = probe.format.duration
-
 const segments = keyframes.map((pts, i) => ({
   pts_time: pts,
-  duration: (keyframes[i + 1] ?? duration) - pts,
+  duration: (keyframes[i + 1] ?? probe.format.duration) - pts,
 }))
 
 const mediaId = 'TEST01'
@@ -61,7 +59,7 @@ await server.start()
 const base = `http://localhost/hls/${mediaId}`
 
 afterAll(async () => {
-  await server?.stop()
+  await server.stop()
   await rm(tmpDir, { recursive: true })
 })
 

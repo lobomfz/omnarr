@@ -37,7 +37,7 @@ Bun.serve({
   },
   websocket: {
     message(ws, message) {
-      wsHandler.message(ws, message, { context: {} })
+      void wsHandler.message(ws, message, { context: {} })
     },
     close(ws) {
       wsHandler.close(ws)

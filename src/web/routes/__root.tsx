@@ -4,9 +4,10 @@ import {
   createRootRouteWithContext,
   Link,
 } from '@tanstack/react-router'
-import { Film, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 
 import { DownloadPill } from '@/web/components/download-pill'
+import { LogoMark } from '@/web/components/logo'
 import { ConfigProvider } from '@/web/providers/config-provider'
 
 interface RouterContext {
@@ -38,8 +39,8 @@ function Nav() {
           to="/"
           className="flex items-center gap-2 px-3 py-1.5 rounded-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
-          <Film className="size-5 text-primary" />
-          <span className="font-semibold tracking-tight">Omnarr</span>
+          <LogoMark className="size-5 text-foreground" />
+          <span className="font-semibold tracking-tight">omnarr</span>
         </Link>
         <div className="h-5 w-px bg-white/10" />
         <Link
@@ -63,8 +64,8 @@ function Nav() {
           to="/"
           className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
-          <Film className="size-5 text-primary" />
-          <span className="font-semibold tracking-tight">Omnarr</span>
+          <LogoMark className="size-5 text-foreground" />
+          <span className="font-semibold tracking-tight">omnarr</span>
         </Link>
         <div className="flex items-center gap-1">
           <DownloadPill nav="mobile" />

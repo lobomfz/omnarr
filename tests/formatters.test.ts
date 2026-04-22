@@ -272,6 +272,8 @@ describe('Formatters', () => {
         width: null,
         height: null,
         channel_layout: null,
+        bit_rate: null,
+        scan_ratio: null,
       })
 
       Formatters.appendDownloads(lines, [
@@ -428,6 +430,8 @@ describe('Formatters', () => {
               title: 'Pilot',
               files: [
                 {
+                  id: 1,
+                  download_id: 10,
                   path: '/tv/s01e01.mkv',
                   size: 2_000_000_000,
                   format_name: 'matroska',
@@ -446,6 +450,8 @@ describe('Formatters', () => {
                       width: 3840,
                       height: 2160,
                       channel_layout: null,
+                      bit_rate: null,
+                      scan_ratio: null,
                     },
                   ],
                 },

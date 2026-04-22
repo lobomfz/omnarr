@@ -178,6 +178,8 @@ export class MediaResolver {
                                   .selectFrom('media_files as mf')
                                   .whereRef('mf.episode_id', '=', 'e.id')
                                   .select([
+                                    'mf.id',
+                                    'mf.download_id',
                                     'mf.path',
                                     'mf.size',
                                     'mf.format_name',

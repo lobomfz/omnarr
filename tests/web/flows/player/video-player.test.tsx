@@ -16,7 +16,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await playerSession.stop()
-  await cleanup()
+  cleanup()
 })
 
 async function mountPlayer() {

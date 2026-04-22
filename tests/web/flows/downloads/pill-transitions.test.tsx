@@ -25,9 +25,7 @@ beforeEach(() => {
   TestSeed.reset()
 })
 
-afterEach(async () => {
-  await cleanup()
-})
+afterEach(() => cleanup())
 
 describe('terminal transitions clear the pill', () => {
   test('live progress from WS updates pill and detail page consistently', async () => {
@@ -60,7 +58,7 @@ describe('terminal transitions clear the pill', () => {
 
     await waitFor(
       () => {
-        expect(get('download-group').dataset.progress).toBe('0.5')
+        expect(get('library-release-row').dataset.downloadProgress).toBe('0.5')
       },
       { timeout: 5000 }
     )
