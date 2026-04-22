@@ -21,15 +21,6 @@ Omnarr is a CLI media manager built with Bun that automates search, download, an
 - **Indexers** (`src/integrations/indexers/`): plugin registry — each indexer implements `search()` with Arktype schema for config. Parallel searches, one failure doesn't block others
 - **SubDL** (`src/integrations/indexers/subdl.ts`): subtitle search by IMDB ID, downloads .srt archives
 
-## Commands
-
-```bash
-bun dev              # Run the CLI
-bun test             # Run all tests
-bun test tests/db/schema.test.ts  # Run single test file
-bun check            # Type-check (tsgo) + lint (oxlint) + duplicate detection (jscpd on changed files)
-```
-
 ## Architecture
 
 - **CLI entry**: `src/index.ts` creates the CLI via `@bunli/core`, registers commands from `src/commands/`
@@ -76,7 +67,6 @@ This is a small codebase. Use direct tool calls (Read, Grep, Glob) instead of Ex
 ## Gotchas
 
 - CLI option inputs are ALWAYS strings. For numeric options, use `type('string.numeric.parse | undefined')` — NOT `type('number | undefined')`. The `string.numeric.parse` morph transforms the string input into a number at parse time.
-- Never pipe `bun check` output. No `| tail`, `| grep`, `| head`, `2>&1 |` — run it plain. The output is already concise.
 
 ## Conventions
 
@@ -85,3 +75,31 @@ This is a small codebase. Use direct tool calls (Read, Grep, Glob) instead of Ex
 - Linter: oxlint with pedantic/perf/suspicious categories on error
 - Tests use `database.reset('table_name')` in `beforeEach` to clear tables (in-memory SQLite)
 - Test CLI commands with `testCommand()` and `testCLI()` from `@bunli/test`
+- Tests always run sequentially. Concurrency is never enabled, even though Bun supports it. File execution order across different test files is not guaranteed — only order within the same file is. Do not write tests that depend on cross-file ordering, and do not assume isolation between files beyond what explicit `beforeEach` cleanup provides.
+
+## Frontend Testing
+
+### Contract: `data-component` + `data-*`
+
+- Domain components publish `data-component="kebab-name"` on their root node (e.g. `DownloadPill` → `data-component="download-pill"`)
+- Observable state is published via `data-*` attributes as raw values: numbers unrounded, dates as ISO strings, booleans as `"true"`/`"false"`, enums as literal domain strings, null/undefined → attribute omitted
+- Identifiers are entity-specific: `data-media-id`, `data-download-id`, `data-release-id` — never generic `data-id`
+- Interactive sub-elements use `data-slot="semantic-name"`, scoped by parent `data-component`
+- Components only gain `data-*` attributes that a test actually consumes — no preventive publishing
+
+### Helpers (`tests/web/dom.ts`)
+
+- `get(component, filters?)` — throwing, single match
+- `query(component, filters?)` — returns `null` on zero, throws on multiple
+- `slot(parent, name)` — scoped by parent element
+
+### Wrapper (`tests/web/testing-library.ts`)
+
+Re-exports only: `cleanup`, `render`, `renderHook`, `waitFor`, `fireEvent`, `userEvent`
+
+### Banned in `tests/web/**`
+
+- Direct imports of `@testing-library/react` or `@testing-library/user-event` (use wrapper)
+- `document.querySelector` / `document.querySelectorAll` (use `get`/`query`)
+- All `*By*` queries (`getByRole`, `findByText`, `queryAllByRole`, etc.) and `screen` — not exported by wrapper
+- Assertions on formatted text, regex copy, or CSS classes — assert on `dataset` raw values

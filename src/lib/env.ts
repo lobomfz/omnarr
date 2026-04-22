@@ -1,13 +1,16 @@
 import { homedir } from 'os'
 import { join } from 'path'
 
-import { type } from 'arktype'
+import { type } from '@lobomfz/db'
 
 const xdgConfigHome = process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config')
 const xdgDataHome = process.env.XDG_DATA_HOME ?? join(homedir(), '.local/share')
 
 const envSchema = type({
   OMNARR_DB_PATH: type('string').default(join(xdgDataHome, 'omnarr/db.sqlite')),
+  OMNARR_JOBS_PATH: type('string').default(
+    join(xdgDataHome, 'omnarr/jobs.sqlite')
+  ),
   OMNARR_LOG_PATH: type('string').default(
     join(xdgDataHome, 'omnarr/logs/omnarr.log')
   ),
@@ -23,6 +26,7 @@ const envSchema = type({
   SUPERFLIX_API_URL: type('string').default('https://superflixapi.rest'),
   SUBDL_API_URL: type('string').default('https://api.subdl.com'),
   SUBDL_DOWNLOAD_URL: type('string').default('https://dl.subdl.com'),
+  OMNARR_PORT: type('string.numeric.parse').default('3456'),
 })
 
 export const envVariables = envSchema.assert({ ...process.env })
