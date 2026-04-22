@@ -26,8 +26,14 @@ const BeyondHdMock = new Mock(
       async ({ body }) => {
         let query = db.selectFrom('results').selectAll()
 
-        if (body?.imdb_id) {
+        if (body.imdb_id) {
           query = query.where('imdb_id', '=', body.imdb_id)
+        }
+
+        if (body.search) {
+          for (const term of body.search.split(' ').filter(Boolean)) {
+            query = query.where('name', 'like', `%${term}%`)
+          }
         }
 
         const rows = await query.execute()
@@ -97,7 +103,7 @@ await BeyondHdMock.db
       hdr10: 0,
       hdr10plus: 0,
       hlg: 0,
-      download_url: 'https://beyond-hd.me/dl/bb_s01e01',
+      download_url: 'https://beyond-hd.me/dl/bb_hash_s01e01',
     },
     {
       id: 1004,
@@ -111,7 +117,7 @@ await BeyondHdMock.db
       hdr10: 0,
       hdr10plus: 0,
       hlg: 0,
-      download_url: 'https://beyond-hd.me/dl/bb_s01',
+      download_url: 'https://beyond-hd.me/dl/bb_hash_s01',
     },
     {
       id: 1005,
@@ -125,7 +131,7 @@ await BeyondHdMock.db
       hdr10: 0,
       hdr10plus: 0,
       hlg: 0,
-      download_url: 'https://beyond-hd.me/dl/bb_s02e01',
+      download_url: 'https://beyond-hd.me/dl/bb_hash_s02e01',
     },
   ])
   .execute()

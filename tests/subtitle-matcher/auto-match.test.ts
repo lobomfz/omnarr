@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { rm } from 'fs/promises'
 
-import { config } from '@/lib/config'
+import { SubtitleMatcher } from '@/core/subtitle-matcher'
 import { database, db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
@@ -10,7 +10,7 @@ import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'
 import { DbReleases } from '@/db/releases'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { SubtitleMatcher } from '@/core/subtitle-matcher'
+import { config } from '@/lib/config'
 import { deriveId } from '@/lib/utils'
 
 import { SubdlMock } from '../mocks/subdl'
@@ -81,6 +81,7 @@ async function setupMedia() {
       indexer_source: 'yts',
       name: 'The.Matrix.1999.1080p.BluRay.x264-GROUP',
       size: 8_000_000_000,
+      seeders: 0,
       imdb_id: 'tt0133093',
       resolution: '1080p',
       codec: 'x264',

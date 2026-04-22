@@ -94,6 +94,81 @@ describe('DbSeasons', () => {
 
     expect(seasons).toHaveLength(0)
   })
+
+  test('listByTmdbId returns seasons ordered by season_number', async () => {
+    const tmdb = await seedTmdbMedia()
+
+    await DbSeasons.upsert([
+      {
+        tmdb_media_id: tmdb.id,
+        season_number: 3,
+        title: 'Season 3',
+        episode_count: 13,
+      },
+      {
+        tmdb_media_id: tmdb.id,
+        season_number: 1,
+        title: 'Season 1',
+        episode_count: 7,
+      },
+      {
+        tmdb_media_id: tmdb.id,
+        season_number: 2,
+        title: 'Season 2',
+        episode_count: 13,
+      },
+    ])
+
+    const seasons = await DbSeasons.listByTmdbId(tmdb.tmdb_id)
+
+    expect(seasons).toHaveLength(3)
+    expect(seasons[0].season_number).toBe(1)
+    expect(seasons[0].title).toBe('Season 1')
+    expect(seasons[0].episode_count).toBe(7)
+    expect(seasons[1].season_number).toBe(2)
+    expect(seasons[2].season_number).toBe(3)
+  })
+
+  test('listByTmdbId returns empty array for non-existent tmdb_id', async () => {
+    const seasons = await DbSeasons.listByTmdbId(999999)
+
+    expect(seasons).toHaveLength(0)
+  })
+
+  test('listByTmdbId is scoped to the requested tmdb_id', async () => {
+    const tmdb1 = await seedTmdbMedia()
+
+    const tmdb2 = await DbTmdbMedia.upsert({
+      tmdb_id: 62560,
+      media_type: 'tv',
+      title: 'Mr. Robot',
+      imdb_id: 'tt4158110',
+      year: 2015,
+    })
+
+    await DbSeasons.upsert([
+      {
+        tmdb_media_id: tmdb1.id,
+        season_number: 1,
+        title: 'BB S1',
+        episode_count: 7,
+      },
+      {
+        tmdb_media_id: tmdb2.id,
+        season_number: 1,
+        title: 'MR S1',
+        episode_count: 10,
+      },
+    ])
+
+    const bb = await DbSeasons.listByTmdbId(tmdb1.tmdb_id)
+    const mr = await DbSeasons.listByTmdbId(tmdb2.tmdb_id)
+
+    expect(bb).toHaveLength(1)
+    expect(bb[0].title).toBe('BB S1')
+    expect(mr).toHaveLength(1)
+    expect(mr[0].title).toBe('MR S1')
+  })
 })
 
 describe('DbEpisodes', () => {
@@ -178,6 +253,34 @@ describe('DbEpisodes', () => {
     await db.deleteFrom('tmdb_media').where('id', '=', tmdb.id).execute()
 
     const episodes = await db.selectFrom('episodes').selectAll().execute()
+
+    expect(episodes).toHaveLength(0)
+  })
+
+  test('listBySeason returns episodes ordered by episode_number', async () => {
+    const tmdb = await seedTmdbMedia()
+    const [season] = await DbSeasons.upsert([
+      { tmdb_media_id: tmdb.id, season_number: 1 },
+    ])
+
+    await DbEpisodes.upsert([
+      { season_id: season.id, episode_number: 3, title: 'Three' },
+      { season_id: season.id, episode_number: 1, title: 'One' },
+      { season_id: season.id, episode_number: 2, title: 'Two' },
+    ])
+
+    const episodes = await DbEpisodes.listBySeason(tmdb.tmdb_id, 1)
+
+    expect(episodes).toHaveLength(3)
+    expect(episodes[0].episode_number).toBe(1)
+    expect(episodes[0].title).toBe('One')
+    expect(episodes[2].episode_number).toBe(3)
+  })
+
+  test('listBySeason returns empty when season does not exist', async () => {
+    const tmdb = await seedTmdbMedia()
+
+    const episodes = await DbEpisodes.listBySeason(tmdb.tmdb_id, 99)
 
     expect(episodes).toHaveLength(0)
   })

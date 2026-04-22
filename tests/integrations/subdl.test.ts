@@ -1,13 +1,18 @@
-import { describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { SubdlAdapter } from '@/integrations/indexers/subdl'
 
-import '../mocks/subdl'
+import { SubdlMock } from '../mocks/subdl'
 
 const subdl = new SubdlAdapter({
   type: 'subdl',
   api_key: 'test-api-key',
   languages: ['EN'],
+})
+
+beforeEach(async () => {
+  SubdlMock.reset()
+  await SubdlMock.helpers.seed()
 })
 
 describe('SubdlAdapter', () => {
@@ -75,14 +80,14 @@ describe('SubdlAdapter', () => {
     expect(results[0].download_url).toContain('/subtitle/')
   })
 
-  test('propagates API errors', async () => {
+  test('propagates API errors', () => {
     const adapter = new SubdlAdapter({
       type: 'subdl',
       api_key: '',
       languages: ['EN'],
     })
 
-    await expect(() => adapter.search({ imdb_id: 'tt0133093' })).toThrow(
+    expect(() => adapter.search({ imdb_id: 'tt0133093' })).toThrow(
       'API key required'
     )
   })

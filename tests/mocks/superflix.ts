@@ -80,8 +80,8 @@ var INITIAL_CONTENT_ID = ${film.content_id};
 var CONTENT_TYPE = "filme";
 var CSRF_TOKEN = "mock-csrf-token";
 var PAGE_TOKEN = "mock-page-token";
-var API_URL_OPTIONS = "${baseUrl}/player/options";
-var API_URL_SOURCE = "${baseUrl}/player/source";
+var API_URL_OPTIONS = "/player/options";
+var API_URL_SOURCE = "/player/source";
 </script></head><body></body></html>`
 
       return new Response(html, {
@@ -197,31 +197,29 @@ var API_URL_SOURCE = "${baseUrl}/player/source";
         return new Response('Not found', { status: 500 })
       }
 
-      const playlist = [
-        '#EXTM3U',
-        '#EXT-X-VERSION:3',
-        '#EXT-X-TARGETDURATION:1',
-        '#EXTINF:1.0,',
-        `${baseUrl}/hls/vchunk/0`,
-        '#EXT-X-ENDLIST',
-      ].join('\n')
+      const lines = ['#EXTM3U', '#EXT-X-VERSION:3', '#EXT-X-TARGETDURATION:1']
 
-      return new Response(playlist, {
+      for (let i = 0; i < 25; i++) {
+        lines.push('#EXTINF:1.0,', `${baseUrl}/hls/vchunk/${i}`)
+      }
+
+      lines.push('#EXT-X-ENDLIST')
+
+      return new Response(lines.join('\n'), {
         headers: { 'content-type': 'application/vnd.apple.mpegurl' },
       })
     })
 
     app.get('/hls/audio/:lang', () => {
-      const playlist = [
-        '#EXTM3U',
-        '#EXT-X-VERSION:3',
-        '#EXT-X-TARGETDURATION:1',
-        '#EXTINF:1.0,',
-        `${baseUrl}/hls/chunk/0`,
-        '#EXT-X-ENDLIST',
-      ].join('\n')
+      const lines = ['#EXTM3U', '#EXT-X-VERSION:3', '#EXT-X-TARGETDURATION:1']
 
-      return new Response(playlist, {
+      for (let i = 0; i < 25; i++) {
+        lines.push('#EXTINF:1.0,', `${baseUrl}/hls/chunk/${i}`)
+      }
+
+      lines.push('#EXT-X-ENDLIST')
+
+      return new Response(lines.join('\n'), {
         headers: { 'content-type': 'application/vnd.apple.mpegurl' },
       })
     })
@@ -249,16 +247,11 @@ var API_URL_SOURCE = "${baseUrl}/player/source";
         return new Response('Not found', { status: 404 })
       }
 
-      const grouped: Record<string, unknown[]> = {}
+      const grouped: Partial<Record<string, unknown[]>> = {}
 
       for (const ep of eps) {
         const key = String(ep.season)
-
-        if (!grouped[key]) {
-          grouped[key] = []
-        }
-
-        grouped[key].push({
+        ;(grouped[key] ??= []).push({
           ID: ep.content_id,
           epi_num: ep.episode,
           title: `Episode ${ep.episode}`,
@@ -290,8 +283,8 @@ var INITIAL_CONTENT_ID = ${ep.content_id};
 var CONTENT_TYPE = "serie";
 var CSRF_TOKEN = "mock-csrf-token";
 var PAGE_TOKEN = "mock-page-token";
-var API_URL_OPTIONS = "${baseUrl}/player/options";
-var API_URL_SOURCE = "${baseUrl}/player/source";
+var API_URL_OPTIONS = "/player/options";
+var API_URL_SOURCE = "/player/source";
 </script></head><body></body></html>`
 
       return new Response(html, {

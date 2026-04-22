@@ -227,7 +227,7 @@ export class SubtitleMatcher extends TrackResolver {
       if (srtEntries.length === 0) {
         await DbDownloads.update(download.id, {
           status: 'error',
-          error_at: new Date().toISOString(),
+          error_at: new Date(),
         })
 
         return null
@@ -249,7 +249,7 @@ export class SubtitleMatcher extends TrackResolver {
     } catch (err) {
       await DbDownloads.update(download.id, {
         status: 'error',
-        error_at: new Date().toISOString(),
+        error_at: new Date(),
       }).catch((err) =>
         Log.warn(
           `auto-match: status update failed download=${download.id} error="${err instanceof Error ? err.message : String(err)}"`

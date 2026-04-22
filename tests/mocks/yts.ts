@@ -1,5 +1,5 @@
-import { type } from '@lobomfz/db'
 import { Mock } from '@lobomfz/ghostapi'
+import { type } from '@lobomfz/db'
 
 import { envVariables } from '@/lib/env'
 

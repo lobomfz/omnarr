@@ -141,7 +141,9 @@ export class Handler {
     this.output(
       results,
       results.map((r) => {
-        const meta = [r.resolution, r.codec, r.hdr].filter(Boolean).join(' ')
+        const meta = [r.resolution, r.codec, r.hdr.join('/')]
+          .filter(Boolean)
+          .join(' ')
         return {
           ID: r.id,
           Source: r.indexer_source,

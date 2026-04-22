@@ -6,13 +6,14 @@ import { testCommand } from '@bunli/test'
 
 import { DownloadCommand } from '@/commands/download'
 import { SubtitlesCommand } from '@/commands/subtitles'
-import { config } from '@/lib/config'
-import { database, db } from '@/db/connection'
-import { envVariables } from '@/lib/env'
 import { Releases } from '@/core/releases'
+import { database, db } from '@/db/connection'
+import { DbTmdbMedia } from '@/db/tmdb-media'
+import { config } from '@/lib/config'
+import { envVariables } from '@/lib/env'
 import { deriveId } from '@/lib/utils'
 
-import '../mocks/subdl'
+import { SubdlMock } from '../mocks/subdl'
 import '../mocks/tmdb'
 import '../mocks/beyond-hd'
 import '../mocks/superflix'
@@ -35,6 +36,8 @@ describe('subtitle download', () => {
     database.reset('tmdb_media')
     database.reset('releases')
     database.reset('search_results')
+    SubdlMock.reset()
+    await SubdlMock.helpers.seed()
     await rm(tracksDir, { recursive: true }).catch(() => {})
   })
 
@@ -43,17 +46,13 @@ describe('subtitle download', () => {
   })
 
   async function setupMovieAndSearch() {
-    const tmdb = await db
-      .insertInto('tmdb_media')
-      .values({
-        tmdb_id: 603,
-        media_type: 'movie',
-        title: 'The Matrix',
-        year: 1999,
-        imdb_id: 'tt0133093',
-      })
-      .returning(['id'])
-      .executeTakeFirstOrThrow()
+    const tmdb = await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      year: 1999,
+      imdb_id: 'tt0133093',
+    })
 
     await db
       .insertInto('media')
@@ -132,17 +131,13 @@ describe('subtitle download', () => {
   })
 
   test('fails when archive has no .srt file', async () => {
-    const tmdb = await db
-      .insertInto('tmdb_media')
-      .values({
-        tmdb_id: 603,
-        media_type: 'movie',
-        title: 'The Matrix',
-        year: 1999,
-        imdb_id: 'tt0133093',
-      })
-      .returning(['id'])
-      .executeTakeFirstOrThrow()
+    const tmdb = await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      year: 1999,
+      imdb_id: 'tt0133093',
+    })
 
     await db
       .insertInto('media')
@@ -166,7 +161,7 @@ describe('subtitle download', () => {
         indexer_source: 'subdl',
         name: 'Test No SRT',
         size: 0,
-        hdr: '',
+        hdr: [],
         download_url: `${envVariables.SUBDL_DOWNLOAD_URL}/subtitle/no-srt-test.zip`,
         language: 'EN',
       })
@@ -189,17 +184,13 @@ describe('subtitle download', () => {
   })
 
   test('sets download to error when zip download fails', async () => {
-    const tmdb = await db
-      .insertInto('tmdb_media')
-      .values({
-        tmdb_id: 603,
-        media_type: 'movie',
-        title: 'The Matrix',
-        year: 1999,
-        imdb_id: 'tt0133093',
-      })
-      .returning(['id'])
-      .executeTakeFirstOrThrow()
+    const tmdb = await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      year: 1999,
+      imdb_id: 'tt0133093',
+    })
 
     await db
       .insertInto('media')
@@ -223,7 +214,7 @@ describe('subtitle download', () => {
         indexer_source: 'subdl',
         name: 'Test Network Fail',
         size: 0,
-        hdr: '',
+        hdr: [],
         download_url: 'http://127.0.0.1:1/unreachable.zip',
         language: 'EN',
       })
@@ -259,6 +250,8 @@ describe('tv season subtitle', () => {
     database.reset('tmdb_media')
     database.reset('releases')
     database.reset('search_results')
+    SubdlMock.reset()
+    await SubdlMock.helpers.seed()
     await rm(tracksDir, { recursive: true }).catch(() => {})
   })
 
@@ -267,17 +260,13 @@ describe('tv season subtitle', () => {
   })
 
   async function setupTvShow() {
-    const tmdb = await db
-      .insertInto('tmdb_media')
-      .values({
-        tmdb_id: 1399,
-        media_type: 'tv',
-        title: 'Breaking Bad',
-        year: 2008,
-        imdb_id: 'tt0903747',
-      })
-      .returning(['id'])
-      .executeTakeFirstOrThrow()
+    const tmdb = await DbTmdbMedia.upsert({
+      tmdb_id: 1399,
+      media_type: 'tv',
+      title: 'Breaking Bad',
+      year: 2008,
+      imdb_id: 'tt0903747',
+    })
 
     await db
       .insertInto('media')

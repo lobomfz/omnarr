@@ -1,6 +1,12 @@
 import type { DbFieldMeta, Type } from '@lobomfz/db'
 
-import type { download_source, media_type } from '@/db/connection'
+import type {
+  download_source,
+  media_type,
+  release_codec,
+  release_hdr,
+  release_resolution,
+} from '@/db/connection'
 
 declare global {
   interface ArkEnv {
@@ -12,11 +18,11 @@ export interface IndexerRelease {
   source_id: string
   name: string | null
   size: number
-  seeders?: number
+  seeders: number
   imdb_id: string | null
-  resolution: string | null
-  codec: string | null
-  hdr: string[]
+  resolution: release_resolution | null
+  codec: release_codec | null
+  hdr: release_hdr[]
   download_url: string
   language?: string
 }

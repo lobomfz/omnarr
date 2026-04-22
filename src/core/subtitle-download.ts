@@ -41,7 +41,7 @@ export class SubtitleDownload implements DownloadSource {
     ).catch(async (err) => {
       await DbDownloads.update(download.id, {
         status: 'error',
-        error_at: new Date().toISOString(),
+        error_at: new Date(),
       }).catch((err) =>
         Log.warn(
           `failed to update download status id=${download.id} error=${err}`

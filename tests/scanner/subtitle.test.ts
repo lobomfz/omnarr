@@ -3,12 +3,13 @@ import { mkdir, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
+import { Scanner } from '@/core/scanner'
 import { database, db } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbSeasons } from '@/db/seasons'
-import { Scanner } from '@/core/scanner'
+import { DbTmdbMedia } from '@/db/tmdb-media'
 import { deriveId } from '@/lib/utils'
 
 const testDir = join(tmpdir(), 'omnarr-scanner-subtitle-test')
@@ -28,17 +29,13 @@ async function seedMedia(opts: {
   media_type: 'movie' | 'tv'
   tmdb_id: number
 }) {
-  const tmdb = await db
-    .insertInto('tmdb_media')
-    .values({
-      tmdb_id: opts.tmdb_id,
-      media_type: opts.media_type,
-      title: 'Test Media',
-      year: 2024,
-      imdb_id: 'tt0000001',
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
+  const tmdb = await DbTmdbMedia.upsert({
+    tmdb_id: opts.tmdb_id,
+    media_type: opts.media_type,
+    title: 'Test Media',
+    year: 2024,
+    imdb_id: 'tt0000001',
+  })
 
   const mediaId = deriveId(`${opts.tmdb_id}:${opts.media_type}`)
 

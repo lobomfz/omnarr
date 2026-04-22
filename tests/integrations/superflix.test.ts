@@ -44,7 +44,7 @@ describe('SuperflixAdapter', () => {
     test('estimates size from bandwidth and duration', async () => {
       const results = await superflix.search({ imdb_id: 'tt0133093' })
 
-      expect(results[0].size).toBe(Math.round((5_000_000 * 1) / 8))
+      expect(results[0].size).toBe(Math.round((5_000_000 * 25) / 8))
     })
 
     test('returns size 0 when video playlist fetch fails', async () => {
@@ -65,8 +65,8 @@ describe('SuperflixAdapter', () => {
       expect(streams.audio[1].lang).toBe('en')
     })
 
-    test('throws when movie not found', async () => {
-      await expect(() => superflix.getStreams('tt9999999')).toThrow(
+    test('throws when movie not found', () => {
+      expect(() => superflix.getStreams('tt9999999')).toThrow(
         /page data not found/
       )
     })

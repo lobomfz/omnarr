@@ -6,10 +6,20 @@ import { Database, type, generated } from '@lobomfz/db'
 import { envVariables } from '@/lib/env'
 import { Log } from '@/lib/log'
 
-mkdirSync(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
+if (envVariables.OMNARR_DB_PATH !== ':memory:') {
+  mkdirSync(dirname(envVariables.OMNARR_DB_PATH), { recursive: true })
+}
 
 export const media_type = type.enumerated('movie', 'tv')
-const stream_type = type.enumerated('video', 'audio', 'subtitle')
+export const stream_type = type.enumerated('video', 'audio', 'subtitle')
+export const release_codec = type.enumerated('x264', 'x265', 'av1')
+export const release_hdr = type.enumerated('DV', 'HDR10', 'HDR10+', 'HLG')
+export const release_resolution = type.enumerated(
+  '480p',
+  '720p',
+  '1080p',
+  '2160p'
+)
 const download_status = type.enumerated(
   'pending',
   'downloading',
@@ -20,7 +30,12 @@ const download_status = type.enumerated(
   'error'
 )
 const download_source = type.enumerated('torrent', 'ripper', 'subtitle')
-const indexer_source = type.enumerated('beyond-hd', 'yts', 'superflix', 'subdl')
+export const indexer_source = type.enumerated(
+  'beyond-hd',
+  'yts',
+  'superflix',
+  'subdl'
+)
 
 export const database = new Database({
   path: envVariables.OMNARR_DB_PATH,
@@ -28,12 +43,17 @@ export const database = new Database({
     tables: {
       tmdb_media: type({
         id: generated('autoincrement'),
+        derived_id: type('string').configure({ unique: true }),
         tmdb_id: 'number',
         media_type,
         title: 'string',
         'year?': 'number.integer',
         'overview?': 'string',
         'poster_path?': 'string',
+        'backdrop_path?': 'string',
+        'runtime?': 'number.integer',
+        'vote_average?': 'number',
+        'genres?': 'string[]',
         imdb_id: 'string',
         fetched_at: generated('now'),
       }),
@@ -89,9 +109,9 @@ export const database = new Database({
         size: 'number',
         seeders: type('number').default(0),
         'imdb_id?': 'string',
-        'resolution?': 'string',
-        'codec?': 'string',
-        hdr: 'string',
+        'resolution?': release_resolution,
+        'codec?': release_codec,
+        hdr: release_hdr.array(),
         download_url: 'string',
         'language?': 'string',
         'season_number?': 'number.integer',
@@ -113,7 +133,9 @@ export const database = new Database({
         source: download_source.default('torrent'),
         status: download_status.default('downloading'),
         content_path: 'string | null',
-        error_at: 'string | null',
+        error_at: 'Date | null',
+        'season_number?': 'number.integer',
+        'episode_number?': 'number.integer',
         started_at: generated('now'),
       }),
 
@@ -239,6 +261,10 @@ export type media_type = typeof media_type.infer
 export type download_status = typeof download_status.infer
 export type download_source = typeof download_source.infer
 export type indexer_source = typeof indexer_source.infer
+export type stream_type = typeof stream_type.infer
+export type release_codec = typeof release_codec.infer
+export type release_hdr = typeof release_hdr.infer
+export type release_resolution = typeof release_resolution.infer
 
 export interface AliasedDb extends DB {
   mf: DB['media_files']

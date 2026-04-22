@@ -19,9 +19,28 @@ export const DbDownloads = {
         'source',
         'status',
         'error_at',
+        'season_number',
+        'episode_number',
         'started_at',
       ])
       .executeTakeFirstOrThrow()
+  },
+
+  async getById(id: number) {
+    return await db
+      .selectFrom('downloads as d')
+      .where('d.id', '=', id)
+      .select([
+        'd.id',
+        'd.media_id',
+        'd.source_id',
+        'd.download_url',
+        'd.source',
+        'd.status',
+        'd.season_number',
+        'd.episode_number',
+      ])
+      .executeTakeFirst()
   },
 
   async getByMediaId(mediaId: string) {
@@ -122,7 +141,7 @@ export const DbDownloads = {
   },
 
   async deleteStaleErrors() {
-    const cutoff = dayjs().subtract(24, 'hours').toISOString()
+    const cutoff = dayjs().subtract(24, 'hours').toDate()
 
     const result = await db
       .deleteFrom('downloads')

@@ -2,6 +2,7 @@ import { type } from '@lobomfz/db'
 import axios from 'redaxios'
 
 import { envVariables } from '@/lib/env'
+import { Parsers } from '@/lib/parsers'
 
 import type { Indexer, IndexerRelease, SearchParams } from './types'
 
@@ -59,8 +60,8 @@ export class YtsAdapter implements Indexer {
           size: t.size_bytes,
           seeders: t.seeds,
           imdb_id: movie.imdb_code,
-          resolution: t.quality.toLowerCase(),
-          codec: t.video_codec,
+          resolution: Parsers.releaseResolution(t.quality),
+          codec: Parsers.releaseCodec(t.video_codec),
           hdr: [],
           download_url: `magnet:?xt=urn:btih:${t.hash}&dn=${encodeURIComponent(movie.title)}`,
         })

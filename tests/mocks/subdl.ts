@@ -51,6 +51,74 @@ const seasonPackZip = zipSync({
   'readme.nfo': strToU8('not a subtitle'),
 })
 
+const defaultSubtitles = [
+  {
+    id: 1,
+    release_name: 'The.Matrix.1999.1080p.BluRay-GROUP',
+    name: 'SUBDL.com::matrix.1080p.zip',
+    lang: 'english',
+    language: 'EN',
+    author: 'testuser',
+    url: '/subtitle/100-200.zip',
+    imdb_id: 'tt0133093',
+  },
+  {
+    id: 2,
+    release_name: 'The.Matrix.1999.2160p.UHD-OTHER',
+    name: 'SUBDL.com::matrix.2160p.zip',
+    lang: 'english',
+    language: 'EN',
+    author: 'testuser2',
+    url: '/subtitle/100-201.zip',
+    imdb_id: 'tt0133093',
+  },
+  {
+    id: 3,
+    release_name: 'The.Matrix.1999.1080p-FR',
+    name: 'SUBDL.com::matrix.fr.zip',
+    lang: 'french',
+    language: 'FR',
+    author: 'frenchuser',
+    url: '/subtitle/100-202.zip',
+    imdb_id: 'tt0133093',
+  },
+  {
+    id: 4,
+    release_name: 'Breaking.Bad.S01E01-GROUP',
+    name: 'SUBDL.com::bb.s01e01.zip',
+    lang: 'english',
+    language: 'EN',
+    author: 'tvuser',
+    url: '/subtitle/200-300.zip',
+    imdb_id: 'tt0903747',
+    season: 1,
+    episode: 1,
+  },
+  {
+    id: 5,
+    release_name: 'Breaking.Bad.S01E02-GROUP',
+    name: 'SUBDL.com::bb.s01e02.zip',
+    lang: 'english',
+    language: 'EN',
+    author: 'tvuser',
+    url: '/subtitle/200-301.zip',
+    imdb_id: 'tt0903747',
+    season: 1,
+    episode: 2,
+  },
+  {
+    id: 6,
+    release_name: 'Breaking.Bad.S01.1080p.BluRay',
+    name: 'SUBDL.com::bb.s01.pack.zip',
+    lang: 'english',
+    language: 'EN',
+    author: 'packuser',
+    url: '/subtitle/season-pack.zip',
+    imdb_id: 'tt0903747',
+    season: 1,
+  },
+]
+
 export const SubdlMock = new Mock(
   {
     subtitles: type({
@@ -130,79 +198,12 @@ export const SubdlMock = new Mock(
         headers: { 'content-type': 'application/zip' },
       })
     })
+
+    return {
+      seed: () => db.insertInto('subtitles').values(defaultSubtitles).execute(),
+    }
   },
   {
     base_url: envVariables.SUBDL_API_URL,
   }
 )
-
-await SubdlMock.db
-  .insertInto('subtitles')
-  .values([
-    {
-      id: 1,
-      release_name: 'The.Matrix.1999.1080p.BluRay-GROUP',
-      name: 'SUBDL.com::matrix.1080p.zip',
-      lang: 'english',
-      language: 'EN',
-      author: 'testuser',
-      url: '/subtitle/100-200.zip',
-      imdb_id: 'tt0133093',
-    },
-    {
-      id: 2,
-      release_name: 'The.Matrix.1999.2160p.UHD-OTHER',
-      name: 'SUBDL.com::matrix.2160p.zip',
-      lang: 'english',
-      language: 'EN',
-      author: 'testuser2',
-      url: '/subtitle/100-201.zip',
-      imdb_id: 'tt0133093',
-    },
-    {
-      id: 3,
-      release_name: 'The.Matrix.1999.1080p-FR',
-      name: 'SUBDL.com::matrix.fr.zip',
-      lang: 'french',
-      language: 'FR',
-      author: 'frenchuser',
-      url: '/subtitle/100-202.zip',
-      imdb_id: 'tt0133093',
-    },
-    {
-      id: 4,
-      release_name: 'Breaking.Bad.S01E01-GROUP',
-      name: 'SUBDL.com::bb.s01e01.zip',
-      lang: 'english',
-      language: 'EN',
-      author: 'tvuser',
-      url: '/subtitle/200-300.zip',
-      imdb_id: 'tt0903747',
-      season: 1,
-      episode: 1,
-    },
-    {
-      id: 5,
-      release_name: 'Breaking.Bad.S01E02-GROUP',
-      name: 'SUBDL.com::bb.s01e02.zip',
-      lang: 'english',
-      language: 'EN',
-      author: 'tvuser',
-      url: '/subtitle/200-301.zip',
-      imdb_id: 'tt0903747',
-      season: 1,
-      episode: 2,
-    },
-    {
-      id: 6,
-      release_name: 'Breaking.Bad.S01.1080p.BluRay',
-      name: 'SUBDL.com::bb.s01.pack.zip',
-      lang: 'english',
-      language: 'EN',
-      author: 'packuser',
-      url: '/subtitle/season-pack.zip',
-      imdb_id: 'tt0903747',
-      season: 1,
-    },
-  ])
-  .execute()

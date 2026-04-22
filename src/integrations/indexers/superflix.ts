@@ -3,6 +3,7 @@ import axios from 'redaxios'
 
 import { envVariables } from '@/lib/env'
 import { Log } from '@/lib/log'
+import { Parsers } from '@/lib/parsers'
 
 import type { Indexer } from './types'
 
@@ -32,6 +33,14 @@ export class SuperflixAdapter implements Indexer {
   static source = 'ripper' as const
 
   private base = envVariables.SUPERFLIX_API_URL
+
+  private resolveUrl(url: string) {
+    if (url.startsWith('http')) {
+      return url
+    }
+
+    return `${this.base}${url}`
+  }
 
   search: Indexer['search'] = async (params) => {
     if (!params.imdb_id) {
@@ -75,6 +84,7 @@ export class SuperflixAdapter implements Indexer {
         source_id: `superflix:${imdbId}`,
         name: null,
         size,
+        seeders: 0,
         imdb_id: imdbId,
         resolution,
         codec: null,
@@ -122,6 +132,7 @@ export class SuperflixAdapter implements Indexer {
         source_id: `superflix:${imdbId}:${season}`,
         name: null,
         size: episodeSize * episodes.length,
+        seeders: 0,
         imdb_id: imdbId,
         resolution,
         codec: null,
@@ -140,7 +151,7 @@ export class SuperflixAdapter implements Indexer {
     const allEpisodes = this.parseAllEpisodes(data, imdbId)
     const seasonEpisodes = allEpisodes[String(season)]
 
-    if (!seasonEpisodes || seasonEpisodes.length === 0) {
+    if (seasonEpisodes.length === 0) {
       return []
     }
 
@@ -205,7 +216,7 @@ export class SuperflixAdapter implements Indexer {
   private async getVideoId(page: PageData) {
     const { data } = await axios<{ data: { options: { ID: number }[] } }>({
       method: 'post',
-      url: page.optionsUrl,
+      url: this.resolveUrl(page.optionsUrl),
       data: new URLSearchParams({
         contentid: page.contentId,
         type: page.contentType,
@@ -236,7 +247,7 @@ export class SuperflixAdapter implements Indexer {
   private async getPlayer(videoId: string, page: PageData) {
     const { data } = await axios<{ data: { video_url: string } }>({
       method: 'post',
-      url: page.sourceUrl,
+      url: this.resolveUrl(page.sourceUrl),
       data: new URLSearchParams({
         video_id: videoId,
         page_token: page.pageToken,
@@ -332,7 +343,7 @@ export class SuperflixAdapter implements Indexer {
       return null
     }
 
-    return `${match[2]}p`
+    return Parsers.releaseResolution(`${match[2]}p`)
   }
 
   private extractVideoStream(masterPlaylist: string, referer: string) {
@@ -423,7 +434,7 @@ export class SuperflixAdapter implements Indexer {
       )
 
       for (const buf of buffers) {
-        writer.write(buf)
+        await writer.write(buf)
       }
 
       downloaded += batch.length

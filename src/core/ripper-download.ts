@@ -77,7 +77,7 @@ export class RipperDownload implements DownloadSource {
           }
         : {
             status: 'error',
-            error_at: new Date().toISOString(),
+            error_at: new Date(),
           }
     )
 

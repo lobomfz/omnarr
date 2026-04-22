@@ -74,3 +74,38 @@ describe('DbTmdbMedia.getByTmdbId', () => {
     expect(result).toBeUndefined()
   })
 })
+
+describe('DbTmdbMedia.upsert', () => {
+  test('round-trips backdrop_path, runtime, vote_average, genres', async () => {
+    await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      imdb_id: 'tt0133093',
+      year: 1999,
+      backdrop_path: '/backdrop.jpg',
+      runtime: 136,
+      vote_average: 8.7,
+      genres: ['Action', 'Sci-Fi'],
+    })
+
+    const row = await db
+      .selectFrom('tmdb_media')
+      .where('tmdb_id', '=', 603)
+      .where('media_type', '=', 'movie')
+      .select([
+        'backdrop_path',
+        'runtime',
+        'vote_average',
+        'genres',
+        'derived_id',
+      ])
+      .executeTakeFirstOrThrow()
+
+    expect(row.backdrop_path).toBe('/backdrop.jpg')
+    expect(row.runtime).toBe(136)
+    expect(row.vote_average).toBe(8.7)
+    expect(row.genres).toEqual(['Action', 'Sci-Fi'])
+    expect(row.derived_id).toHaveLength(6)
+  })
+})

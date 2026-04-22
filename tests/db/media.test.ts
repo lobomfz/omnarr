@@ -150,7 +150,7 @@ describe('DbMedia.list', () => {
       source_id: 'ERR_HASH',
       download_url: 'magnet:err',
       status: 'error',
-      error_at: new Date().toISOString(),
+      error_at: new Date(),
     })
 
     await DbDownloads.create({

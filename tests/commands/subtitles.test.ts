@@ -4,7 +4,6 @@ import { rm } from 'fs/promises'
 import { testCommand } from '@bunli/test'
 
 import { SubtitlesCommand } from '@/commands/subtitles'
-import { config } from '@/lib/config'
 import { database, db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbMedia } from '@/db/media'
@@ -13,26 +12,25 @@ import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'
 import { DbReleases } from '@/db/releases'
 import { DbTmdbMedia } from '@/db/tmdb-media'
+import { config } from '@/lib/config'
 import { deriveId } from '@/lib/utils'
 
 import { SubdlMock } from '../mocks/subdl'
 
-beforeEach(() => {
+beforeEach(async () => {
   database.reset()
+  SubdlMock.reset()
+  await SubdlMock.helpers.seed()
 })
 
 async function setupMovie() {
-  const tmdb = await db
-    .insertInto('tmdb_media')
-    .values({
-      tmdb_id: 603,
-      media_type: 'movie',
-      title: 'The Matrix',
-      year: 1999,
-      imdb_id: 'tt0133093',
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
+  const tmdb = await DbTmdbMedia.upsert({
+    tmdb_id: 603,
+    media_type: 'movie',
+    title: 'The Matrix',
+    year: 1999,
+    imdb_id: 'tt0133093',
+  })
 
   await db
     .insertInto('media')
@@ -48,17 +46,13 @@ async function setupMovie() {
 }
 
 async function setupTvShow() {
-  const tmdb = await db
-    .insertInto('tmdb_media')
-    .values({
-      tmdb_id: 1399,
-      media_type: 'tv',
-      title: 'Breaking Bad',
-      year: 2008,
-      imdb_id: 'tt0903747',
-    })
-    .returning(['id'])
-    .executeTakeFirstOrThrow()
+  const tmdb = await DbTmdbMedia.upsert({
+    tmdb_id: 1399,
+    media_type: 'tv',
+    title: 'Breaking Bad',
+    year: 2008,
+    imdb_id: 'tt0903747',
+  })
 
   await db
     .insertInto('media')
@@ -169,17 +163,13 @@ describe('subtitles command', () => {
   })
 
   test('errors when media has no IMDB ID', async () => {
-    const tmdb = await db
-      .insertInto('tmdb_media')
-      .values({
-        tmdb_id: 999,
-        media_type: 'movie',
-        title: 'No IMDB Movie',
-        year: 2020,
-        imdb_id: '',
-      })
-      .returning(['id'])
-      .executeTakeFirstOrThrow()
+    const tmdb = await DbTmdbMedia.upsert({
+      tmdb_id: 999,
+      media_type: 'movie',
+      title: 'No IMDB Movie',
+      year: 2020,
+      imdb_id: '',
+    })
 
     await db
       .insertInto('media')
@@ -258,6 +248,7 @@ async function setupAutoMatch() {
       indexer_source: 'yts',
       name: 'The.Matrix.1999.1080p.BluRay.x264-GROUP',
       size: 8_000_000_000,
+      seeders: 0,
       imdb_id: 'tt0133093',
       resolution: '1080p',
       codec: 'x264',

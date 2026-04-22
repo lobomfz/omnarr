@@ -26,7 +26,7 @@ export class TorrentSync {
     ])
 
     const statusByHash = new Map(statuses.map((s) => [s.hash.toUpperCase(), s]))
-    const now = new Date().toISOString()
+    const now = new Date()
 
     const updates = active.map((d) => {
       const s = statusByHash.get(d.source_id)
