@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
-import { TmdbClient } from '@/integrations/tmdb/client'
 import { Releases } from '@/core/releases'
+import { TmdbClient } from '@/integrations/tmdb/client'
 
 import { TmdbMock } from './mocks/tmdb'
 import './mocks/beyond-hd'
@@ -31,7 +31,7 @@ await TmdbMock.db.insertInto('external_ids').values({ tmdb_id: 9999 }).execute()
 describe('TmdbClient - no IMDB ID', () => {
   test('throws when TMDB entry has no IMDB ID', async () => {
     await expect(() => new TmdbClient().getDetails(9999, 'tv')).toThrow(
-      /no IMDB ID/
+      /no IMDB ID/i
     )
   })
 })

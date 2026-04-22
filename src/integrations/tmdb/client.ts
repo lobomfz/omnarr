@@ -4,6 +4,7 @@ import axios from 'redaxios'
 import type { media_type } from '@/db/connection'
 import { envVariables } from '@/lib/env'
 import { Log } from '@/lib/log'
+import { OmnarrError } from '@/shared/errors'
 
 import type { TmdbTypes } from './types'
 
@@ -23,7 +24,7 @@ export class TmdbClient {
         `tmdb request failed url=${url} status=${e.status} message="${message}"`
       )
 
-      throw new Error(`TMDB ${e.status}: ${message}`)
+      throw new OmnarrError('TMDB_UNAVAILABLE', { cause: e })
     })
 
     return data
@@ -62,7 +63,7 @@ export class TmdbClient {
     ])
 
     if (!externalIds.imdb_id) {
-      throw new Error(`TMDB entry ${tmdbId} has no IMDB ID`)
+      throw new OmnarrError('NO_IMDB_ID')
     }
 
     return { ...this.parse(data, mediaType), imdb_id: externalIds.imdb_id }
@@ -78,7 +79,7 @@ export class TmdbClient {
     const data = await this.request<TmdbTypes['raw_media']>(`/tv/${tmdbId}`)
 
     if (!data.seasons) {
-      throw new Error('TMDB /tv endpoint did not return seasons')
+      throw new OmnarrError('TMDB_UNAVAILABLE')
     }
 
     return {

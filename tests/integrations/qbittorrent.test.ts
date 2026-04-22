@@ -40,7 +40,9 @@ describe('QBittorrentClient', () => {
       category: 'omnarr',
     })
 
-    expect(() => bad.getTorrentStatuses()).toThrow('qBittorrent login failed')
+    expect(() => bad.getTorrentStatuses()).toThrow(
+      'Download client is unreachable'
+    )
   })
 
   test('getTorrentStatuses maps qBit states to domain status', async () => {
@@ -170,7 +172,7 @@ describe('QBittorrentClient', () => {
 
     await expect(() =>
       qbt.addTorrent({ url: 'magnet:?xt=urn:btih:abc123&dn=Test' })
-    ).toThrow('Torrent rejected by qBittorrent')
+    ).toThrow('Torrent rejected by download client')
   })
 
   test('getTorrentStatuses defaults unknown state to error', async () => {

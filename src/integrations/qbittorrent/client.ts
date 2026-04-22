@@ -5,6 +5,7 @@ import type {
   TorrentStatus,
 } from '@/integrations/download-client'
 import { Log } from '@/lib/log'
+import { OmnarrError } from '@/shared/errors'
 
 interface QBitTorrent {
   hash: string
@@ -60,7 +61,7 @@ export class QBittorrentClient implements DownloadClient {
 
     if (!sid) {
       Log.error(`qbittorrent login failed url=${this.config.url}`)
-      throw new Error('qBittorrent login failed')
+      throw new OmnarrError('DOWNLOAD_CLIENT_UNREACHABLE')
     }
 
     this.cookie = sid
@@ -88,15 +89,13 @@ export class QBittorrentClient implements DownloadClient {
         `qbittorrent request failed ${options.method} ${options.url} status=${e.status} statusText="${e.statusText}"`
       )
 
-      throw new Error(`qBittorrent ${e.status}: ${e.statusText}`)
+      throw new OmnarrError('DOWNLOAD_CLIENT_UNREACHABLE', { cause: e })
     })
 
     if (data === 'Fails.') {
-      Log.error(
-        `qbittorrent request rejected ${options.method} ${options.url}`
-      )
+      Log.error(`qbittorrent request rejected ${options.method} ${options.url}`)
 
-      throw new Error(`qBittorrent rejected: ${options.method} ${options.url}`)
+      throw new OmnarrError('DOWNLOAD_CLIENT_UNREACHABLE')
     }
 
     return data
@@ -134,7 +133,7 @@ export class QBittorrentClient implements DownloadClient {
         `qbittorrent addTorrent failed url=${params.url} reason="${e.message}"`
       )
 
-      throw new Error('Torrent rejected by qBittorrent', { cause: e })
+      throw new OmnarrError('TORRENT_REJECTED', { cause: e })
     })
   }
 }
