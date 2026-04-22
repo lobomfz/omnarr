@@ -13,7 +13,7 @@ export const StatusCommand = defineCommand({
     watch: option(type('boolean | undefined'), {
       description: 'Live mode — refresh every 2s',
     }),
-    limit: option(type('number | undefined'), {
+    limit: option(type('string.numeric.parse | undefined'), {
       description: 'Max results (default: 10)',
     }),
   },

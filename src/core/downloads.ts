@@ -6,7 +6,6 @@ import type { DownloadSource } from '@/core/types/download-source'
 import type { download_source } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
-import { DbEvents } from '@/db/events'
 import { DbMedia } from '@/db/media'
 import type { Release } from '@/db/releases'
 import { DbReleases } from '@/db/releases'
@@ -57,35 +56,19 @@ export class Downloads {
       `download enqueue release_id=${release.id} source_id=${release.source_id} source=${source}`
     )
 
-    try {
-      return await new sourceMap[source]().enqueue({
-        source_id: release.source_id,
-        download_url: release.download_url,
-        title: resolved.title,
-        year: resolved.year,
-        imdb_id: resolved.imdb_id,
-        media_id: resolved.mediaId,
-        tracks_dir: resolveTracksDir(resolved.mediaId),
-        audio_only: input.audio_only,
-        language: release.language,
-        season_number: release.season_number,
-        episode_number: release.episode_number,
-      })
-    } catch (err) {
-      if (resolved.created) {
-        await DbMedia.delete(resolved.mediaId)
-      } else {
-        await DbEvents.create({
-          media_id: resolved.mediaId,
-          entity_type: 'download',
-          entity_id: release.source_id,
-          event_type: 'error',
-          message: 'Download failed to start',
-        })
-      }
-
-      throw err
-    }
+    return await new sourceMap[source]().enqueue({
+      source_id: release.source_id,
+      download_url: release.download_url,
+      title: resolved.title,
+      year: resolved.year,
+      imdb_id: resolved.imdb_id,
+      media_id: resolved.mediaId,
+      tracks_dir: resolveTracksDir(resolved.mediaId),
+      audio_only: input.audio_only,
+      language: release.language,
+      season_number: release.season_number,
+      episode_number: release.episode_number,
+    })
   }
 
   async autoMatchSubtitles(input: typeof SubtitlesSchemas.autoMatch.infer) {
@@ -129,7 +112,6 @@ export class Downloads {
         title: existing.title,
         year: existing.year,
         imdb_id: existing.imdb_id,
-        created: false,
       }
     }
 
@@ -158,7 +140,6 @@ export class Downloads {
       title: details.title,
       year: details.year,
       imdb_id: details.imdb_id,
-      created: true,
     }
   }
 

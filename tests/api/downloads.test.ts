@@ -98,7 +98,7 @@ describe('downloads.add', () => {
     ).toThrow('NO_ROOT_FOLDER')
   })
 
-  test('cleans up new media when qBittorrent is offline', async () => {
+  test('marks download as error when qBittorrent is offline', async () => {
     config.download_client = {
       ...originalClient!,
       url: DEAD_PORT_URL,
@@ -109,13 +109,15 @@ describe('downloads.add', () => {
     ).toThrow()
 
     const media = await db.selectFrom('media').selectAll().execute()
-    expect(media).toHaveLength(0)
+    expect(media).toHaveLength(1)
 
-    const events = await db.selectFrom('events').selectAll().execute()
-    expect(events).toHaveLength(0)
+    const downloads = await db.selectFrom('downloads').selectAll().execute()
+    expect(downloads).toHaveLength(1)
+    expect(downloads[0].status).toBe('error')
+    expect(downloads[0].error_at).not.toBeNull()
   })
 
-  test('cleans up new media when torrent is rejected', async () => {
+  test('marks download as error when torrent is rejected', async () => {
     await client.downloads.add({ release_id: torrentRelease.id })
 
     const [torrent] = await QBittorrentMock.db
@@ -131,14 +133,12 @@ describe('downloads.add', () => {
       client.downloads.add({ release_id: torrentRelease.id })
     ).toThrow()
 
-    const media = await db.selectFrom('media').selectAll().execute()
-    expect(media).toHaveLength(0)
-
-    const events = await db.selectFrom('events').selectAll().execute()
-    expect(events).toHaveLength(0)
+    const downloads = await db.selectFrom('downloads').selectAll().execute()
+    expect(downloads).toHaveLength(1)
+    expect(downloads[0].status).toBe('error')
   })
 
-  test('creates error event when download fails on existing media', async () => {
+  test('creates error event when download fails', async () => {
     config.download_client = {
       ...originalClient!,
       url: DEAD_PORT_URL,
@@ -192,7 +192,7 @@ describe('downloads.add', () => {
     ).toThrow('MEDIA_NOT_FOUND')
   })
 
-  test('does not create download record when qBittorrent fails', async () => {
+  test('creates download record in error state when qBittorrent fails', async () => {
     config.download_client = {
       ...originalClient!,
       url: DEAD_PORT_URL,
@@ -204,7 +204,8 @@ describe('downloads.add', () => {
 
     const downloads = await db.selectFrom('downloads').selectAll().execute()
 
-    expect(downloads).toHaveLength(0)
+    expect(downloads).toHaveLength(1)
+    expect(downloads[0].status).toBe('error')
   })
 })
 

@@ -39,7 +39,7 @@ export function useDownloadProgressSubscription() {
           speed: event.speed,
           eta: event.eta,
           status: event.status,
-          error_at: event.error_at,
+          error_at: event.error_at ? event.error_at.toISOString() : null,
         }
       )
 

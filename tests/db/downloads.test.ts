@@ -20,7 +20,7 @@ describe('deleteStaleErrors', () => {
       source_id: 'STALE_HASH',
       download_url: 'magnet:?xt=urn:btih:stale',
       status: 'error',
-      error_at: dayjs().subtract(25, 'hours').toISOString(),
+      error_at: dayjs().subtract(25, 'hours').toDate(),
     })
 
     const deleted = await DbDownloads.deleteStaleErrors()
@@ -40,7 +40,7 @@ describe('deleteStaleErrors', () => {
       source_id: 'RECENT_HASH',
       download_url: 'magnet:?xt=urn:btih:recent',
       status: 'error',
-      error_at: dayjs().subtract(1, 'hour').toISOString(),
+      error_at: dayjs().subtract(1, 'hour').toDate(),
     })
 
     const deleted = await DbDownloads.deleteStaleErrors()
@@ -75,7 +75,7 @@ describe('deleteStaleErrors', () => {
       source_id: 'STALE_1',
       download_url: 'magnet:?xt=urn:btih:stale1',
       status: 'error',
-      error_at: dayjs().subtract(48, 'hours').toISOString(),
+      error_at: dayjs().subtract(48, 'hours').toDate(),
     })
 
     await DbDownloads.create({
@@ -83,7 +83,7 @@ describe('deleteStaleErrors', () => {
       source_id: 'RECENT_1',
       download_url: 'magnet:?xt=urn:btih:recent1',
       status: 'error',
-      error_at: dayjs().subtract(1, 'hour').toISOString(),
+      error_at: dayjs().subtract(1, 'hour').toDate(),
     })
 
     await DbDownloads.create({

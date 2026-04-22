@@ -30,18 +30,16 @@ const SUBTITLE_CODEC: Record<string, string> = { srt: 'subrip' }
 const MEDIA_GLOB = new Bun.Glob(`**/*.{${[...VALID_EXTENSIONS].join(',')}}`)
 
 export class Scanner {
-  async rescan(mediaId: string, force?: boolean) {
-    const media = await DbMedia.getById(mediaId)
+  async rescan(input: { media_id: string; force?: boolean }) {
+    const media = await DbMedia.getById(input.media_id)
 
     if (!media) {
       throw new OmnarrError('MEDIA_NOT_FOUND')
     }
 
-    await DbEvents.deleteScanErrors(mediaId)
+    Scheduler.scan(input.media_id, input.force)
 
-    Scheduler.scan(mediaId, force)
-
-    return { media_id: mediaId }
+    return { media_id: input.media_id }
   }
 
   async scan(
@@ -327,10 +325,7 @@ export class Scanner {
           language: stream.tags?.language,
           title: stream.tags?.title,
           is_default: !!stream.disposition?.default,
-          scan_ratio:
-            stream.codec_type === 'video' || stream.codec_type === 'audio'
-              ? 0
-              : undefined,
+          scan_ratio: 0,
           ...this.streamFields(stream),
         })),
         trx

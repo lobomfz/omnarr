@@ -117,7 +117,7 @@ describe('TorrentSync', () => {
 
     const sync = new TorrentSync()
 
-     expect(() => sync.sync()).toThrow()
+    expect(() => sync.sync()).toThrow()
 
     const events = await db
       .selectFrom('events')
@@ -138,7 +138,7 @@ describe('TorrentSync', () => {
     const sync = new TorrentSync()
 
     for (let i = 0; i < 3; i++) {
-       expect(() => sync.sync()).toThrow()
+      expect(() => sync.sync()).toThrow()
     }
 
     const events = await db
@@ -196,7 +196,7 @@ describe('TorrentSync', () => {
 
     const sync = new TorrentSync()
 
-     expect(() => sync.sync()).toThrow()
+    expect(() => sync.sync()).toThrow()
 
     config.download_client!.url = originalUrl
 

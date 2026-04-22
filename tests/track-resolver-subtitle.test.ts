@@ -6,7 +6,7 @@ import { join } from 'path'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
 import { MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
-import { scaleTimestamps } from '@/audio/correlation-utils'
+import { scaleTimestamps } from '@/audio/correlation-refine'
 import { TrackResolver } from '@/audio/track-resolver'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { Player } from '@/player/player'

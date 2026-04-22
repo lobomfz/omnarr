@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { AudioCorrelator, MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
-import { bestCorrelation } from '@/audio/correlation-utils'
+import { bestCorrelation } from '@/audio/correlation-refine'
 import { TrackResolver } from '@/audio/track-resolver'
 import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'

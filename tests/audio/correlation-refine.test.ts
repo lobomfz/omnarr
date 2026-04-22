@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { AudioCorrelator } from '@/audio/audio-correlator'
-import { buildRefineRanges, refineCorrelation } from '@/audio/correlation-utils'
+import { buildRefineRanges, refineCorrelation } from '@/audio/correlation-refine'
 
 import { denseTimestamps, shiftTimestamps } from '../helpers/vad'
 

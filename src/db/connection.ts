@@ -150,7 +150,7 @@ export const database = new Database({
         source: download_source.default('torrent'),
         status: download_status.default('downloading'),
         content_path: 'string | null',
-        error_at: 'string | null',
+        error_at: 'Date | null',
         'season_number?': 'number.integer',
         'episode_number?': 'number.integer',
         started_at: generated('now'),

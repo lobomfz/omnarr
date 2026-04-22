@@ -115,7 +115,7 @@ describe('scanner subtitle handling', () => {
     const tracks = await DbMediaTracks.getByMediaId(mediaId)
 
     expect(tracks).toHaveLength(1)
-    expect(tracks[0].language).toBe('unknown')
+    expect(tracks[0].language).toBeNull()
   })
 
   test('associates subtitle with episode via directory name', async () => {

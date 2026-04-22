@@ -5,10 +5,11 @@ import { MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
 import { TrackResolver } from '@/audio/track-resolver'
 import { Releases } from '@/core/releases'
 import { SubtitleDownload } from '@/core/subtitle-download'
-import { db } from '@/db/connection'
+import { DbMediaTracks } from '@/db/media-tracks'
 import { resolveTracksDir } from '@/lib/config'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
+import { OmnarrError } from '@/shared/errors'
 
 const FUZZY_THRESHOLD = 90
 const MAX_ATTEMPTS = 5
@@ -28,7 +29,10 @@ type MatchAttempt = {
 export class SubtitleMatcher extends TrackResolver {
   async match(opts: { lang?: string; season?: number; episode?: number }) {
     const vadTrackId = await this.resolveVadTrackId()
-    const referenceName = await this.resolveReferenceName()
+    const referenceName = await DbMediaTracks.getDefaultVideoReleaseName({
+      media_id: this.media.id,
+      episode_id: this.media.episode_id,
+    })
     const subtitles = await new Releases().searchSubtitles(this.media.id, opts)
     const tested: MatchAttempt[] = []
 
@@ -146,47 +150,16 @@ export class SubtitleMatcher extends TrackResolver {
   }
 
   private async resolveVadTrackId() {
-    let query = db
-      .selectFrom('media_tracks as mt')
-      .innerJoin('media_vad as mv', 'mv.track_id', 'mt.id')
-      .innerJoin('media_files as mf', 'mf.id', 'mt.media_file_id')
-      .where('mf.media_id', '=', this.media.id)
-      .where('mt.stream_type', '=', 'audio')
-      .orderBy('mt.is_default', 'desc')
-      .orderBy('mt.stream_index', 'asc')
-      .select('mt.id')
+    const id = await DbMediaTracks.getDefaultAudioVadTrackId({
+      media_id: this.media.id,
+      episode_id: this.media.episode_id,
+    })
 
-    if (this.media.episode_id !== undefined) {
-      query = query.where('mf.episode_id', '=', this.media.episode_id)
+    if (id === undefined) {
+      throw new OmnarrError('NO_VAD_DATA')
     }
 
-    const result = await query.executeTakeFirst()
-
-    if (!result) {
-      throw new Error('No VAD data found. Run scan first.')
-    }
-
-    return result.id
-  }
-
-  private async resolveReferenceName() {
-    let query = db
-      .selectFrom('media_tracks as mt')
-      .innerJoin('media_files as mf', 'mf.id', 'mt.media_file_id')
-      .innerJoin('downloads as d', 'd.id', 'mf.download_id')
-      .leftJoin('releases as r', 'r.source_id', 'd.source_id')
-      .where('mf.media_id', '=', this.media.id)
-      .where('mt.stream_type', '=', 'video')
-      .where('mt.is_default', '=', true)
-      .select('r.name')
-
-    if (this.media.episode_id !== undefined) {
-      query = query.where('mf.episode_id', '=', this.media.episode_id)
-    }
-
-    const result = await query.executeTakeFirst()
-
-    return result?.name
+    return id
   }
 
   private computeTier(

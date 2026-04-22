@@ -4,8 +4,9 @@ import { type, type Type } from '@lobomfz/db'
 
 import { PubSub } from '@/api/pubsub'
 import { client } from '@/cli/client'
-import { connectWs } from '@/cli/ws-client'
+import { wsClient } from '@/cli/ws-client'
 import { Exporter } from '@/core/exporter'
+import type { media_type } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import { DbReleases } from '@/db/releases'
@@ -203,8 +204,6 @@ export class Handler {
 
     await this.listDownloads(limit)
 
-    const wsClient = connectWs()
-
     for await (const _event of await wsClient.downloadProgress()) {
       await this.listDownloads(limit, true)
     }
@@ -224,7 +223,7 @@ export class Handler {
   }
 
   private async resolveEpisodeForTv(
-    media: { media_type: string; tmdb_media_id: number },
+    media: { media_type: media_type; tmdb_media_id: number },
     season?: number,
     episode?: number
   ) {
@@ -343,6 +342,22 @@ export class Handler {
     const outputPath = resolve(output)
 
     const exporter = new Exporter({ id: media_id, episode_id: episodeId })
+    const strategy = await this.withExportProgress(media_id, outputPath, () =>
+      exporter.export({ video: opts.video, output: outputPath })
+    )
+
+    if (strategy === 'hardlink') {
+      this.output({ output: outputPath }, `Linked: ${outputPath}`)
+    } else {
+      this.output({ output: outputPath }, `Exported: ${outputPath}`)
+    }
+  }
+
+  private async withExportProgress<T>(
+    media_id: string,
+    outputPath: string,
+    run: () => Promise<T>
+  ) {
     const controller = new AbortController()
     const consumer = this.consumeExportProgress(
       media_id,
@@ -350,22 +365,11 @@ export class Handler {
       controller.signal
     )
 
-    let strategy: 'hardlink' | 'mux'
-
     try {
-      strategy = await exporter.export({
-        video: opts.video,
-        output: outputPath,
-      })
+      return await run()
     } finally {
       controller.abort()
       await consumer
-    }
-
-    if (strategy === 'hardlink') {
-      this.output({ output: outputPath }, `Linked: ${outputPath}`)
-    } else {
-      this.output({ output: outputPath }, `Exported: ${outputPath}`)
     }
   }
 

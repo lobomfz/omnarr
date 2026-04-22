@@ -15,19 +15,6 @@ export class TorrentDownload implements DownloadSource {
 
     Log.info(`adding torrent source_id=${data.source_id} title="${data.title}"`)
 
-    await new QBittorrentClient(config.download_client)
-      .addTorrent({
-        url: data.download_url,
-        hash: data.source_id,
-      })
-      .catch((err) => {
-        Log.warn(
-          `download failed source_id=${data.source_id} error="${err.code ?? err.message}"`
-        )
-
-        throw err
-      })
-
     const download = await DbDownloads.create({
       media_id: data.media_id,
       source_id: data.source_id,
@@ -35,6 +22,34 @@ export class TorrentDownload implements DownloadSource {
       season_number: data.season_number,
       episode_number: data.episode_number,
     })
+
+    await new QBittorrentClient(config.download_client)
+      .addTorrent({
+        url: data.download_url,
+        hash: data.source_id,
+      })
+      .catch(async (err: any) => {
+        Log.warn(
+          `download failed source_id=${data.source_id} error="${err.code ?? err.message}"`
+        )
+
+        await DbDownloads.update(download.id, {
+          status: 'error',
+          error_at: new Date(),
+        })
+
+        await DbEvents.create({
+          media_id: data.media_id,
+          entity_type: 'download',
+          entity_id: data.source_id,
+          event_type: 'error',
+          message: err.message,
+        })
+
+        await DownloadEvents.publish(download.id)
+
+        throw err
+      })
 
     await DbEvents.create({
       media_id: data.media_id,

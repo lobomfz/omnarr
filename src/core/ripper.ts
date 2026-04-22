@@ -9,6 +9,7 @@ import { DbDownloads } from '@/db/downloads'
 import { SuperflixAdapter } from '@/integrations/indexers/superflix'
 import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
+import { Paths } from '@/lib/paths'
 
 interface RipperUnit {
   tag: string
@@ -23,9 +24,10 @@ interface RipperEntry {
   codec: 'v' | 'a'
 }
 
+const PROGRESS_THROTTLE_MS = 500
+
 export class Ripper {
   private client = new SuperflixAdapter()
-  private lastPublishAt = 0
 
   constructor(
     private ctx: {
@@ -70,7 +72,7 @@ export class Ripper {
         tag: seTag,
         dir: join(
           this.ctx.tracks_dir,
-          Formatters.seasonEpisodeDir(
+          Paths.seasonEpisodeDir(
             this.ctx.season_number,
             this.ctx.episode_number
           )
@@ -147,8 +149,6 @@ export class Ripper {
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i]
 
-      this.lastPublishAt = 0
-
       await this.ripEntry(entry, tmpPath, i, entries.length)
         .then(() => {
           ripped++
@@ -157,7 +157,6 @@ export class Ripper {
           Log.warn(`ripper failed tag=${entry.tag} error="${err.message}"`)
         )
 
-      this.lastPublishAt = 0
       await this.publishProgress((i + 1) / entries.length)
     }
 
@@ -180,17 +179,19 @@ export class Ripper {
   ) {
     const tmpFile = join(tmpPath, `${entry.tag.replaceAll(' ', '_')}.ts`)
 
+    let lastPublishAt = 0
+
     await this.client.downloadStream(
       entry.stream,
       tmpFile,
       (downloaded, downloadTotal) => {
         const now = Date.now()
 
-        if (now - this.lastPublishAt < 500) {
+        if (now - lastPublishAt < PROGRESS_THROTTLE_MS) {
           return
         }
 
-        this.lastPublishAt = now
+        lastPublishAt = now
 
         const ratio = (completed + downloaded / downloadTotal) / total
 

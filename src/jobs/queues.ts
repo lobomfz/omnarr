@@ -1,9 +1,7 @@
+import type { ScanSchemas } from '@/api/schemas'
 import { Queue } from '@/jobs/index'
 
-export interface ScanJobData {
-  media_id: string
-  force?: boolean
-}
+export type ScanJobData = typeof ScanSchemas.rescan.infer
 
 export interface RipperJobData {
   media_id: string

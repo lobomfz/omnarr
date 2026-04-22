@@ -9,7 +9,7 @@ import {
 import { type LibrarySchemas } from '@/api/schemas'
 import { type AliasedDb, db, type DB } from '@/db/connection'
 
-export function selectHasKeyframes(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
+function selectHasKeyframes(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
   return eb
     .exists(
       eb
@@ -21,7 +21,7 @@ export function selectHasKeyframes(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
     .as('has_keyframes')
 }
 
-export function selectHasVad(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
+function selectHasVad(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
   return eb
     .exists(
       eb
@@ -33,7 +33,7 @@ export function selectHasVad(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
     .as('has_vad')
 }
 
-export function selectTracks(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
+function selectTracks(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
   return jsonArrayFrom(
     eb
       .selectFrom('media_tracks as mt')
@@ -55,6 +55,21 @@ export function selectTracks(eb: ExpressionBuilder<AliasedDb, 'mf'>) {
       .orderBy('mt.stream_index')
   ).as('tracks')
 }
+
+const DOWNLOAD_COLUMNS = [
+  'd.id',
+  'd.source_id',
+  'd.source',
+  'd.status',
+  'd.progress',
+  'd.speed',
+  'd.eta',
+  'd.content_path',
+  'd.error_at',
+  'd.season_number',
+  'd.episode_number',
+  'd.started_at',
+] as const
 
 export const DbMedia = {
   async create(data: Insertable<DB['media']>) {
@@ -95,6 +110,134 @@ export const DbMedia = {
       .executeTakeFirst()
   },
 
+  async getByDerivedId(derivedId: string) {
+    return await db
+      .selectFrom('tmdb_media as t')
+      .where('t.derived_id', '=', derivedId)
+      .select(['t.id', 't.tmdb_id', 't.media_type'])
+      .executeTakeFirst()
+  },
+
+  async getWithDetails(
+    derivedId: string,
+    filters?: { season?: number; episode?: number }
+  ) {
+    return await db
+      .selectFrom('tmdb_media as t')
+      .leftJoin('media as m', (join) =>
+        join.onRef('m.tmdb_media_id', '=', 't.id')
+      )
+      .where('t.derived_id', '=', derivedId)
+      .select([
+        't.derived_id as id',
+        't.tmdb_id',
+        't.media_type',
+        't.title',
+        't.year',
+        't.poster_path',
+        't.backdrop_path',
+        't.overview',
+        't.runtime',
+        't.vote_average',
+        't.genres',
+        't.imdb_id',
+        'm.added_at',
+        'm.root_folder',
+        'm.tmdb_media_id',
+        (eb) =>
+          jsonArrayFrom(
+            eb
+              .selectFrom('downloads as d')
+              .innerJoin('media as m2', 'm2.id', 'd.media_id')
+              .whereRef('m2.tmdb_media_id', '=', 't.id')
+              .select([
+                ...DOWNLOAD_COLUMNS,
+                (eb) =>
+                  jsonArrayFrom(
+                    eb
+                      .selectFrom('media_files as mf')
+                      .whereRef('mf.download_id', '=', 'd.id')
+                      .select([
+                        'mf.id',
+                        'mf.path',
+                        'mf.size',
+                        'mf.format_name',
+                        'mf.duration',
+                        selectHasKeyframes,
+                        selectHasVad,
+                        selectTracks,
+                      ])
+                      .orderBy('mf.path')
+                  ).as('files'),
+              ])
+              .orderBy('d.started_at', 'desc')
+          ).as('downloads'),
+        (eb) => {
+          let seasonsQuery = eb
+            .selectFrom('seasons as s')
+            .whereRef('s.tmdb_media_id', '=', 't.id')
+
+          if (filters?.season !== undefined) {
+            seasonsQuery = seasonsQuery.where(
+              's.season_number',
+              '=',
+              filters.season
+            )
+          }
+
+          return jsonArrayFrom(
+            seasonsQuery
+              .select([
+                's.season_number',
+                's.title',
+                (eb) => {
+                  let episodesQuery = eb
+                    .selectFrom('episodes as e')
+                    .whereRef('e.season_id', '=', 's.id')
+
+                  if (filters?.episode !== undefined) {
+                    episodesQuery = episodesQuery.where(
+                      'e.episode_number',
+                      '=',
+                      filters.episode
+                    )
+                  }
+
+                  return jsonArrayFrom(
+                    episodesQuery
+                      .select([
+                        'e.episode_number',
+                        'e.title',
+                        (eb) =>
+                          jsonArrayFrom(
+                            eb
+                              .selectFrom('media_files as mf')
+                              .whereRef('mf.episode_id', '=', 'e.id')
+                              .select([
+                                'mf.id',
+                                'mf.download_id',
+                                'mf.path',
+                                'mf.size',
+                                'mf.format_name',
+                                'mf.duration',
+                                selectHasKeyframes,
+                                selectHasVad,
+                                selectTracks,
+                              ])
+                              .orderBy('mf.path')
+                          ).as('files'),
+                      ])
+                      .orderBy('e.episode_number')
+                  ).as('episodes')
+                },
+              ])
+              .orderBy('s.season_number')
+          ).as('seasons')
+        },
+      ])
+      .executeTakeFirstOrThrow()
+  },
+
   async list(filters: typeof LibrarySchemas.list.infer) {
     let query = db
       .selectFrom('media as m')
@@ -109,7 +252,7 @@ export const DbMedia = {
         't.poster_path',
         't.backdrop_path',
         't.overview',
-        sql<number>`count(distinct mf.id)`.as('file_count'),
+        (eb) => eb.fn.count<number>('mf.id').distinct().as('file_count'),
         (eb) => eb.fn.count<number>('mt.id').as('track_count'),
         (eb) =>
           jsonObjectFrom(
@@ -140,7 +283,9 @@ export const DbMedia = {
             .selectFrom('media_files as mf2')
             .whereRef('mf2.media_id', '=', 'm.id')
             .where('mf2.episode_id', 'is not', null)
-            .select(sql<number>`count(distinct mf2.episode_id)`.as('count'))
+            .select((innerEb) =>
+              innerEb.fn.count<number>('mf2.episode_id').distinct().as('count')
+            )
             .as('episodes_with_files'),
       ])
       .groupBy('m.id')

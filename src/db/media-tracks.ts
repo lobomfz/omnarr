@@ -109,6 +109,52 @@ export const DbMediaTracks = {
       .select(['t.id', 'f.episode_id'])
       .execute()
   },
+
+  async getDefaultAudioVadTrackId(filter: {
+    media_id: string
+    episode_id?: number | null
+  }) {
+    let query = db
+      .selectFrom('media_tracks as mt')
+      .innerJoin('media_vad as mv', 'mv.track_id', 'mt.id')
+      .innerJoin('media_files as mf', 'mf.id', 'mt.media_file_id')
+      .where('mf.media_id', '=', filter.media_id)
+      .where('mt.stream_type', '=', 'audio')
+      .orderBy('mt.is_default', 'desc')
+      .orderBy('mt.stream_index', 'asc')
+      .select('mt.id')
+
+    if (filter.episode_id != null) {
+      query = query.where('mf.episode_id', '=', filter.episode_id)
+    }
+
+    const result = await query.executeTakeFirst()
+
+    return result?.id
+  },
+
+  async getDefaultVideoReleaseName(filter: {
+    media_id: string
+    episode_id?: number | null
+  }) {
+    let query = db
+      .selectFrom('media_tracks as mt')
+      .innerJoin('media_files as mf', 'mf.id', 'mt.media_file_id')
+      .innerJoin('downloads as d', 'd.id', 'mf.download_id')
+      .leftJoin('releases as r', 'r.source_id', 'd.source_id')
+      .where('mf.media_id', '=', filter.media_id)
+      .where('mt.stream_type', '=', 'video')
+      .where('mt.is_default', '=', true)
+      .select('r.name')
+
+    if (filter.episode_id != null) {
+      query = query.where('mf.episode_id', '=', filter.episode_id)
+    }
+
+    const result = await query.executeTakeFirst()
+
+    return result?.name
+  },
 }
 
 export type TracksWithFile = Awaited<

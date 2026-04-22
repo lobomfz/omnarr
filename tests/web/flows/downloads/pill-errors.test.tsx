@@ -105,7 +105,9 @@ describe('errors and conflicts', () => {
       .executeTakeFirstOrThrow()
 
     expect(errorRow.error_at).not.toBeNull()
-    expect(get('library-release-row').dataset.errorAt).toBe(errorRow.error_at!)
+    expect(get('library-release-row').dataset.errorAt).toBe(
+      errorRow.error_at!.toISOString()
+    )
   })
 
   test('recovered download reappears in pill after error', async () => {

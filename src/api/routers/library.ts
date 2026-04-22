@@ -16,10 +16,10 @@ export const libraryRouter = {
   getInfo: os
     .input(LibrarySchemas.getInfo)
     .errors(errors(['SEARCH_RESULT_NOT_FOUND']))
-    .handler(({ input }) => new MediaResolver(input.id, input).resolve()),
+    .handler(({ input }) => new MediaResolver(input).resolve()),
 
   rescan: os
     .input(ScanSchemas.rescan)
     .errors(errors(['MEDIA_NOT_FOUND']))
-    .handler(({ input }) => new Scanner().rescan(input.media_id, input.force)),
+    .handler(({ input }) => new Scanner().rescan(input)),
 }

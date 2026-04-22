@@ -1,5 +1,5 @@
 import { AudioCorrelator } from '@/audio/audio-correlator'
-import type { Correlate } from '@/audio/correlation-utils'
+import type { Correlate } from '@/audio/correlation-refine'
 
 export const WindowedCorrelator = {
   correlate(input: {

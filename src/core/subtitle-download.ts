@@ -6,9 +6,9 @@ import axios from 'redaxios'
 
 import type { DownloadData, DownloadSource } from '@/core/types/download-source'
 import { DbDownloads } from '@/db/downloads'
-import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
+import { Paths } from '@/lib/paths'
 import { deriveId } from '@/lib/utils'
 import { OmnarrError } from '@/shared/errors'
 
@@ -34,7 +34,6 @@ export class SubtitleDownload implements DownloadSource {
     season_number?: number | null
     episode_number?: number | null
   }) {
-    const lang = Formatters.language(input.language)
     const sourceHash = deriveId(input.source_id)
     const targetDir = this.resolveTargetDir(
       input.tracks_dir,
@@ -60,13 +59,16 @@ export class SubtitleDownload implements DownloadSource {
       if (srtEntries.length === 0) {
         await DbDownloads.update(download.id, {
           status: 'error',
-          error_at: new Date().toISOString(),
+          error_at: new Date(),
         })
 
         return null
       }
 
-      const targetPath = join(targetDir, `sub_${lang}_${sourceHash}.srt`)
+      const targetPath = join(
+        targetDir,
+        Paths.subtitleFile(input.language, sourceHash)
+      )
 
       await Bun.write(targetPath, files[srtEntries[0]])
 
@@ -84,7 +86,7 @@ export class SubtitleDownload implements DownloadSource {
     } catch (err: any) {
       await DbDownloads.update(download.id, {
         status: 'error',
-        error_at: new Date().toISOString(),
+        error_at: new Date(),
       }).catch((updateErr) =>
         Log.warn(
           `failed to update download status id=${download.id} error=${updateErr}`
@@ -130,7 +132,6 @@ export class SubtitleDownload implements DownloadSource {
   }
 
   private async enqueueSeasonPack(data: DownloadData) {
-    const lang = Formatters.language(data.language)
     const sourceHash = deriveId(data.source_id)
 
     const download = await DbDownloads.create({
@@ -162,15 +163,12 @@ export class SubtitleDownload implements DownloadSource {
 
         const epDir = join(
           data.tracks_dir,
-          Formatters.seasonEpisodeDir(
-            parsed.season_number,
-            parsed.episode_number
-          )
+          Paths.seasonEpisodeDir(parsed.season_number, parsed.episode_number)
         )
 
         await mkdir(epDir, { recursive: true })
         await Bun.write(
-          join(epDir, `sub_${lang}_${sourceHash}.srt`),
+          join(epDir, Paths.subtitleFile(data.language, sourceHash)),
           files[entry]
         )
 
@@ -200,7 +198,7 @@ export class SubtitleDownload implements DownloadSource {
     } catch (err: any) {
       await DbDownloads.update(download.id, {
         status: 'error',
-        error_at: new Date().toISOString(),
+        error_at: new Date(),
       }).catch((updateErr) =>
         Log.warn(
           `failed to update download status id=${download.id} error=${updateErr}`
@@ -219,7 +217,7 @@ export class SubtitleDownload implements DownloadSource {
     if (seasonNumber != null && episodeNumber != null) {
       return join(
         tracks_dir,
-        Formatters.seasonEpisodeDir(seasonNumber, episodeNumber)
+        Paths.seasonEpisodeDir(seasonNumber, episodeNumber)
       )
     }
 

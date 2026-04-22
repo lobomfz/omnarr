@@ -5,14 +5,8 @@ import type { RouterClient } from '@orpc/server'
 import type { WsAPI } from '@/api/ws-router'
 import { envVariables } from '@/lib/env'
 
-export function connectWs() {
-  const websocket = new WebSocket(
-    `ws://localhost:${envVariables.OMNARR_PORT}/ws`
-  )
-
-  const wsClient: RouterClient<WsAPI> = createORPCClient(
-    new RPCLink({ websocket })
-  )
-
-  return wsClient
-}
+export const wsClient: RouterClient<WsAPI> = createORPCClient(
+  new RPCLink({
+    websocket: new WebSocket(`ws://localhost:${envVariables.OMNARR_PORT}/ws`),
+  })
+)

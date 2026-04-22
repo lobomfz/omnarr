@@ -4,7 +4,7 @@ import {
   computeRuntimeSeconds,
   detectSpeed,
   refineCorrelation,
-} from '@/audio/correlation-utils'
+} from '@/audio/correlation-refine'
 import { SubtitleExtractor } from '@/audio/subtitle-extractor'
 import { DbMediaFiles } from '@/db/media-files'
 import { DbMediaTracks } from '@/db/media-tracks'
@@ -36,18 +36,18 @@ interface ConfidentSubtitleSync {
   speed: number
 }
 
-const SYNC_SKIPPED: AudioSync = {
+const SYNC_SKIPPED: Readonly<AudioSync> = Object.freeze({
   offset: 0,
   confidence: null,
   speed: 1,
   applied: false,
-}
+})
 
-const SUBTITLE_SKIPPED: SubtitleSync = {
+const SUBTITLE_SKIPPED: Readonly<SubtitleSync> = Object.freeze({
   offset: 0,
   confidence: null,
   speed: 1,
-}
+})
 
 export class TrackResolver {
   constructor(protected media: { id: string; episode_id?: number | null }) {}
@@ -74,7 +74,7 @@ export class TrackResolver {
     if (!referenceTrack || !audioTrack) {
       Log.warn('audio sync skipped: missing track context')
 
-      return { ...SYNC_SKIPPED }
+      return SYNC_SKIPPED
     }
 
     return await this.computeAudioSync(referenceTrack, audioTrack)
@@ -91,20 +91,20 @@ export class TrackResolver {
   }) {
     const sameDownload = input.video.download_id === input.audio.download_id
 
-    const [audioTrack, referenceTrack] = sameDownload
-      ? [null, null]
-      : await Promise.all([
-          DbMediaTracks.getById(input.audio.id),
-          this.resolveReferenceAudioTrack(input.video.id, input.audio.id),
-        ])
+    const [audioTrack, referenceTrack] = await Promise.all([
+      DbMediaTracks.getById(input.audio.id),
+      sameDownload
+        ? Promise.resolve(null)
+        : this.resolveReferenceAudioTrack(input.video.id, input.audio.id),
+    ])
 
     const audioSync: AudioSync =
       sameDownload || !referenceTrack || !audioTrack
-        ? { ...SYNC_SKIPPED }
+        ? SYNC_SKIPPED
         : await this.computeAudioSync(referenceTrack, audioTrack)
 
     if (!input.subtitle) {
-      return { audioSync, subtitleSync: { ...SUBTITLE_SKIPPED } }
+      return { audioSync, subtitleSync: SUBTITLE_SKIPPED }
     }
 
     const sameSource =
@@ -112,12 +112,12 @@ export class TrackResolver {
       input.audio.file_id === input.video.file_id
 
     if (sameSource) {
-      return { audioSync, subtitleSync: { ...SUBTITLE_SKIPPED } }
+      return { audioSync, subtitleSync: SUBTITLE_SKIPPED }
     }
 
     const subtitleSync = await this.resolveSubtitleSync({
       referenceTrack,
-      audioTrack: audioTrack ?? (await DbMediaTracks.getById(input.audio.id)),
+      audioTrack,
       audioSync,
       subtitlePath: input.subtitle.file_path,
       subtitleStreamIndex: input.subtitle.stream_index,
@@ -137,7 +137,7 @@ export class TrackResolver {
     ])
 
     if (!vad || !vadTrack) {
-      return { ...SUBTITLE_SKIPPED }
+      return SUBTITLE_SKIPPED
     }
 
     const vadFile = await DbMediaFiles.getById(vadTrack.media_file_id)
@@ -147,13 +147,13 @@ export class TrackResolver {
     )
 
     if (srtContent === null) {
-      return { ...SUBTITLE_SKIPPED }
+      return SUBTITLE_SKIPPED
     }
 
     const srtTimestamps = Parsers.srtTimestamps(srtContent)
 
     if (srtTimestamps.length === 0) {
-      return { ...SUBTITLE_SKIPPED }
+      return SUBTITLE_SKIPPED
     }
 
     const srtDuration = srtTimestamps.at(-1) ?? 0
@@ -193,7 +193,7 @@ export class TrackResolver {
     audioTrack: TrackRef
   ): Promise<AudioSync> {
     if (referenceTrack.id === audioTrack.id) {
-      return { ...SYNC_SKIPPED }
+      return SYNC_SKIPPED
     }
 
     const [vadVideo, vadAudio, videoFile, audioFile] = await Promise.all([
@@ -208,7 +208,7 @@ export class TrackResolver {
         `audio sync skipped: missing vad video=${!!vadVideo} audio=${!!vadAudio}`
       )
 
-      return { ...SYNC_SKIPPED }
+      return SYNC_SKIPPED
     }
 
     const fileSpeed = detectSpeed(videoFile?.duration, audioFile?.duration)
@@ -359,7 +359,7 @@ export class TrackResolver {
     subtitleStreamIndex: number
   }): Promise<SubtitleSync> {
     if (!input.audioTrack) {
-      return { ...SUBTITLE_SKIPPED }
+      return SUBTITLE_SKIPPED
     }
 
     const candidates: SubtitleSync[] = []
@@ -411,7 +411,7 @@ export class TrackResolver {
       .at(0)
 
     if (!best) {
-      return { ...SUBTITLE_SKIPPED }
+      return SUBTITLE_SKIPPED
     }
 
     if (best.confidence < MIN_SYNC_CONFIDENCE) {

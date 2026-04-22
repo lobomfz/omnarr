@@ -7,16 +7,7 @@ import type {
 import { Log } from '@/lib/log'
 import { OmnarrError } from '@/shared/errors'
 
-interface QBitTorrent {
-  hash: string
-  progress: number
-  dlspeed: number
-  eta: number
-  state: string
-  content_path: string
-}
-
-const stateMap: Partial<Record<string, TorrentStatus['status']>> = {
+const STATE_MAP = {
   downloading: 'downloading',
   stalledDL: 'downloading',
   forcedDL: 'downloading',
@@ -38,6 +29,17 @@ const stateMap: Partial<Record<string, TorrentStatus['status']>> = {
   stoppedUP: 'paused',
   error: 'error',
   missingFiles: 'error',
+} as const satisfies Record<string, TorrentStatus['status']>
+
+type QBitState = keyof typeof STATE_MAP
+
+interface QBitTorrent {
+  hash: string
+  progress: number
+  dlspeed: number
+  eta: number
+  state: string
+  content_path: string
 }
 
 export class QBittorrentClient implements DownloadClient {
@@ -116,7 +118,8 @@ export class QBittorrentClient implements DownloadClient {
     })
 
     return torrents.map((t) => {
-      const status = stateMap[t.state]
+      const status =
+        t.state in STATE_MAP ? STATE_MAP[t.state as QBitState] : undefined
 
       if (!status) {
         Log.warn(`qbittorrent unknown state="${t.state}" hash=${t.hash}`)
@@ -155,8 +158,8 @@ export class QBittorrentClient implements DownloadClient {
   }
 
   private async waitForTorrent(hash: string) {
-    const maxAttempts = 10
-    const interval = 500
+    const maxAttempts = 20
+    const interval = 250
     const normalizedHash = hash.toLowerCase()
 
     for (let i = 0; i < maxAttempts; i++) {

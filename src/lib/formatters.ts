@@ -1,4 +1,5 @@
 import type { Selectable } from '@lobomfz/db'
+import dayjs from 'dayjs'
 
 import type { MediaResolver } from '@/core/media-resolver'
 import type { DB, download_status } from '@/db/connection'
@@ -54,18 +55,8 @@ export const Formatters = {
     return `${s}${Formatters.episodeLabel(episodeNumber)}`
   },
 
-  seasonEpisodeDir(
-    seasonNumber: number | null | undefined,
-    episodeNumber: number | null | undefined
-  ) {
-    return Formatters.seasonEpisodeTag(
-      seasonNumber,
-      episodeNumber
-    ).toLowerCase()
-  },
-
   language(lang?: string | null) {
-    return lang?.toLowerCase() ?? 'unknown'
+    return lang?.toLowerCase()
   },
 
   mediaTitle(media: {
@@ -246,7 +237,7 @@ export const Formatters = {
       }
 
       if (d.status === 'error' && d.error_at) {
-        header.push(d.error_at)
+        header.push(dayjs(d.error_at).format('YYYY-MM-DD HH:mm:ss'))
       }
 
       lines.push(header.join('  '))

@@ -434,7 +434,7 @@ export class SuperflixAdapter implements Indexer {
       )
 
       for (const buf of buffers) {
-        void writer.write(buf)
+        await writer.write(buf)
       }
 
       downloaded += batch.length

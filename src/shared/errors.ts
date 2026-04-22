@@ -21,8 +21,8 @@ export const ERROR_MAP = {
     status: 422,
   },
   TORRENT_NOT_READY: {
-    message: 'Torrent was accepted but not registered in time',
-    status: 422,
+    message: 'Torrent did not appear in download client in time',
+    status: 504,
   },
   DOWNLOAD_CLIENT_UNREACHABLE: {
     message: 'Download client is unreachable',
@@ -53,6 +53,7 @@ export const ERROR_MAP = {
     status: 422,
   },
   NO_KEYFRAMES: { message: 'Keyframes not found, scan required', status: 422 },
+  NO_VAD_DATA: { message: 'VAD data not found for track', status: 422 },
   TMDB_UNAVAILABLE: { message: 'Could not reach TMDB', status: 502 },
 } as const
 

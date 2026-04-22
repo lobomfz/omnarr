@@ -255,7 +255,7 @@ export const DbDownloads = {
   },
 
   async deleteStaleErrors() {
-    const cutoff = dayjs().subtract(24, 'hours').toISOString()
+    const cutoff = dayjs().subtract(24, 'hours').toDate()
 
     const result = await db
       .deleteFrom('downloads')

@@ -326,7 +326,7 @@ describe('SubtitleMatcher.match edge cases', () => {
 
     const matcher = new SubtitleMatcher({ id: media.id })
 
-    expect(() => matcher.match({})).toThrow(/No VAD data found/)
+    expect(() => matcher.match({})).toThrow('NO_VAD_DATA')
   })
 
   test('returns all tested attempts with confidence on exhaustion', async () => {

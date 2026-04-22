@@ -209,7 +209,7 @@ describe('QBittorrentClient', () => {
       })
       .execute()
 
-     expect(() =>
+    expect(() =>
       qbt.addTorrent({
         url: 'magnet:?xt=urn:btih:abc123&dn=Test',
         hash: 'abc123',

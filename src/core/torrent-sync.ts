@@ -40,7 +40,7 @@ export class TorrentSync {
     }
 
     const statusByHash = new Map(statuses.map((s) => [s.hash, s]))
-    const now = new Date().toISOString()
+    const now = new Date()
 
     const completedMediaIds: string[] = []
     const errorTransitions: { media_id: string; source_id: string }[] = []

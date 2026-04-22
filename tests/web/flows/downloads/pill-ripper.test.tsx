@@ -283,7 +283,7 @@ describe('ripper lifecycle', () => {
 
     await DbDownloads.update(downloadId, {
       status: 'error',
-      error_at: new Date().toISOString(),
+      error_at: new Date(),
     })
 
     await waitForDownloadProgressStream(queryClient)
@@ -324,7 +324,7 @@ describe('ripper lifecycle', () => {
 
     await DbDownloads.update(downloadId, {
       status: 'error',
-      error_at: new Date().toISOString(),
+      error_at: new Date(),
     })
 
     await waitForDownloadProgressStream(queryClient)

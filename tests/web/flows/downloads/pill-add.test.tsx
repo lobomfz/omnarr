@@ -12,7 +12,7 @@ import { deriveId } from '@/lib/utils'
 
 import { TestSeed } from '../../../helpers/seed'
 import { QBittorrentMock } from '../../../mocks/qbittorrent'
-import { get, query, slot } from '../../dom'
+import { get, slot } from '../../dom'
 import { mountApp } from '../../mount-app'
 import type { UserEvent } from '../../testing-library'
 import { cleanup, waitFor } from '../../testing-library'
@@ -103,13 +103,18 @@ describe('downloads pill reactive state', () => {
       { timeout: 2000 }
     )
 
-    expect(query('download-pill', { nav: 'desktop' })).toBeNull()
+    const downloads = await database.kysely
+      .selectFrom('downloads')
+      .selectAll()
+      .execute()
+    expect(downloads).toHaveLength(1)
+    expect(downloads[0].status).toBe('error')
 
     const mediaRows = await database.kysely
       .selectFrom('media')
       .selectAll()
       .execute()
-    expect(mediaRows).toHaveLength(0)
+    expect(mediaRows).toHaveLength(1)
   })
 
   test('adding two releases in quick succession shows both in pill', async () => {
