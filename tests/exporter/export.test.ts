@@ -320,7 +320,7 @@ describe('Exporter — output validation', () => {
 
     const exporter = new Exporter({ id: media.id })
 
-    await expect(() =>
+     expect(() =>
       exporter.export({ output: existingFile, onProgress: () => {} })
     ).toThrow(/already exists/i)
   })

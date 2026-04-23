@@ -140,6 +140,30 @@ describe('Formatters', () => {
     })
   })
 
+  describe('duration', () => {
+    test('formats hours and minutes', () => {
+      expect(Formatters.duration(3661)).toBe('1h 1m')
+    })
+
+    test('formats exact hours', () => {
+      expect(Formatters.duration(7200)).toBe('2h 0m')
+    })
+
+    test('formats minutes only when under an hour', () => {
+      expect(Formatters.duration(120)).toBe('2m')
+    })
+
+    test('floors to zero minutes for sub-minute values', () => {
+      expect(Formatters.duration(59)).toBe('0m')
+      expect(Formatters.duration(0)).toBe('0m')
+    })
+
+    test('negative input produces negative floor values', () => {
+      expect(Formatters.duration(-1)).toBe('-1m')
+      expect(Formatters.duration(-3661)).toBe('-2m')
+    })
+  })
+
   describe('mediaStatus', () => {
     test('shows episode progress for TV', () => {
       expect(

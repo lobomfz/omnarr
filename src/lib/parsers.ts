@@ -30,7 +30,7 @@ export const Parsers = {
 
   releaseName(name: string) {
     const sourceMatch = SOURCE_PATTERN.exec(name)
-    const source = sourceMatch?.[1]?.toLowerCase() ?? null
+    const source = sourceMatch ? sourceMatch[1].toLowerCase() : null
 
     const knownHyphenPositions = new Set<number>()
 

@@ -116,7 +116,7 @@ export class RipperDownload implements DownloadSource {
     this.onProgress('Ripping', `0/${entries.length}`, 0)
 
     for (const entry of entries) {
-      queue.add(() =>
+      void queue.add(() =>
         this.ripEntry(entry, tmpPath)
           .then(() => {
             this.ripped++
@@ -175,7 +175,7 @@ export class RipperDownload implements DownloadSource {
     const queue = new PQueue({ concurrency })
 
     for (const unit of units) {
-      queue.add(() =>
+      void queue.add(() =>
         this.gatherUnit(data, unit, entries)
           .catch((err) =>
             Log.warn(

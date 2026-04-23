@@ -39,7 +39,7 @@ export const QBittorrentMock = new Mock(
       let q = db.selectFrom('torrents').selectAll()
 
       if (query.category) {
-        q = q.where('category', '=', query.category as string)
+        q = q.where('category', '=', query.category)
       }
 
       return q.execute()
@@ -50,8 +50,8 @@ export const QBittorrentMock = new Mock(
         return new Response('Forbidden', { status: 403 })
       }
 
-      const data = body as Record<string, string>
-      const url = data.urls
+      const data = body as Record<string, string | undefined>
+      const url = data.urls ?? ''
       const savepath = data.savepath ?? ''
       const category = data.category ?? ''
       const hash =

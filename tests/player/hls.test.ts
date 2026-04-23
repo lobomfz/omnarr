@@ -48,11 +48,10 @@ describe('HlsServer — on-demand subtitle serving', () => {
 
     const probe = await new FFmpegBuilder().input(filePath).probe()
     const keyframes = await new FFmpegBuilder().input(filePath).probeKeyframes()
-    const duration = probe.format.duration
 
     const segments = keyframes.map((pts, i) => ({
       pts_time: pts,
-      duration: (keyframes[i + 1] ?? duration) - pts,
+      duration: (keyframes[i + 1] ?? probe.format.duration) - pts,
     }))
 
     const server = new HlsServer({
@@ -116,11 +115,10 @@ describe('HlsServer — on-demand subtitle serving', () => {
 
     const probe = await new FFmpegBuilder().input(filePath).probe()
     const keyframes = await new FFmpegBuilder().input(filePath).probeKeyframes()
-    const duration = probe.format.duration
 
     const segments = keyframes.map((pts, i) => ({
       pts_time: pts,
-      duration: (keyframes[i + 1] ?? duration) - pts,
+      duration: (keyframes[i + 1] ?? probe.format.duration) - pts,
     }))
 
     const server = new HlsServer({
@@ -239,11 +237,10 @@ describe('HlsServer — on-demand subtitle serving', () => {
 
     const probe = await new FFmpegBuilder().input(filePath).probe()
     const keyframes = await new FFmpegBuilder().input(filePath).probeKeyframes()
-    const duration = probe.format.duration
 
     const segments = keyframes.map((pts, i) => ({
       pts_time: pts,
-      duration: (keyframes[i + 1] ?? duration) - pts,
+      duration: (keyframes[i + 1] ?? probe.format.duration) - pts,
     }))
 
     const server = new HlsServer({
@@ -281,7 +278,7 @@ describe('HlsServer — on-demand subtitle serving', () => {
       mediaId: 'SUBASS',
     })
 
-    await expect(() => server.start()).toThrow(/subrip/)
+    expect(() => server.start()).toThrow(/subrip/)
   })
 
   test('MPEGTS offset is derived from segment PES start_time', async () => {
@@ -293,11 +290,10 @@ describe('HlsServer — on-demand subtitle serving', () => {
 
     const probe = await new FFmpegBuilder().input(filePath).probe()
     const keyframes = await new FFmpegBuilder().input(filePath).probeKeyframes()
-    const duration = probe.format.duration
 
     const segments = keyframes.map((pts, i) => ({
       pts_time: pts,
-      duration: (keyframes[i + 1] ?? duration) - pts,
+      duration: (keyframes[i + 1] ?? probe.format.duration) - pts,
     }))
 
     const server = new HlsServer({
@@ -361,11 +357,10 @@ describe('HlsServer — on-demand subtitle serving', () => {
 
     const probe = await new FFmpegBuilder().input(filePath).probe()
     const keyframes = await new FFmpegBuilder().input(filePath).probeKeyframes()
-    const duration = probe.format.duration
 
     const segments = keyframes.map((pts, i) => ({
       pts_time: pts,
-      duration: (keyframes[i + 1] ?? duration) - pts,
+      duration: (keyframes[i + 1] ?? probe.format.duration) - pts,
     }))
 
     const server = new HlsServer({

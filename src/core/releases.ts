@@ -1,16 +1,16 @@
 import dayjs from 'dayjs'
 
-import { config } from '@/lib/config'
-import type { media_type } from '@/db/connection';
+import type { media_type } from '@/db/connection'
 import { db } from '@/db/connection'
 import { DbEpisodes } from '@/db/episodes'
 import { DbMedia } from '@/db/media'
 import { DbReleases } from '@/db/releases'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { Formatters } from '@/lib/formatters'
 import { indexerMap } from '@/integrations/indexers/registry'
 import { TmdbClient } from '@/integrations/tmdb/client'
+import { config } from '@/lib/config'
+import { Formatters } from '@/lib/formatters'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
 
@@ -151,7 +151,7 @@ export class Releases {
         ...r,
         source_id: r.source_id.toUpperCase(),
         name: r.name ?? Formatters.releaseName(label, r.indexer_source),
-        season_number: parsed.season_number ?? filters?.season ?? null,
+        season_number: parsed.season_number ?? filters?.season,
         episode_number: parsed.episode_number,
       }
     })
@@ -206,7 +206,7 @@ export class Releases {
 
           return await indexer
             .search({
-              imdb_id: media.imdb_id!,
+              imdb_id: media.imdb_id,
               languages: opts?.lang ? [opts.lang] : undefined,
               season_number: opts?.season,
               episode_number: opts?.episode,

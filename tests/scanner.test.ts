@@ -10,6 +10,7 @@ import { mkdir, mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
+import { Scanner } from '@/core/scanner'
 import { database } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbEpisodes } from '@/db/episodes'
@@ -20,7 +21,6 @@ import { DbMediaTracks } from '@/db/media-tracks'
 import { DbMediaVad } from '@/db/media-vad'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
-import { Scanner } from '@/core/scanner'
 import { deriveId } from '@/lib/utils'
 
 const noop = () => {}
@@ -296,8 +296,8 @@ describe('new Scanner().scan — file discovery', () => {
     expect(files).toHaveLength(0)
   })
 
-  test('throws when media_id does not exist', async () => {
-    await expect(() => new Scanner().scan('NONEXISTENT', noop)).toThrow()
+  test('throws when media_id does not exist', () => {
+    expect(() => new Scanner().scan('NONEXISTENT', noop)).toThrow()
   })
 
   test('probes single file when content_path is a file', async () => {

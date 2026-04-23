@@ -1,8 +1,8 @@
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 
+import { TrackResolver } from '@/audio/track-resolver'
 import { type TracksWithFile } from '@/db/media-tracks'
 import { Log } from '@/lib/log'
-import { TrackResolver } from '@/audio/track-resolver'
 
 type ResolvedTracks = Awaited<ReturnType<Exporter['resolveTracks']>>
 
@@ -70,7 +70,9 @@ export class Exporter extends TrackResolver {
     output: string
     onProgress: (ratio: number) => void
   }) {
-    if (await Bun.file(opts.output).exists()) {
+    const exists = await Bun.file(opts.output).exists()
+
+    if (exists) {
       throw new Error(`Output file already exists: ${opts.output}`)
     }
 

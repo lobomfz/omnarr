@@ -106,7 +106,7 @@ export class Scanner {
     for (const [path, downloadId] of newFiles) {
       const fileIndex = ++nextIndex
 
-      queue.add(async () => {
+      void queue.add(async () => {
         const success = await this.probeAndPersist(
           media,
           downloadId,

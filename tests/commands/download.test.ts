@@ -156,7 +156,7 @@ describe('download command', async () => {
 
     await new Downloads().add(release, noop)
 
-    await expect(() => new Downloads().add(release, noop)).toThrow()
+     expect(() => new Downloads().add(release, noop)).toThrow()
 
     const downloads = await database.kysely
       .selectFrom('downloads')
@@ -184,7 +184,7 @@ describe('download command', async () => {
       })
       .execute()
 
-    await expect(() => new Downloads().add(release, noop)).toThrow()
+     expect(() => new Downloads().add(release, noop)).toThrow()
 
     const downloads = await database.kysely
       .selectFrom('downloads')

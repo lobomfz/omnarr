@@ -230,7 +230,7 @@ export class Handler {
       return
     }
 
-    while (true) {
+    for (;;) {
       await this.listDownloads(limit, true)
       await Bun.sleep(2000)
     }
@@ -252,7 +252,7 @@ export class Handler {
 
     const interval = 5 * 1000
 
-    while (true) {
+    for (;;) {
       await new TorrentSync().sync()
 
       const download = await DbDownloads.getBySourceId(release.source_id)

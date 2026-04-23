@@ -59,11 +59,11 @@ describe('VadExtractor.extract', () => {
     expect(result).toBeInstanceOf(Float32Array)
 
     for (let i = 0; i < result.length; i += 2) {
-      expect(result[i]!).toBeLessThan(result[i + 1]!)
+      expect(result[i]).toBeLessThan(result[i + 1])
     }
 
     for (let i = 2; i < result.length; i += 2) {
-      expect(result[i]!).toBeGreaterThanOrEqual(result[i - 1]!)
+      expect(result[i]).toBeGreaterThanOrEqual(result[i - 1])
     }
   })
 

@@ -84,7 +84,7 @@ describe('schema - media_vad', () => {
 
     await DbMediaVad.create({ media_file_id: file.id, data })
 
-    await expect(() =>
+     expect(() =>
       DbMediaVad.create({ media_file_id: file.id, data })
     ).toThrow()
   })

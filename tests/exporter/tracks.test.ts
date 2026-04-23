@@ -14,7 +14,7 @@ describe('Exporter — track resolution', () => {
     const media = await seedMedia()
     const exporter = new Exporter({ id: media.id })
 
-    await expect(() => exporter.resolveTracks({})).toThrow(/no tracks found/i)
+     expect(() => exporter.resolveTracks({})).toThrow(/no tracks found/i)
   })
 
   test('no video tracks throws error', async () => {
@@ -32,7 +32,7 @@ describe('Exporter — track resolution', () => {
 
     const exporter = new Exporter({ id: media.id })
 
-    await expect(() => exporter.resolveTracks({})).toThrow(/no video tracks/i)
+     expect(() => exporter.resolveTracks({})).toThrow(/no video tracks/i)
   })
 
   test('single video track is auto-selected without --video', async () => {
@@ -278,7 +278,7 @@ describe('Exporter — video selection', () => {
 
     const exporter = new Exporter({ id: media.id })
 
-    await expect(() => exporter.resolveTracks({ video: 5 })).toThrow(
+     expect(() => exporter.resolveTracks({ video: 5 })).toThrow(
       /out of range/i
     )
   })

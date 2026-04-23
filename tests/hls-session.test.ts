@@ -40,11 +40,10 @@ beforeAll(async () => {
 
   const probe = await new FFmpegBuilder().input(testMkv).probe()
   const keyframes = await new FFmpegBuilder().input(testMkv).probeKeyframes()
-  const duration = probe.format.duration
 
   segments = keyframes.map((pts, i) => ({
     pts_time: pts,
-    duration: (keyframes[i + 1] ?? duration) - pts,
+    duration: (keyframes[i + 1] ?? probe.format.duration) - pts,
   }))
 })
 
@@ -147,9 +146,7 @@ describe('HlsSession', () => {
     const outDir = join(tmpDir, 'out-of-range')
     const session = createSession(outDir)
 
-    await expect(() => session.getSegment(999)).toThrow(
-      /segment.*out of range/i
-    )
+    expect(() => session.getSegment(999)).toThrow(/segment.*out of range/i)
 
     await session.cleanup()
   })
@@ -158,7 +155,7 @@ describe('HlsSession', () => {
     const outDir = join(tmpDir, 'negative')
     const session = createSession(outDir)
 
-    await expect(() => session.getSegment(-1)).toThrow(/segment.*out of range/i)
+    expect(() => session.getSegment(-1)).toThrow(/segment.*out of range/i)
 
     await session.cleanup()
   })
@@ -232,11 +229,10 @@ describe('HlsSession — seek', () => {
 
     const probe = await new FFmpegBuilder().input(seekMkv).probe()
     const keyframes = await new FFmpegBuilder().input(seekMkv).probeKeyframes()
-    const duration = probe.format.duration
 
     seekSegments = keyframes.map((pts, i) => ({
       pts_time: pts,
-      duration: (keyframes[i + 1] ?? duration) - pts,
+      duration: (keyframes[i + 1] ?? probe.format.duration) - pts,
     }))
   })
 
@@ -350,11 +346,10 @@ describe('HlsSession — integration: dual-file', () => {
     const keyframes = await new FFmpegBuilder()
       .input(videoFile)
       .probeKeyframes()
-    const duration = probe.format.duration
 
     const longSegments = keyframes.map((pts, i) => ({
       pts_time: pts,
-      duration: (keyframes[i + 1] ?? duration) - pts,
+      duration: (keyframes[i + 1] ?? probe.format.duration) - pts,
     }))
 
     hlsServer = new HlsServer({
@@ -387,7 +382,7 @@ describe('HlsSession — integration: dual-file', () => {
   })
 
   afterAll(async () => {
-    await hlsServer?.stop()
+    await hlsServer.stop()
   })
 
   test('HLS demuxer plays full stream without packet errors', async () => {

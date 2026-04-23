@@ -3,7 +3,10 @@ import { join } from 'path'
 import { FFmpegBuilder } from '@lobomfz/ffmpeg'
 import { InferenceSession, Tensor } from 'onnxruntime-node'
 
-import { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES } from '@/audio/vad-constants'
+import {
+  SILERO_SAMPLE_RATE,
+  SILERO_WINDOW_SAMPLES,
+} from '@/audio/vad-constants'
 
 export { SILERO_SAMPLE_RATE, SILERO_WINDOW_SAMPLES }
 
@@ -55,16 +58,15 @@ export class VadExtractor {
     }
 
     const results = await session.run(feeds)
-    const outputNames = session.outputNames
 
-    this.state.set(results[outputNames[1]!]!.data as Float32Array)
+    this.state.set(results[session.outputNames[1]].data as Float32Array)
     this.context.set(
       this.inputWithContext.subarray(
         this.inputWithContext.length - CONTEXT_SIZE
       )
     )
 
-    return (results[outputNames[0]!]!.data as Float32Array)[0]!
+    return (results[session.outputNames[0]].data as Float32Array)[0]
   }
 
   private async processFrame(frame: Float32Array, curSample: number) {
@@ -92,12 +94,12 @@ export class VadExtractor {
       this.currentSpeech.end = this.tempEnd
 
       if (
-        this.currentSpeech.end! - this.currentSpeech.start! >=
+        this.currentSpeech.end - this.currentSpeech.start! >=
         MIN_SPEECH_SAMPLES
       ) {
         this.speeches.push({
           start: this.currentSpeech.start!,
-          end: this.currentSpeech.end!,
+          end: this.currentSpeech.end,
         })
       }
 
@@ -109,12 +111,12 @@ export class VadExtractor {
 
   private padSpeeches(totalSamples: number) {
     for (let i = 0; i < this.speeches.length; i++) {
-      const speech = this.speeches[i]!
-      const prevEnd = i === 0 ? 0 : this.speeches[i - 1]!.end
+      const speech = this.speeches[i]
+      const prevEnd = i === 0 ? 0 : this.speeches[i - 1].end
       const nextStart =
         i === this.speeches.length - 1
           ? totalSamples
-          : this.speeches[i + 1]!.start
+          : this.speeches[i + 1].start
 
       speech.start = Math.max(
         0,
@@ -131,8 +133,8 @@ export class VadExtractor {
     const result = new Float32Array(this.speeches.length * 2)
 
     for (let i = 0; i < this.speeches.length; i++) {
-      result[i * 2] = this.speeches[i]!.start / SILERO_SAMPLE_RATE
-      result[i * 2 + 1] = this.speeches[i]!.end / SILERO_SAMPLE_RATE
+      result[i * 2] = this.speeches[i].start / SILERO_SAMPLE_RATE
+      result[i * 2 + 1] = this.speeches[i].end / SILERO_SAMPLE_RATE
     }
 
     return result

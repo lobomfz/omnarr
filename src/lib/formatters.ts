@@ -30,6 +30,10 @@ const DOWNLOAD_STATUS_MAP: Record<download_status, string> = {
 }
 
 export const Formatters = {
+  episodeLabel(episodeNumber: number) {
+    return `E${String(episodeNumber).padStart(2, '0')}`
+  },
+
   seasonEpisodeTag(
     seasonNumber: number | null | undefined,
     episodeNumber: number | null | undefined
@@ -44,7 +48,27 @@ export const Formatters = {
       return s
     }
 
-    return `${s}E${String(episodeNumber).padStart(2, '0')}`
+    return `${s}${Formatters.episodeLabel(episodeNumber)}`
+  },
+
+  language(lang?: string | null) {
+    return lang?.toLowerCase()
+  },
+
+  seasonEpisodeDir(
+    seasonNumber: number | null | undefined,
+    episodeNumber: number | null | undefined
+  ) {
+    return Formatters.seasonEpisodeTag(
+      seasonNumber,
+      episodeNumber
+    ).toLowerCase()
+  },
+
+  subtitleFile(language: string | null | undefined, sourceHash: string) {
+    const lang = Formatters.language(language) ?? 'unknown'
+
+    return `sub_${lang}_${sourceHash}.srt`
   },
 
   mediaTitle(media: {
@@ -128,6 +152,17 @@ export const Formatters = {
     }
 
     return lines.join('\n')
+  },
+
+  duration(seconds: number) {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+
+    if (h > 0) {
+      return `${h}h ${m}m`
+    }
+
+    return `${m}m`
   },
 
   eta(seconds: number) {

@@ -84,7 +84,7 @@ export class HlsServer extends HlsSession {
   }
 
   async stop() {
-    this.server.stop()
+    void this.server.stop()
     await this.cleanup()
   }
 
@@ -189,8 +189,9 @@ export class HlsServer extends HlsSession {
     const filePath = join(this.opts.outDir, filename)
 
     const cached = Bun.file(filePath)
+    const cachedExists = await cached.exists()
 
-    if (await cached.exists()) {
+    if (cachedExists) {
       return new Response(cached, {
         headers: {
           'Content-Type': 'text/vtt',
@@ -259,8 +260,9 @@ export class HlsServer extends HlsSession {
         }
 
         const file = Bun.file(filePath)
+        const fileExists = await file.exists()
 
-        if (!(await file.exists())) {
+        if (!fileExists) {
           return new Response('Not Found', { status: 404 })
         }
 
@@ -312,10 +314,8 @@ export class HlsServer extends HlsSession {
           'Access-Control-Allow-Origin': '*',
         },
       })
-    } catch (err) {
-      Log.error(
-        `serve segment=${index} status=404 error=${err instanceof Error ? err.message : String(err)}`
-      )
+    } catch (err: any) {
+      Log.error(`serve segment=${index} status=404 error=${err.message}`)
 
       return new Response('Not Found', { status: 404 })
     }

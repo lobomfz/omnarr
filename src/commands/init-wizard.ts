@@ -96,13 +96,13 @@ export class InitWizard {
     for (const prop of props) {
       const branch = prop.value.branches[0]
 
-      if (branch?.unit !== undefined) {
+      if (branch.unit !== undefined) {
         result[prop.key] = branch.unit
         continue
       }
 
-      if (branch?.domain === 'string') {
-        const label = prop.value.meta?.label ?? `${prop.key}:`
+      if (branch.domain === 'string') {
+        const label = prop.value.meta.label ?? `${prop.key}:`
         result[prop.key] = await this.prompt.text(label)
       }
     }

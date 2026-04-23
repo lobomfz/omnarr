@@ -6,14 +6,14 @@ import { ratio } from 'fuzzball'
 import axios from 'redaxios'
 
 import { MIN_SYNC_CONFIDENCE } from '@/audio/audio-correlator'
-import { config } from '@/lib/config'
+import { TrackResolver } from '@/audio/track-resolver'
+import { Releases } from '@/core/releases'
 import { db } from '@/db/connection'
 import { DbDownloads } from '@/db/downloads'
 import { DbReleases } from '@/db/releases'
+import { config } from '@/lib/config'
 import { Log } from '@/lib/log'
 import { Parsers } from '@/lib/parsers'
-import { Releases } from '@/core/releases'
-import { TrackResolver } from '@/audio/track-resolver'
 import { deriveId } from '@/lib/utils'
 
 const FUZZY_THRESHOLD = 90
@@ -119,7 +119,7 @@ export class SubtitleMatcher extends TrackResolver {
   }
 
   rank<T extends { name: string }>(
-    referenceName: string | null,
+    referenceName: string | null | undefined,
     subtitles: T[]
   ) {
     if (!referenceName || subtitles.length === 0) {
@@ -177,7 +177,7 @@ export class SubtitleMatcher extends TrackResolver {
 
     const result = await query.executeTakeFirst()
 
-    return result?.name ?? null
+    return result?.name
   }
 
   private async downloadSubtitle(releaseId: string) {
@@ -246,18 +246,18 @@ export class SubtitleMatcher extends TrackResolver {
       Log.info(`auto-match: subtitle saved path=${targetPath}`)
 
       return targetPath
-    } catch (err) {
+    } catch (err: any) {
       await DbDownloads.update(download.id, {
         status: 'error',
         error_at: new Date(),
-      }).catch((err) =>
+      }).catch((updateErr: any) =>
         Log.warn(
-          `auto-match: status update failed download=${download.id} error="${err instanceof Error ? err.message : String(err)}"`
+          `auto-match: status update failed download=${download.id} error="${updateErr.message}"`
         )
       )
 
       Log.warn(
-        `auto-match: download failed release=${releaseId} error="${err instanceof Error ? err.message : String(err)}"`
+        `auto-match: download failed release=${releaseId} error="${err.message}"`
       )
 
       return null

@@ -170,7 +170,7 @@ describe('QBittorrentClient', () => {
       })
       .execute()
 
-    await expect(() =>
+     expect(() =>
       qbt.addTorrent({ url: 'magnet:?xt=urn:btih:abc123&dn=Test' })
     ).toThrow('Torrent rejected by download client')
   })
