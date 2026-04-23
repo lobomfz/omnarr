@@ -11,7 +11,7 @@ if (envVariables.OMNARR_DB_PATH !== ':memory:') {
 }
 
 export const media_type = type.enumerated('movie', 'tv')
-export const stream_type = type.enumerated('video', 'audio', 'subtitle')
+const stream_type = type.enumerated('video', 'audio', 'subtitle')
 export const release_codec = type.enumerated('x264', 'x265', 'av1')
 export const release_hdr = type.enumerated('DV', 'HDR10', 'HDR10+', 'HLG')
 export const release_resolution = type.enumerated(
@@ -20,6 +20,7 @@ export const release_resolution = type.enumerated(
   '1080p',
   '2160p'
 )
+const scan_progress_step = type.enumerated('keyframes', 'vad')
 const download_status = type.enumerated(
   'pending',
   'downloading',
@@ -35,6 +36,22 @@ export const indexer_source = type.enumerated(
   'yts',
   'superflix',
   'subdl'
+)
+const event_entity_type = type.enumerated(
+  'download',
+  'scan',
+  'media',
+  'indexer',
+  'sync',
+  'subtitle'
+)
+const event_type = type.enumerated(
+  'created',
+  'completed',
+  'error',
+  'file_error',
+  'indexer_error',
+  'recovered'
 )
 
 export const database = new Database({
@@ -156,14 +173,15 @@ export const database = new Database({
         path: 'string',
         size: 'number',
         'format_name?': 'string',
+        'start_time?': 'number',
         'duration?': 'number',
         scanned_at: generated('now'),
       }),
 
       media_vad: type({
         id: generated('autoincrement'),
-        media_file_id: type('number.integer').configure({
-          references: 'media_files.id',
+        track_id: type('number.integer').configure({
+          references: 'media_tracks.id',
           onDelete: 'cascade',
           unique: true,
         }),
@@ -172,13 +190,26 @@ export const database = new Database({
 
       media_keyframes: type({
         id: generated('autoincrement'),
-        media_file_id: type('number.integer').configure({
-          references: 'media_files.id',
+        track_id: type('number.integer').configure({
+          references: 'media_tracks.id',
           onDelete: 'cascade',
         }),
-        stream_index: 'number.integer',
         pts_time: 'number',
         duration: 'number',
+      }),
+
+      events: type({
+        id: generated('autoincrement'),
+        'media_id?': type('string').configure({
+          references: 'media.id',
+          onDelete: 'cascade',
+        }),
+        entity_type: event_entity_type,
+        entity_id: 'string',
+        event_type,
+        message: 'string',
+        read: type('boolean').default(false),
+        created_at: generated('now'),
       }),
 
       media_tracks: type({
@@ -193,6 +224,10 @@ export const database = new Database({
         'language?': 'string',
         'title?': 'string',
         is_default: 'boolean',
+        'start_pts?': 'number.integer',
+        'start_time?': 'number',
+        'duration_ts?': 'number.integer',
+        'time_base?': 'string',
         'width?': 'number.integer',
         'height?': 'number.integer',
         'framerate?': 'number',
@@ -200,6 +235,7 @@ export const database = new Database({
         'channels?': 'number.integer',
         'channel_layout?': 'string',
         'sample_rate?': 'number.integer',
+        'scan_ratio?': 'number',
       }),
     },
     indexes: {
@@ -241,9 +277,14 @@ export const database = new Database({
       ],
       downloads: [
         {
-          columns: ['source_id'],
+          columns: ['source_id', 'season_number', 'episode_number'],
           unique: true,
         },
+      ],
+      events: [
+        { columns: ['media_id'] },
+        { columns: ['entity_type', 'entity_id'] },
+        { columns: ['read'] },
       ],
     },
   },
@@ -261,10 +302,10 @@ export type media_type = typeof media_type.infer
 export type download_status = typeof download_status.infer
 export type download_source = typeof download_source.infer
 export type indexer_source = typeof indexer_source.infer
-export type stream_type = typeof stream_type.infer
 export type release_codec = typeof release_codec.infer
 export type release_hdr = typeof release_hdr.infer
 export type release_resolution = typeof release_resolution.infer
+export type scan_progress_step = typeof scan_progress_step.infer
 
 export interface AliasedDb extends DB {
   mf: DB['media_files']
