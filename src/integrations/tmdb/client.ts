@@ -30,6 +30,21 @@ export class TmdbClient {
     return data
   }
 
+  private getRuntime(raw: TmdbTypes['raw_media']) {
+    if (raw.runtime !== undefined) {
+      return raw.runtime
+    }
+
+    if (!raw.episode_run_time || raw.episode_run_time.length === 0) {
+      return null
+    }
+
+    return Math.round(
+      raw.episode_run_time.reduce((a, b) => a + b, 0) /
+        raw.episode_run_time.length
+    )
+  }
+
   private parse(raw: TmdbTypes['raw_media'], defaultType: media_type) {
     const date = raw.release_date ?? raw.first_air_date
 
@@ -40,6 +55,10 @@ export class TmdbClient {
       year: date ? dayjs(date).year() : null,
       overview: raw.overview,
       poster_path: raw.poster_path,
+      backdrop_path: raw.backdrop_path,
+      runtime: this.getRuntime(raw),
+      vote_average: raw.vote_average,
+      genres: raw.genres?.map((g) => g.name) ?? [],
     }
   }
 

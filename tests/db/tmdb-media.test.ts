@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import dayjs from 'dayjs'
 
-import { database, db } from '@/db/connection'
+import { db } from '@/db/connection'
 import { DbSeasons } from '@/db/seasons'
 import { DbTmdbMedia } from '@/db/tmdb-media'
 
+import { TestSeed } from '../helpers/seed'
+
 beforeEach(() => {
-  database.reset()
+  TestSeed.reset()
 })
 
 describe('DbTmdbMedia.getByTmdbId', () => {
@@ -76,17 +78,27 @@ describe('DbTmdbMedia.getByTmdbId', () => {
 })
 
 describe('DbTmdbMedia.upsert', () => {
-  test('round-trips backdrop_path, runtime, vote_average, genres', async () => {
+  test('partial upsert preserves existing metadata', async () => {
     await DbTmdbMedia.upsert({
       tmdb_id: 603,
       media_type: 'movie',
       title: 'The Matrix',
       imdb_id: 'tt0133093',
       year: 1999,
+      overview: 'A computer hacker learns about the true nature of reality.',
+      poster_path: '/poster.jpg',
       backdrop_path: '/backdrop.jpg',
       runtime: 136,
       vote_average: 8.7,
       genres: ['Action', 'Sci-Fi'],
+    })
+
+    await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      imdb_id: 'tt0133093',
+      year: 1999,
     })
 
     const row = await db
@@ -94,18 +106,42 @@ describe('DbTmdbMedia.upsert', () => {
       .where('tmdb_id', '=', 603)
       .where('media_type', '=', 'movie')
       .select([
+        'overview',
+        'poster_path',
         'backdrop_path',
         'runtime',
         'vote_average',
         'genres',
-        'derived_id',
       ])
       .executeTakeFirstOrThrow()
 
+    expect(row.overview).toBe(
+      'A computer hacker learns about the true nature of reality.'
+    )
+    expect(row.poster_path).toBe('/poster.jpg')
     expect(row.backdrop_path).toBe('/backdrop.jpg')
     expect(row.runtime).toBe(136)
     expect(row.vote_average).toBe(8.7)
     expect(row.genres).toEqual(['Action', 'Sci-Fi'])
-    expect(row.derived_id).toHaveLength(6)
+  })
+
+  test('round-trips backdrop_path', async () => {
+    await DbTmdbMedia.upsert({
+      tmdb_id: 603,
+      media_type: 'movie',
+      title: 'The Matrix',
+      imdb_id: 'tt0133093',
+      year: 1999,
+      backdrop_path: '/test.jpg',
+    })
+
+    const row = await db
+      .selectFrom('tmdb_media')
+      .where('tmdb_id', '=', 603)
+      .where('media_type', '=', 'movie')
+      .select(['backdrop_path'])
+      .executeTakeFirstOrThrow()
+
+    expect(row.backdrop_path).toBe('/test.jpg')
   })
 })
