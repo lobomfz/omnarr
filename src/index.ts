@@ -3,6 +3,8 @@ process.on('SIGINT', () => process.exit(0))
 
 import { createCLI } from '@bunli/core'
 
+import { formatRpcError } from '@/cli/rpc-error'
+
 import { DownloadCommand } from '@/commands/download'
 import { ExportCommand } from '@/commands/export'
 import { InfoCommand } from '@/commands/info'
@@ -38,4 +40,7 @@ cli.command(StatusCommand)
 cli.command(SubtitlesCommand)
 cli.command(WaitForCommand)
 
-await cli.run()
+await cli.run().catch((error) => {
+  console.error(formatRpcError(error).message)
+  process.exit(1)
+})
