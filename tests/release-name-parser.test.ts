@@ -83,13 +83,13 @@ describe('Parsers.releaseName', () => {
   test('returns null source when no known source keyword', () => {
     const result = Parsers.releaseName('Some.Random.Release-GRP')
 
-    expect(result).toEqual({ group: 'grp', source: null })
+    expect(result).toEqual({ group: 'grp', source: undefined })
   })
 
   test('returns both null when no parseable metadata', () => {
     const result = Parsers.releaseName('randomfile')
 
-    expect(result).toEqual({ group: null, source: null })
+    expect(result).toEqual({ group: null, source: undefined })
   })
 
   test('handles spaces as separators', () => {
@@ -123,7 +123,7 @@ describe('Parsers.releaseName', () => {
   test('empty string returns both null', () => {
     const result = Parsers.releaseName('')
 
-    expect(result).toEqual({ group: null, source: null })
+    expect(result).toEqual({ group: null, source: undefined })
   })
 
   test('handles TV show release names', () => {
