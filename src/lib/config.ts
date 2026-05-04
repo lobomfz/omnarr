@@ -1,3 +1,5 @@
+import { join } from 'path'
+
 import { type } from '@lobomfz/db'
 
 import { indexerSchema } from '@/integrations/indexers/registry'
@@ -13,10 +15,10 @@ const qbittorrentClient = type({
 })
 
 const configSchema = type({
-  'root_folders?': type({
+  root_folders: type({
     'movie?': 'string',
     'tv?': 'string',
-    'tracks?': 'string',
+    tracks: 'string',
   }),
   indexers: indexerSchema.array().default(() => []),
   'download_client?': qbittorrentClient.or('null'),
@@ -54,4 +56,8 @@ async function getConfig() {
   const json = await Bun.file(envVariables.OMNARR_CONFIG_PATH).json()
 
   return configSchema.assert(json)
+}
+
+export function resolveTracksDir(mediaId: string) {
+  return join(config.root_folders.tracks, mediaId)
 }
