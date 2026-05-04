@@ -2,15 +2,11 @@
   "entry": [
     "scripts/*.ts",
     "tests/**/*.test.ts",
-    "tests/**/*.test.tsx",
-    "src/web/server.ts",
-    "src/web/main.tsx"
+    "src/jobs/workers/*.ts"
   ],
   "project": [
     "src/**/*.ts",
-    "src/**/*.tsx",
     "tests/**/*.ts",
-    "tests/**/*.tsx",
     "scripts/*.ts"
   ],
   "ignoreDependencies": [
@@ -22,6 +18,16 @@
     "oxlint",
     "oxlint-tsgolint",
     "@typescript/native-preview",
-    "jscpd"
+    "jscpd",
+    "@orpc/tanstack-query",
+    "@tanstack/react-query",
+    "@tanstack/react-router",
+    "clsx",
+    "lucide-react",
+    "react",
+    "react-dom",
+    "tailwind-merge",
+    "@types/react",
+    "@types/react-dom"
   ]
 }
