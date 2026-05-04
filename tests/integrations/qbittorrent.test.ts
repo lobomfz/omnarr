@@ -20,6 +20,7 @@ describe('QBittorrentClient', () => {
   test('addTorrent stores torrent with category', async () => {
     await qbt.addTorrent({
       url: 'magnet:?xt=urn:btih:abc123&dn=Test',
+      hash: 'abc123',
     })
 
     const rows = await QBittorrentMock.db
@@ -41,7 +42,7 @@ describe('QBittorrentClient', () => {
     })
 
     expect(() => bad.getTorrentStatuses()).toThrow(
-      'Download client is unreachable'
+      'DOWNLOAD_CLIENT_UNREACHABLE'
     )
   })
 
@@ -93,14 +94,36 @@ describe('QBittorrentClient', () => {
           state: 'missingFiles',
           content_path: '/dl/ddd',
         },
+        {
+          hash: 'eee',
+          url: '',
+          savepath: '',
+          category: 'omnarr',
+          progress: 0.4,
+          dlspeed: 0,
+          eta: 0,
+          state: 'stoppedDL',
+          content_path: '/dl/eee',
+        },
+        {
+          hash: 'fff',
+          url: '',
+          savepath: '',
+          category: 'omnarr',
+          progress: 1,
+          dlspeed: 0,
+          eta: 0,
+          state: 'stoppedUP',
+          content_path: '/dl/fff',
+        },
       ])
       .execute()
 
     const statuses = await qbt.getTorrentStatuses()
 
-    expect(statuses).toHaveLength(4)
+    expect(statuses).toHaveLength(6)
     expect(statuses[0]).toEqual({
-      hash: 'aaa',
+      hash: 'AAA',
       progress: 0.5,
       speed: 1000,
       eta: 600,
@@ -108,7 +131,7 @@ describe('QBittorrentClient', () => {
       content_path: '/dl/aaa',
     })
     expect(statuses[1]).toEqual({
-      hash: 'bbb',
+      hash: 'BBB',
       progress: 1,
       speed: 500,
       eta: 0,
@@ -116,7 +139,7 @@ describe('QBittorrentClient', () => {
       content_path: '/dl/bbb',
     })
     expect(statuses[2]).toEqual({
-      hash: 'ccc',
+      hash: 'CCC',
       progress: 0.3,
       speed: 0,
       eta: 0,
@@ -124,16 +147,32 @@ describe('QBittorrentClient', () => {
       content_path: '/dl/ccc',
     })
     expect(statuses[3]).toEqual({
-      hash: 'ddd',
+      hash: 'DDD',
       progress: 0,
       speed: 0,
       eta: 0,
       status: 'error',
       content_path: '/dl/ddd',
     })
+    expect(statuses[4]).toEqual({
+      hash: 'EEE',
+      progress: 0.4,
+      speed: 0,
+      eta: 0,
+      status: 'paused',
+      content_path: '/dl/eee',
+    })
+    expect(statuses[5]).toEqual({
+      hash: 'FFF',
+      progress: 1,
+      speed: 0,
+      eta: 0,
+      status: 'paused',
+      content_path: '/dl/fff',
+    })
   })
 
-  test('getTorrentStatuses normalizes hash to lowercase', async () => {
+  test('getTorrentStatuses normalizes hash to uppercase', async () => {
     await QBittorrentMock.db
       .insertInto('torrents')
       .values({
@@ -151,7 +190,7 @@ describe('QBittorrentClient', () => {
 
     const statuses = await qbt.getTorrentStatuses()
 
-    expect(statuses[0].hash).toBe('abc123')
+    expect(statuses[0].hash).toBe('ABC123')
   })
 
   test('addTorrent throws when qBittorrent rejects torrent', async () => {
@@ -170,9 +209,12 @@ describe('QBittorrentClient', () => {
       })
       .execute()
 
-     expect(() =>
-      qbt.addTorrent({ url: 'magnet:?xt=urn:btih:abc123&dn=Test' })
-    ).toThrow('Torrent rejected by download client')
+    expect(() =>
+      qbt.addTorrent({
+        url: 'magnet:?xt=urn:btih:abc123&dn=Test',
+        hash: 'abc123',
+      })
+    ).toThrow('TORRENT_REJECTED')
   })
 
   test('getTorrentStatuses defaults unknown state to error', async () => {

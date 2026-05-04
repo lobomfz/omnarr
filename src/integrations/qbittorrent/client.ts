@@ -7,21 +7,17 @@ import type {
 import { Log } from '@/lib/log'
 import { OmnarrError } from '@/shared/errors'
 
-interface QBitTorrent {
-  hash: string
-  progress: number
-  dlspeed: number
-  eta: number
-  state: string
-  content_path: string
-}
-
-const stateMap: Record<string, TorrentStatus['status']> = {
+const STATE_MAP = {
   downloading: 'downloading',
   stalledDL: 'downloading',
   forcedDL: 'downloading',
   queuedDL: 'downloading',
   checkingDL: 'downloading',
+  metaDL: 'downloading',
+  forcedMetaDL: 'downloading',
+  allocating: 'downloading',
+  checkingResumeData: 'downloading',
+  moving: 'downloading',
   uploading: 'seeding',
   stalledUP: 'seeding',
   forcedUP: 'seeding',
@@ -29,8 +25,21 @@ const stateMap: Record<string, TorrentStatus['status']> = {
   checkingUP: 'seeding',
   pausedDL: 'paused',
   pausedUP: 'paused',
+  stoppedDL: 'paused',
+  stoppedUP: 'paused',
   error: 'error',
   missingFiles: 'error',
+} as const satisfies Record<string, TorrentStatus['status']>
+
+type QBitState = keyof typeof STATE_MAP
+
+interface QBitTorrent {
+  hash: string
+  progress: number
+  dlspeed: number
+  eta: number
+  state: string
+  content_path: string
 }
 
 export class QBittorrentClient implements DownloadClient {
@@ -108,14 +117,23 @@ export class QBittorrentClient implements DownloadClient {
       params: { category: this.config.category },
     })
 
-    return torrents.map((t) => ({
-      hash: t.hash.toLowerCase(),
-      progress: t.progress,
-      speed: t.dlspeed,
-      eta: t.eta,
-      status: stateMap[t.state] ?? 'error',
-      content_path: t.content_path,
-    }))
+    return torrents.map((t) => {
+      const status =
+        t.state in STATE_MAP ? STATE_MAP[t.state as QBitState] : undefined
+
+      if (!status) {
+        Log.warn(`qbittorrent unknown state="${t.state}" hash=${t.hash}`)
+      }
+
+      return {
+        hash: t.hash.toUpperCase(),
+        progress: t.progress,
+        speed: t.dlspeed,
+        eta: t.eta,
+        status: status ?? 'error',
+        content_path: t.content_path,
+      }
+    })
   }
 
   addTorrent: DownloadClient['addTorrent'] = async (params) => {
@@ -135,5 +153,29 @@ export class QBittorrentClient implements DownloadClient {
 
       throw new OmnarrError('TORRENT_REJECTED', { cause: e })
     })
+
+    await this.waitForTorrent(params.hash)
+  }
+
+  private async waitForTorrent(hash: string) {
+    const maxAttempts = 20
+    const interval = 250
+    const normalizedHash = hash.toLowerCase()
+
+    for (let i = 0; i < maxAttempts; i++) {
+      await Bun.sleep(interval)
+
+      const torrents = await this.request<QBitTorrent[]>({
+        method: 'GET',
+        url: '/api/v2/torrents/info',
+        params: { hashes: normalizedHash },
+      })
+
+      if (torrents.length > 0) {
+        return
+      }
+    }
+
+    throw new OmnarrError('TORRENT_NOT_READY')
   }
 }
